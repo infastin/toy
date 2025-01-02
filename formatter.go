@@ -796,7 +796,7 @@ func (p *pp) badVerb(verb rune) {
 		_, _ = p.WriteSingleByte('=')
 		p.printArg(p.arg, 'v')
 	default:
-		_, _ = p.WriteString(UndefinedValue.String())
+		_, _ = p.WriteString(Undefined.String())
 	}
 	_, _ = p.WriteSingleByte(')')
 	p.erroring = false
@@ -934,7 +934,7 @@ func (p *pp) printArg(arg Object, verb rune) {
 	p.arg = arg
 
 	if arg == nil {
-		arg = UndefinedValue
+		arg = Undefined
 	}
 
 	// Special processing considerations.
@@ -951,16 +951,16 @@ func (p *pp) printArg(arg Object, verb rune) {
 
 	// Some types can be done without reflection.
 	switch f := arg.(type) {
-	case *Bool:
-		p.fmtBool(!f.IsFalsy(), verb)
-	case *Float:
-		p.fmtFloat(f.Value, 64, verb)
-	case *Int:
-		p.fmtInteger(uint64(f.Value), signed, verb)
-	case *String:
-		p.fmtString(f.Value, verb)
-	case *Bytes:
-		p.fmtBytes(f.Value, verb, "[]byte")
+	case Bool:
+		p.fmtBool(bool(f), verb)
+	case Float:
+		p.fmtFloat(float64(f), 64, verb)
+	case Int:
+		p.fmtInteger(uint64(f), signed, verb)
+	case String:
+		p.fmtString(string(f), verb)
+	case Bytes:
+		p.fmtBytes(f, verb, "[]byte")
 	default:
 		p.fmtString(f.String(), verb)
 	}
@@ -971,16 +971,18 @@ func (p *pp) printArg(arg Object, verb rune) {
 func intFromArg(a []Object, argNum int) (num int, isInt bool, newArgNum int) {
 	newArgNum = argNum
 	if argNum < len(a) {
-		var num64 int64
-		num64, isInt = ToInt64(a[argNum])
-		num = int(num64)
+		var numInt Int
+		if err := Convert(&numInt, a[argNum]); err == nil {
+			isInt = true
+		}
+		num = int(numInt)
 		newArgNum = argNum + 1
 		if tooLarge(num) {
 			num = 0
 			isInt = false
 		}
 	}
-	return
+	return num, isInt, newArgNum
 }
 
 // parseArgNumber returns the value of the bracketed number, minus 1
@@ -1221,7 +1223,7 @@ formatLoop:
 				_, _ = p.WriteString(commaSpaceString)
 			}
 			if arg == nil {
-				_, _ = p.WriteString(UndefinedValue.String())
+				_, _ = p.WriteString(Undefined.String())
 			} else {
 				_, _ = p.WriteString(arg.TypeName())
 				_, _ = p.WriteSingleByte('=')
@@ -1240,6 +1242,5 @@ func Format(format string, a ...Object) (string, error) {
 	err := p.doFormat(format, a)
 	s := string(p.buf)
 	p.free()
-
 	return s, err
 }

@@ -3,24 +3,14 @@ package tengo
 import (
 	"bytes"
 	"fmt"
+	"iter"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
-	"time"
+	"unicode/utf8"
 
-	"github.com/d5/tengo/v2/parser"
 	"github.com/d5/tengo/v2/token"
-)
-
-var (
-	// TrueValue represents a true value.
-	TrueValue Object = &Bool{value: true}
-
-	// FalseValue represents a false value.
-	FalseValue Object = &Bool{value: false}
-
-	// UndefinedValue represents an undefined value.
-	UndefinedValue Object = &Undefined{}
 )
 
 // Object represents an object in the VM.
@@ -31,1582 +21,1306 @@ type Object interface {
 	// String should return a string representation of the type's value.
 	String() string
 
-	// BinaryOp should return another object that is the result of a given
-	// binary operator and a right-hand side object. If BinaryOp returns an
-	// error, the VM will treat it as a run-time error.
-	BinaryOp(op token.Token, rhs Object) (Object, error)
-
-	// IsFalsy should return true if the value of the type should be considered
-	// as falsy.
+	// IsFalsy should return true if the value of the type should be considered as falsy.
 	IsFalsy() bool
-
-	// Equals should return true if the value of the type should be considered
-	// as equal to the value of another object.
-	Equals(another Object) bool
 
 	// Copy should return a copy of the type (and its value). Copy function
 	// will be used for copy() builtin function which is expected to deep-copy
 	// the values generally.
 	Copy() Object
+}
 
+// Hashable represents an object that is hashable (can be used in map).
+type Hashable interface {
+	Object
+	// Hash returns a function of x such that Equals(x, y) => Hash(x) == Hash(y).
+	// The hash is used only by maps and is not exposed to the Tengo program.
+	Hash() uint32
+}
+
+// Freezable represents an object that can create immutable copies.
+type Freezable interface {
+	Object
+	// Copy should return an immutable copy of the type (and its value).
+	// AsImmutable function will be used for immutable() builtin keyword
+	// which is expected to deep-copy the values generally.
+	AsImmutable() Object
+}
+
+// A Comparable is a value that defines its own equivalence relation and
+// perhaps ordered comparisons.
+type Comparable interface {
+	Object
+	// CompareSameType compares one value to another.
+	// The comparison operation must be one of Equal, NotEqual, Less, LessEq, Greater, or GreaterEq.
+	// CompareSameType returns an error if an ordered comparison was
+	// requested for a type that does not support it.
+	// If CompareSameType returns an error, the VM will treat it as a run-time error.
+	Compare(op token.Token, rhs Object) (bool, error)
+}
+
+// HasBinaryOp represents an object that supports binary operations (excluding comparison operators).
+type HasBinaryOp interface {
+	Object
+	// BinaryOp should return another object that is the result of a given
+	// binary operator and a right-hand side object.
+	// If BinaryOp returns an error, the VM will treat it as a run-time error.
+	BinaryOp(op token.Token, rhs Object) (Object, error)
+}
+
+// HasBinaryOp represents an object that supports unary operations.
+type HasUnaryOp interface {
+	Object
+	// UnaryOp should return another object that is the result of a given unary operator.
+	// If UnaryOp returns an error, the VM will treat it as a run-time error.
+	UnaryOp(op token.Token) (Object, error)
+}
+
+// HasIndexGet represents an object that supports indexed access.
+type HasIndexGet interface {
+	Object
 	// IndexGet should take an index Object and return a result Object or an
 	// error for indexable objects. Indexable is an object that can take an
 	// index and return an object. If error is returned, the runtime will treat
-	// it as a run-time error and ignore returned value. If Object is not
-	// indexable, ErrNotIndexable should be returned as error. If nil is
-	// returned as value, it will be converted to UndefinedToken value by the
-	// runtime.
+	// it as a run-time error and ignore returned value.
+	// If nil is returned as value, it will be converted to Undefined value by the runtime.
 	IndexGet(index Object) (value Object, err error)
+}
 
+// HasIndexSet represents an object that supports indexed assignment.
+type HasIndexSet interface {
+	Object
 	// IndexSet should take an index Object and a value Object for index
 	// assignable objects. Index assignable is an object that can take an index
-	// and a value on the left-hand side of the assignment statement. If Object
-	// is not index assignable, ErrNotIndexAssignable should be returned as
-	// error. If an error is returned, it will be treated as a run-time error.
+	// and a value on the left-hand side of the assignment statement.
+	// If an error is returned, it will be treated as a run-time error.
 	IndexSet(index, value Object) error
+}
 
-	// Iterate should return an Iterator for the type.
-	Iterate() Iterator
+// HasFieldGet represents an object that supports field access.
+type HasFieldGet interface {
+	Object
+	// FieldGet should take a name of the field and return its value.
+	// If error is returned, the runtime will treat
+	// it as a run-time error and ignore returned value.
+	FieldGet(name string) (Object, error)
+}
 
-	// CanIterate should return whether the Object can be Iterated.
-	CanIterate() bool
+// HasFieldGet represents an object that supports field assignment.
+type HasFieldSet interface {
+	Object
+	// FieldSet should take the name of a field and its new value Object
+	// and return an error if the field cannot be set.
+	// If error is returned, the runtime will treat it as a run-time error.
+	FieldSet(name string, value Object) error
+}
 
-	// Call should take an arbitrary number of arguments and returns a return
+// HasLen represents an object that can report its length or size.
+type HasLen interface {
+	Object
+	// Len should return the number of elements inside the collection.
+	Len() int
+}
+
+// An Indexable is a sequence of known length that supports efficient random access.
+// It is not necessarily iterable.
+type Indexable interface {
+	HasLen
+	// The caller must ensure that 0 <= i < Len().
+	At(i int) Object
+}
+
+// A Sliceable is a sequence that can be cut into pieces with the slice operator.
+type Sliceable interface {
+	Indexable
+	// The caller must ensure that the start and stop indices are valid.
+	Slice(start, stop int) Object
+}
+
+// Convertible represents an object that can be converted to another type.
+type Convertible interface {
+	Object
+	// Convert should take a pointer to an Object and try to convert the Convertible object
+	// to the type of the provided Object, and return an error if the conversion fails.
+	Convert(p any) error
+}
+
+// Callable represents an object that can be called.
+type Callable interface {
+	Object
+	// Call should take an arbitrary number of arguments and return a return
 	// value and/or an error, which the VM will consider as a run-time error.
 	Call(args ...Object) (ret Object, err error)
-
-	// CanCall should return whether the Object can be Called.
-	CanCall() bool
 }
 
-// ObjectImpl represents a default Object Implementation. To defined a new
-// value type, one can embed ObjectImpl in their type declarations to avoid
-// implementing all non-significant methods. TypeName() and String() methods
-// still need to be implemented.
-type ObjectImpl struct {
+// Iterable represents an object that can be iterated.
+type Iterable interface {
+	Object
+	// Iterate should return an Iterator for the type.
+	Iterate() Iterator
 }
 
-// TypeName returns the name of the type.
-func (o *ObjectImpl) TypeName() string {
-	panic(ErrNotImplemented)
+// Iterator represents an iterator for underlying data type.
+type Iterator interface {
+	Object
+	// If the iterator is exhausted, Next returns false.
+	// Otherwise, returns true and sets *key and *value
+	// to key/index and value of the current element, respectivly.
+	// *key and *value can be nil to avoid being set.
+	Next(key, value *Object) bool
 }
 
-func (o *ObjectImpl) String() string {
-	panic(ErrNotImplemented)
+// CloseableIterator represents an iterator
+// that must be closed after iteration is completed.
+type CloseableIterator interface {
+	Iterator
+	// Close releases associated resources.
+	// This method must be called.
+	Close()
 }
 
-// BinaryOp returns another object that is the result of a given binary
-// operator and a right-hand side object.
-func (o *ObjectImpl) BinaryOp(_ token.Token, _ Object) (Object, error) {
-	return nil, ErrInvalidOperator
-}
-
-// Copy returns a copy of the type.
-func (o *ObjectImpl) Copy() Object {
-	return nil
-}
-
-// IsFalsy returns true if the value of the type is falsy.
-func (o *ObjectImpl) IsFalsy() bool {
-	return false
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *ObjectImpl) Equals(x Object) bool {
-	return o == x
-}
-
-// IndexGet returns an element at a given index.
-func (o *ObjectImpl) IndexGet(_ Object) (res Object, err error) {
-	return nil, ErrNotIndexable
-}
-
-// IndexSet sets an element at a given index.
-func (o *ObjectImpl) IndexSet(_, _ Object) (err error) {
-	return ErrNotIndexAssignable
-}
-
-// Iterate returns an iterator.
-func (o *ObjectImpl) Iterate() Iterator {
-	return nil
-}
-
-// CanIterate returns whether the Object can be Iterated.
-func (o *ObjectImpl) CanIterate() bool {
-	return false
-}
-
-// Call takes an arbitrary number of arguments and returns a return value
-// and/or an error.
-func (o *ObjectImpl) Call(_ ...Object) (ret Object, err error) {
-	return nil, nil
-}
-
-// CanCall returns whether the Object can be Called.
-func (o *ObjectImpl) CanCall() bool {
-	return false
-}
-
-// Array represents an array of objects.
-type Array struct {
-	ObjectImpl
-	Value []Object
-}
-
-// TypeName returns the name of the type.
-func (o *Array) TypeName() string {
-	return "array"
-}
-
-func (o *Array) String() string {
-	var elements []string
-	for _, e := range o.Value {
-		elements = append(elements, e.String())
+func Hash(x Object) (uint32, error) {
+	xh, ok := x.(Hashable)
+	if !ok {
+		return 0, ErrNotHashable
 	}
-	return fmt.Sprintf("[%s]", strings.Join(elements, ", "))
+	return xh.Hash(), nil
 }
 
-// BinaryOp returns another object that is the result of a given binary
-// operator and a right-hand side object.
-func (o *Array) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	if rhs, ok := rhs.(*Array); ok {
-		switch op {
-		case token.Add:
-			if len(rhs.Value) == 0 {
-				return o, nil
+func AsImmutable(x Object) Object {
+	xf, ok := x.(Freezable)
+	if !ok {
+		return x.Copy()
+	}
+	return xf.AsImmutable()
+}
+
+func Equals(x, y Object) (bool, error) {
+	return Compare(token.Equal, x, y)
+}
+
+func Compare(op token.Token, x, y Object) (bool, error) {
+	if x == y {
+		return op == token.Equal, nil
+	}
+	xc, ok := x.(Comparable)
+	if !ok {
+		return false, ErrInvalidOperator
+	}
+	return xc.Compare(op, y)
+}
+
+func BinaryOp(op token.Token, x, y Object) (Object, error) {
+	xb, ok := x.(HasBinaryOp)
+	if !ok {
+		return nil, ErrInvalidOperator
+	}
+	return xb.BinaryOp(op, y)
+}
+
+func UnaryOp(op token.Token, x Object) (res Object, err error) {
+	if op == token.Not {
+		return Bool(x.IsFalsy()), nil
+	}
+	xu, ok := x.(HasUnaryOp)
+	if !ok {
+		return nil, ErrInvalidOperator
+	}
+	return xu.UnaryOp(op)
+}
+
+func IndexGet(x, index Object) (Object, error) {
+	if i, ok := index.(Int); ok {
+		if xi, ok := x.(Indexable); ok {
+			if i < 0 || int64(i) >= int64(xi.Len()) {
+				return Undefined, nil
 			}
-			return &Array{Value: append(o.Value, rhs.Value...)}, nil
+			return xi.At(int(i)), nil
 		}
 	}
-	return nil, ErrInvalidOperator
+	xi, ok := x.(HasIndexGet)
+	if !ok {
+		return nil, ErrNotIndexable
+	}
+	return xi.IndexGet(index)
 }
 
-// Copy returns a copy of the type.
-func (o *Array) Copy() Object {
-	var c []Object
-	for _, elem := range o.Value {
-		c = append(c, elem.Copy())
+func IndexSet(x, index, value Object) error {
+	xi, ok := x.(HasIndexSet)
+	if !ok {
+		return ErrNotIndexable
 	}
-	return &Array{Value: c}
+	return xi.IndexSet(index, value)
 }
 
-// IsFalsy returns true if the value of the type is falsy.
-func (o *Array) IsFalsy() bool {
-	return len(o.Value) == 0
+func FieldGet(x Object, name string) (Object, error) {
+	xf, ok := x.(HasFieldGet)
+	if ok {
+		return xf.FieldGet(name)
+	}
+	xi, ok := x.(HasIndexGet)
+	if !ok {
+		return nil, ErrNoFields
+	}
+	return xi.IndexGet(String(name))
 }
 
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *Array) Equals(x Object) bool {
-	var xVal []Object
-	switch x := x.(type) {
-	case *Array:
-		xVal = x.Value
-	case *ImmutableArray:
-		xVal = x.Value
-	default:
-		return false
+func FieldSet(x Object, name string, value Object) error {
+	xf, ok := x.(HasFieldSet)
+	if ok {
+		return xf.FieldSet(name, value)
 	}
-	if len(o.Value) != len(xVal) {
-		return false
+	xi, ok := x.(HasIndexSet)
+	if !ok {
+		return ErrNoFields
 	}
-	for i, e := range o.Value {
-		if !e.Equals(xVal[i]) {
-			return false
+	return xi.IndexSet(String(name), value)
+}
+
+func Slice(x Object, start, stop int) (Object, error) {
+	xs, ok := x.(Sliceable)
+	if !ok {
+		return nil, ErrNotSliceable
+	}
+	n := xs.Len()
+	if start > stop {
+		return nil, fmt.Errorf("invalid slice index: %d > %d", start, stop)
+	}
+	if start < 0 {
+		start = 0
+	} else if start > n {
+		start = n
+	}
+	if stop < 0 {
+		stop = 0
+	} else if stop > n {
+		stop = n
+	}
+	return xs.Slice(start, stop), nil
+}
+
+func Convert[T Object](p *T, o Object) error {
+	if o == Undefined {
+		return ErrNotConvertible
+	}
+	switch p := any(p).(type) {
+	case *String:
+		if x, ok := o.(String); ok {
+			*p = x
+		} else {
+			*p = String(o.String())
 		}
+	case *Bool:
+		*p = Bool(!o.IsFalsy())
+	case *T:
+		t, ok := o.(T)
+		if ok {
+			*p = t
+			return nil
+		}
+		c, ok := o.(Convertible)
+		if !ok {
+			return ErrNotConvertible
+		}
+		return c.Convert(p)
 	}
-	return true
-}
-
-// IndexGet returns an element at a given index.
-func (o *Array) IndexGet(index Object) (res Object, err error) {
-	intIdx, ok := index.(*Int)
-	if !ok {
-		err = ErrInvalidIndexType
-		return
-	}
-	idxVal := int(intIdx.Value)
-	if idxVal < 0 || idxVal >= len(o.Value) {
-		res = UndefinedValue
-		return
-	}
-	res = o.Value[idxVal]
-	return
-}
-
-// IndexSet sets an element at a given index.
-func (o *Array) IndexSet(index, value Object) (err error) {
-	intIdx, ok := ToInt(index)
-	if !ok {
-		err = ErrInvalidIndexType
-		return
-	}
-	if intIdx < 0 || intIdx >= len(o.Value) {
-		err = ErrIndexOutOfBounds
-		return
-	}
-	o.Value[intIdx] = value
 	return nil
 }
 
-// Iterate creates an array iterator.
-func (o *Array) Iterate() Iterator {
-	return &ArrayIterator{
-		v: o.Value,
-		l: len(o.Value),
+func Elements(it Iterator) iter.Seq[Object] {
+	return func(yield func(Object) bool) {
+		if c, ok := it.(CloseableIterator); ok {
+			defer c.Close()
+		}
+		var value Object
+		for it.Next(nil, &value) {
+			if !yield(value) {
+				break
+			}
+		}
 	}
 }
 
-// CanIterate returns whether the Object can be Iterated.
-func (o *Array) CanIterate() bool {
-	return true
+func Entries(it Iterator) iter.Seq2[Object, Object] {
+	return func(yield func(Object, Object) bool) {
+		if c, ok := it.(CloseableIterator); ok {
+			defer c.Close()
+		}
+		var key, value Object
+		for it.Next(&key, &value) {
+			if !yield(key, value) {
+				break
+			}
+		}
+	}
 }
+
+// UndefinedType represents an undefined value.
+type UndefinedType byte
+
+const Undefined = UndefinedType(0)
+
+func (o UndefinedType) TypeName() string { return "undefined" }
+func (o UndefinedType) String() string   { return "<undefined>" }
+func (o UndefinedType) IsFalsy() bool    { return true }
+func (o UndefinedType) Copy() Object     { return o }
 
 // Bool represents a boolean value.
-type Bool struct {
-	ObjectImpl
+type Bool bool
 
-	// this is intentionally non-public to force using objects.TrueValue and
-	// FalseValue always
-	value bool
-}
+const (
+	True  = Bool(true)
+	False = Bool(false)
+)
 
-func (o *Bool) String() string {
-	if o.value {
+func (o Bool) String() string {
+	if o {
 		return "true"
 	}
-
 	return "false"
 }
 
-// TypeName returns the name of the type.
-func (o *Bool) TypeName() string {
-	return "bool"
-}
+func (o Bool) TypeName() string { return "bool" }
+func (o Bool) IsFalsy() bool    { return !bool(o) }
+func (o Bool) Copy() Object     { return o }
 
-// Copy returns a copy of the type.
-func (o *Bool) Copy() Object {
-	return o
-}
-
-// IsFalsy returns true if the value of the type is falsy.
-func (o *Bool) IsFalsy() bool {
-	return !o.value
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *Bool) Equals(x Object) bool {
-	return o == x
-}
-
-// GobDecode decodes bool value from input bytes.
-func (o *Bool) GobDecode(b []byte) (err error) {
-	o.value = b[0] == 1
-	return
-}
-
-// GobEncode encodes bool values into bytes.
-func (o *Bool) GobEncode() (b []byte, err error) {
-	if o.value {
-		b = []byte{1}
-	} else {
-		b = []byte{0}
+func (o Bool) Hash() uint32 {
+	if o {
+		return 1
 	}
-	return
+	return 0
 }
 
-// BuiltinFunction represents a builtin function.
-type BuiltinFunction struct {
-	ObjectImpl
-	Name  string
-	Value CallableFunc
-}
-
-// TypeName returns the name of the type.
-func (o *BuiltinFunction) TypeName() string {
-	return "builtin-function:" + o.Name
-}
-
-func (o *BuiltinFunction) String() string {
-	return "<builtin-function>"
-}
-
-// Copy returns a copy of the type.
-func (o *BuiltinFunction) Copy() Object {
-	return &BuiltinFunction{Value: o.Value}
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *BuiltinFunction) Equals(_ Object) bool {
-	return false
-}
-
-// Call executes a builtin function.
-func (o *BuiltinFunction) Call(args ...Object) (Object, error) {
-	return o.Value(args...)
-}
-
-// CanCall returns whether the Object can be Called.
-func (o *BuiltinFunction) CanCall() bool {
-	return true
-}
-
-// BuiltinModule is an importable module that's written in Go.
-type BuiltinModule struct {
-	Attrs map[string]Object
-}
-
-// Import returns an immutable map for the module.
-func (m *BuiltinModule) Import(moduleName string) (interface{}, error) {
-	return m.AsImmutableMap(moduleName), nil
-}
-
-// AsImmutableMap converts builtin module into an immutable map.
-func (m *BuiltinModule) AsImmutableMap(moduleName string) *ImmutableMap {
-	attrs := make(map[string]Object, len(m.Attrs))
-	for k, v := range m.Attrs {
-		attrs[k] = v.Copy()
+func (o Bool) Compare(op token.Token, rhs Object) (bool, error) {
+	y, ok := rhs.(Bool)
+	if !ok {
+		return false, ErrInvalidOperator
 	}
-	attrs["__module_name__"] = &String{Value: moduleName}
-	return &ImmutableMap{Value: attrs}
-}
-
-// Bytes represents a byte array.
-type Bytes struct {
-	ObjectImpl
-	Value []byte
-}
-
-func (o *Bytes) String() string {
-	return string(o.Value)
-}
-
-// TypeName returns the name of the type.
-func (o *Bytes) TypeName() string {
-	return "bytes"
-}
-
-// BinaryOp returns another object that is the result of a given binary
-// operator and a right-hand side object.
-func (o *Bytes) BinaryOp(op token.Token, rhs Object) (Object, error) {
 	switch op {
-	case token.Add:
-		switch rhs := rhs.(type) {
-		case *Bytes:
-			if len(o.Value)+len(rhs.Value) > MaxBytesLen {
-				return nil, ErrBytesLimit
-			}
-			return &Bytes{Value: append(o.Value, rhs.Value...)}, nil
-		}
+	case token.Equal:
+		return o == y, nil
+	case token.NotEqual:
+		return o != y, nil
 	}
-	return nil, ErrInvalidOperator
-}
-
-// Copy returns a copy of the type.
-func (o *Bytes) Copy() Object {
-	return &Bytes{Value: append([]byte{}, o.Value...)}
-}
-
-// IsFalsy returns true if the value of the type is falsy.
-func (o *Bytes) IsFalsy() bool {
-	return len(o.Value) == 0
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *Bytes) Equals(x Object) bool {
-	t, ok := x.(*Bytes)
-	if !ok {
-		return false
-	}
-	return bytes.Equal(o.Value, t.Value)
-}
-
-// IndexGet returns an element (as Int) at a given index.
-func (o *Bytes) IndexGet(index Object) (res Object, err error) {
-	intIdx, ok := index.(*Int)
-	if !ok {
-		err = ErrInvalidIndexType
-		return
-	}
-	idxVal := int(intIdx.Value)
-	if idxVal < 0 || idxVal >= len(o.Value) {
-		res = UndefinedValue
-		return
-	}
-	res = &Int{Value: int64(o.Value[idxVal])}
-	return
-}
-
-// Iterate creates a bytes iterator.
-func (o *Bytes) Iterate() Iterator {
-	return &BytesIterator{
-		v: o.Value,
-		l: len(o.Value),
-	}
-}
-
-// CanIterate returns whether the Object can be Iterated.
-func (o *Bytes) CanIterate() bool {
-	return true
-}
-
-// Char represents a character value.
-type Char struct {
-	ObjectImpl
-	Value rune
-}
-
-func (o *Char) String() string {
-	return string(o.Value)
-}
-
-// TypeName returns the name of the type.
-func (o *Char) TypeName() string {
-	return "char"
-}
-
-// BinaryOp returns another object that is the result of a given binary
-// operator and a right-hand side object.
-func (o *Char) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	switch rhs := rhs.(type) {
-	case *Char:
-		switch op {
-		case token.Add:
-			r := o.Value + rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Char{Value: r}, nil
-		case token.Sub:
-			r := o.Value - rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Char{Value: r}, nil
-		case token.Less:
-			if o.Value < rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.Greater:
-			if o.Value > rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.LessEq:
-			if o.Value <= rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.GreaterEq:
-			if o.Value >= rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		}
-	case *Int:
-		switch op {
-		case token.Add:
-			r := o.Value + rune(rhs.Value)
-			if r == o.Value {
-				return o, nil
-			}
-			return &Char{Value: r}, nil
-		case token.Sub:
-			r := o.Value - rune(rhs.Value)
-			if r == o.Value {
-				return o, nil
-			}
-			return &Char{Value: r}, nil
-		case token.Less:
-			if int64(o.Value) < rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.Greater:
-			if int64(o.Value) > rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.LessEq:
-			if int64(o.Value) <= rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.GreaterEq:
-			if int64(o.Value) >= rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		}
-	}
-	return nil, ErrInvalidOperator
-}
-
-// Copy returns a copy of the type.
-func (o *Char) Copy() Object {
-	return &Char{Value: o.Value}
-}
-
-// IsFalsy returns true if the value of the type is falsy.
-func (o *Char) IsFalsy() bool {
-	return o.Value == 0
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *Char) Equals(x Object) bool {
-	t, ok := x.(*Char)
-	if !ok {
-		return false
-	}
-	return o.Value == t.Value
-}
-
-// CompiledFunction represents a compiled function.
-type CompiledFunction struct {
-	ObjectImpl
-	Instructions  []byte
-	NumLocals     int // number of local variables (including function parameters)
-	NumParameters int
-	VarArgs       bool
-	SourceMap     map[int]parser.Pos
-	Free          []*ObjectPtr
-}
-
-// TypeName returns the name of the type.
-func (o *CompiledFunction) TypeName() string {
-	return "compiled-function"
-}
-
-func (o *CompiledFunction) String() string {
-	return "<compiled-function>"
-}
-
-// Copy returns a copy of the type.
-func (o *CompiledFunction) Copy() Object {
-	return &CompiledFunction{
-		Instructions:  append([]byte{}, o.Instructions...),
-		NumLocals:     o.NumLocals,
-		NumParameters: o.NumParameters,
-		VarArgs:       o.VarArgs,
-		Free:          append([]*ObjectPtr{}, o.Free...), // DO NOT Copy() of elements; these are variable pointers
-	}
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *CompiledFunction) Equals(_ Object) bool {
-	return false
-}
-
-// SourcePos returns the source position of the instruction at ip.
-func (o *CompiledFunction) SourcePos(ip int) parser.Pos {
-	for ip >= 0 {
-		if p, ok := o.SourceMap[ip]; ok {
-			return p
-		}
-		ip--
-	}
-	return parser.NoPos
-}
-
-// CanCall returns whether the Object can be Called.
-func (o *CompiledFunction) CanCall() bool {
-	return true
-}
-
-// Error represents an error value.
-type Error struct {
-	ObjectImpl
-	Value Object
-}
-
-// TypeName returns the name of the type.
-func (o *Error) TypeName() string {
-	return "error"
-}
-
-func (o *Error) String() string {
-	if o.Value != nil {
-		return fmt.Sprintf("error: %s", o.Value.String())
-	}
-	return "error"
-}
-
-// IsFalsy returns true if the value of the type is falsy.
-func (o *Error) IsFalsy() bool {
-	return true // error is always false.
-}
-
-// Copy returns a copy of the type.
-func (o *Error) Copy() Object {
-	return &Error{Value: o.Value.Copy()}
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *Error) Equals(x Object) bool {
-	return o == x // pointer equality
-}
-
-// IndexGet returns an element at a given index.
-func (o *Error) IndexGet(index Object) (res Object, err error) {
-	if strIdx, _ := ToString(index); strIdx != "value" {
-		err = ErrInvalidIndexOnError
-		return
-	}
-	res = o.Value
-	return
+	return false, ErrInvalidOperator
 }
 
 // Float represents a floating point number value.
-type Float struct {
-	ObjectImpl
-	Value float64
+type Float float64
+
+func (o Float) String() string   { return strconv.FormatFloat(float64(o), 'g', -1, 64) }
+func (o Float) TypeName() string { return "float" }
+func (o Float) IsFalsy() bool    { return math.IsNaN(float64(o)) }
+func (o Float) Copy() Object     { return o }
+
+func (o Float) Hash() uint32 {
+	if float64(o) == math.Trunc(float64(o)) && float64(o) <= float64(math.MaxInt64) {
+		return Int(o).Hash()
+	}
+	return murmur32Float64(float64(o))
 }
 
-func (o *Float) String() string {
-	return strconv.FormatFloat(o.Value, 'f', -1, 64)
+func (o Float) Convert(p any) error {
+	i, ok := p.(*Int)
+	if !ok {
+		return ErrNotConvertible
+	}
+	*i = Int(o)
+	return nil
 }
 
-// TypeName returns the name of the type.
-func (o *Float) TypeName() string {
-	return "float"
-}
-
-// BinaryOp returns another object that is the result of a given binary
-// operator and a right-hand side object.
-func (o *Float) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	switch rhs := rhs.(type) {
-	case *Float:
+func (o Float) Compare(op token.Token, rhs Object) (bool, error) {
+	switch y := rhs.(type) {
+	case Float:
 		switch op {
-		case token.Add:
-			r := o.Value + rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Float{Value: r}, nil
-		case token.Sub:
-			r := o.Value - rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Float{Value: r}, nil
-		case token.Mul:
-			r := o.Value * rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Float{Value: r}, nil
-		case token.Quo:
-			r := o.Value / rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Float{Value: r}, nil
+		case token.Equal:
+			return o == y, nil
+		case token.NotEqual:
+			return o != y, nil
 		case token.Less:
-			if o.Value < rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
+			return o < y, nil
 		case token.Greater:
-			if o.Value > rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
+			return o > y, nil
 		case token.LessEq:
-			if o.Value <= rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
+			return o <= y, nil
 		case token.GreaterEq:
-			if o.Value >= rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
+			return o >= y, nil
 		}
-	case *Int:
+	case Int:
+		switch op {
+		case token.Equal:
+			return o == Float(y), nil
+		case token.NotEqual:
+			return o != Float(y), nil
+		case token.Less:
+			return o < Float(y), nil
+		case token.Greater:
+			return o > Float(y), nil
+		case token.LessEq:
+			return o <= Float(y), nil
+		case token.GreaterEq:
+			return o >= Float(y), nil
+		}
+	}
+	return false, ErrInvalidOperator
+}
+
+func (o Float) BinaryOp(op token.Token, rhs Object) (Object, error) {
+	switch y := rhs.(type) {
+	case Float:
 		switch op {
 		case token.Add:
-			r := o.Value + float64(rhs.Value)
-			if r == o.Value {
-				return o, nil
-			}
-			return &Float{Value: r}, nil
+			return o + y, nil
 		case token.Sub:
-			r := o.Value - float64(rhs.Value)
-			if r == o.Value {
-				return o, nil
-			}
-			return &Float{Value: r}, nil
+			return o - y, nil
 		case token.Mul:
-			r := o.Value * float64(rhs.Value)
-			if r == o.Value {
-				return o, nil
-			}
-			return &Float{Value: r}, nil
+			return o * y, nil
 		case token.Quo:
-			r := o.Value / float64(rhs.Value)
-			if r == o.Value {
-				return o, nil
-			}
-			return &Float{Value: r}, nil
-		case token.Less:
-			if o.Value < float64(rhs.Value) {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.Greater:
-			if o.Value > float64(rhs.Value) {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.LessEq:
-			if o.Value <= float64(rhs.Value) {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.GreaterEq:
-			if o.Value >= float64(rhs.Value) {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
+			return o / y, nil
+		}
+	case Int:
+		switch op {
+		case token.Add:
+			return o + Float(y), nil
+		case token.Sub:
+			return o - Float(y), nil
+		case token.Mul:
+			return o * Float(y), nil
+		case token.Quo:
+			return o / Float(y), nil
 		}
 	}
 	return nil, ErrInvalidOperator
 }
 
-// Copy returns a copy of the type.
-func (o *Float) Copy() Object {
-	return &Float{Value: o.Value}
-}
-
-// IsFalsy returns true if the value of the type is falsy.
-func (o *Float) IsFalsy() bool {
-	return math.IsNaN(o.Value)
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *Float) Equals(x Object) bool {
-	t, ok := x.(*Float)
-	if !ok {
-		return false
-	}
-	return o.Value == t.Value
-}
-
-// ImmutableArray represents an immutable array of objects.
-type ImmutableArray struct {
-	ObjectImpl
-	Value []Object
-}
-
-// TypeName returns the name of the type.
-func (o *ImmutableArray) TypeName() string {
-	return "immutable-array"
-}
-
-func (o *ImmutableArray) String() string {
-	var elements []string
-	for _, e := range o.Value {
-		elements = append(elements, e.String())
-	}
-	return fmt.Sprintf("[%s]", strings.Join(elements, ", "))
-}
-
-// BinaryOp returns another object that is the result of a given binary
-// operator and a right-hand side object.
-func (o *ImmutableArray) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	if rhs, ok := rhs.(*ImmutableArray); ok {
-		switch op {
-		case token.Add:
-			return &Array{Value: append(o.Value, rhs.Value...)}, nil
-		}
+func (o Float) UnaryOp(op token.Token) (Object, error) {
+	switch op {
+	case token.Add:
+		return o, nil
+	case token.Sub:
+		return -o, nil
 	}
 	return nil, ErrInvalidOperator
-}
-
-// Copy returns a copy of the type.
-func (o *ImmutableArray) Copy() Object {
-	var c []Object
-	for _, elem := range o.Value {
-		c = append(c, elem.Copy())
-	}
-	return &Array{Value: c}
-}
-
-// IsFalsy returns true if the value of the type is falsy.
-func (o *ImmutableArray) IsFalsy() bool {
-	return len(o.Value) == 0
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *ImmutableArray) Equals(x Object) bool {
-	var xVal []Object
-	switch x := x.(type) {
-	case *Array:
-		xVal = x.Value
-	case *ImmutableArray:
-		xVal = x.Value
-	default:
-		return false
-	}
-	if len(o.Value) != len(xVal) {
-		return false
-	}
-	for i, e := range o.Value {
-		if !e.Equals(xVal[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-// IndexGet returns an element at a given index.
-func (o *ImmutableArray) IndexGet(index Object) (res Object, err error) {
-	intIdx, ok := index.(*Int)
-	if !ok {
-		err = ErrInvalidIndexType
-		return
-	}
-	idxVal := int(intIdx.Value)
-	if idxVal < 0 || idxVal >= len(o.Value) {
-		res = UndefinedValue
-		return
-	}
-	res = o.Value[idxVal]
-	return
-}
-
-// Iterate creates an array iterator.
-func (o *ImmutableArray) Iterate() Iterator {
-	return &ArrayIterator{
-		v: o.Value,
-		l: len(o.Value),
-	}
-}
-
-// CanIterate returns whether the Object can be Iterated.
-func (o *ImmutableArray) CanIterate() bool {
-	return true
-}
-
-// ImmutableMap represents an immutable map object.
-type ImmutableMap struct {
-	ObjectImpl
-	Value map[string]Object
-}
-
-// TypeName returns the name of the type.
-func (o *ImmutableMap) TypeName() string {
-	return "immutable-map"
-}
-
-func (o *ImmutableMap) String() string {
-	var pairs []string
-	for k, v := range o.Value {
-		pairs = append(pairs, fmt.Sprintf("%s: %s", k, v.String()))
-	}
-	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
-}
-
-// Copy returns a copy of the type.
-func (o *ImmutableMap) Copy() Object {
-	c := make(map[string]Object)
-	for k, v := range o.Value {
-		c[k] = v.Copy()
-	}
-	return &Map{Value: c}
-}
-
-// IsFalsy returns true if the value of the type is falsy.
-func (o *ImmutableMap) IsFalsy() bool {
-	return len(o.Value) == 0
-}
-
-// IndexGet returns the value for the given key.
-func (o *ImmutableMap) IndexGet(index Object) (res Object, err error) {
-	strIdx, ok := ToString(index)
-	if !ok {
-		err = ErrInvalidIndexType
-		return
-	}
-	res, ok = o.Value[strIdx]
-	if !ok {
-		res = UndefinedValue
-	}
-	return
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *ImmutableMap) Equals(x Object) bool {
-	var xVal map[string]Object
-	switch x := x.(type) {
-	case *Map:
-		xVal = x.Value
-	case *ImmutableMap:
-		xVal = x.Value
-	default:
-		return false
-	}
-	if len(o.Value) != len(xVal) {
-		return false
-	}
-	for k, v := range o.Value {
-		tv := xVal[k]
-		if !v.Equals(tv) {
-			return false
-		}
-	}
-	return true
-}
-
-// Iterate creates an immutable map iterator.
-func (o *ImmutableMap) Iterate() Iterator {
-	var keys []string
-	for k := range o.Value {
-		keys = append(keys, k)
-	}
-	return &MapIterator{
-		v: o.Value,
-		k: keys,
-		l: len(keys),
-	}
-}
-
-// CanIterate returns whether the Object can be Iterated.
-func (o *ImmutableMap) CanIterate() bool {
-	return true
 }
 
 // Int represents an integer value.
-type Int struct {
-	ObjectImpl
-	Value int64
-}
+type Int int64
 
-func (o *Int) String() string {
-	return strconv.FormatInt(o.Value, 10)
-}
+func (o Int) String() string   { return strconv.FormatInt(int64(o), 10) }
+func (o Int) TypeName() string { return "int" }
+func (o Int) IsFalsy() bool    { return o == 0 }
+func (o Int) Copy() Object     { return o }
+func (o Int) Hash() uint32     { return murmur32Int64(int64(o)) }
 
-// TypeName returns the name of the type.
-func (o *Int) TypeName() string {
-	return "int"
-}
-
-// BinaryOp returns another object that is the result of a given binary
-// operator and a right-hand side object.
-func (o *Int) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	switch rhs := rhs.(type) {
-	case *Int:
-		switch op {
-		case token.Add:
-			r := o.Value + rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Int{Value: r}, nil
-		case token.Sub:
-			r := o.Value - rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Int{Value: r}, nil
-		case token.Mul:
-			r := o.Value * rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Int{Value: r}, nil
-		case token.Quo:
-			r := o.Value / rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Int{Value: r}, nil
-		case token.Rem:
-			r := o.Value % rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Int{Value: r}, nil
-		case token.And:
-			r := o.Value & rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Int{Value: r}, nil
-		case token.Or:
-			r := o.Value | rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Int{Value: r}, nil
-		case token.Xor:
-			r := o.Value ^ rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Int{Value: r}, nil
-		case token.AndNot:
-			r := o.Value &^ rhs.Value
-			if r == o.Value {
-				return o, nil
-			}
-			return &Int{Value: r}, nil
-		case token.Shl:
-			r := o.Value << uint64(rhs.Value)
-			if r == o.Value {
-				return o, nil
-			}
-			return &Int{Value: r}, nil
-		case token.Shr:
-			r := o.Value >> uint64(rhs.Value)
-			if r == o.Value {
-				return o, nil
-			}
-			return &Int{Value: r}, nil
-		case token.Less:
-			if o.Value < rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.Greater:
-			if o.Value > rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.LessEq:
-			if o.Value <= rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.GreaterEq:
-			if o.Value >= rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		}
+func (o Int) Convert(p any) error {
+	switch p := p.(type) {
 	case *Float:
-		switch op {
-		case token.Add:
-			return &Float{Value: float64(o.Value) + rhs.Value}, nil
-		case token.Sub:
-			return &Float{Value: float64(o.Value) - rhs.Value}, nil
-		case token.Mul:
-			return &Float{Value: float64(o.Value) * rhs.Value}, nil
-		case token.Quo:
-			return &Float{Value: float64(o.Value) / rhs.Value}, nil
-		case token.Less:
-			if float64(o.Value) < rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.Greater:
-			if float64(o.Value) > rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.LessEq:
-			if float64(o.Value) <= rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.GreaterEq:
-			if float64(o.Value) >= rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		}
+		*p = Float(o)
+		return nil
 	case *Char:
+		*p = Char(o)
+		return nil
+	}
+	return ErrNotConvertible
+}
+
+func (o Int) Compare(op token.Token, rhs Object) (bool, error) {
+	switch y := rhs.(type) {
+	case Int:
+		switch op {
+		case token.Equal:
+			return o == y, nil
+		case token.NotEqual:
+			return o != y, nil
+		case token.Less:
+			return o < y, nil
+		case token.Greater:
+			return o > y, nil
+		case token.LessEq:
+			return o <= y, nil
+		case token.GreaterEq:
+			return o >= y, nil
+		}
+	case Float:
+		switch op {
+		case token.Equal:
+			return o == Int(y), nil
+		case token.NotEqual:
+			return o != Int(y), nil
+		case token.Less:
+			return o < Int(y), nil
+		case token.Greater:
+			return o > Int(y), nil
+		case token.LessEq:
+			return o <= Int(y), nil
+		case token.GreaterEq:
+			return o >= Int(y), nil
+		}
+	case Char:
+		switch op {
+		case token.Equal:
+			return o == Int(y), nil
+		case token.NotEqual:
+			return o != Int(y), nil
+		case token.Less:
+			return o < Int(y), nil
+		case token.Greater:
+			return o > Int(y), nil
+		case token.LessEq:
+			return o <= Int(y), nil
+		case token.GreaterEq:
+			return o >= Int(y), nil
+		}
+	}
+	return false, ErrInvalidOperator
+}
+
+func (o Int) BinaryOp(op token.Token, rhs Object) (Object, error) {
+	switch y := rhs.(type) {
+	case Int:
 		switch op {
 		case token.Add:
-			return &Char{Value: rune(o.Value) + rhs.Value}, nil
+			return o + y, nil
 		case token.Sub:
-			return &Char{Value: rune(o.Value) - rhs.Value}, nil
-		case token.Less:
-			if o.Value < int64(rhs.Value) {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.Greater:
-			if o.Value > int64(rhs.Value) {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.LessEq:
-			if o.Value <= int64(rhs.Value) {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.GreaterEq:
-			if o.Value >= int64(rhs.Value) {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
+			return o - y, nil
+		case token.Mul:
+			return o * y, nil
+		case token.Quo:
+			return o / y, nil
+		case token.Rem:
+			return o % y, nil
+		case token.And:
+			return o & y, nil
+		case token.Or:
+			return o | y, nil
+		case token.Xor:
+			return o ^ y, nil
+		case token.AndNot:
+			return o &^ y, nil
+		case token.Shl:
+			return o << y, nil
+		case token.Shr:
+			return o >> y, nil
+		}
+	case Float:
+		switch op {
+		case token.Add:
+			return Float(o) + y, nil
+		case token.Sub:
+			return Float(o) - y, nil
+		case token.Mul:
+			return Float(o) * y, nil
+		case token.Quo:
+			return Float(o) / y, nil
+		}
+	case Char:
+		switch op {
+		case token.Add:
+			return Char(o) + y, nil
+		case token.Sub:
+			return Char(o) - y, nil
 		}
 	}
 	return nil, ErrInvalidOperator
 }
 
-// Copy returns a copy of the type.
-func (o *Int) Copy() Object {
-	return &Int{Value: o.Value}
-}
-
-// IsFalsy returns true if the value of the type is falsy.
-func (o *Int) IsFalsy() bool {
-	return o.Value == 0
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *Int) Equals(x Object) bool {
-	t, ok := x.(*Int)
-	if !ok {
-		return false
+func (o Int) UnaryOp(op token.Token) (Object, error) {
+	switch op {
+	case token.Add:
+		return o, nil
+	case token.Sub:
+		return -o, nil
+	case token.Xor:
+		return ^o, nil
 	}
-	return o.Value == t.Value
+	return nil, ErrInvalidOperator
+}
+
+// String represents a string value.
+type String string
+
+func (o String) TypeName() string { return "string" }
+func (o String) String() string   { return strconv.Quote(string(o)) }
+func (o String) IsFalsy() bool    { return len(o) == 0 }
+func (o String) Copy() Object     { return o }
+func (o String) Hash() uint32     { return murmur32String(string(o)) }
+
+func (o String) Len() int { return utf8.RuneCountInString(string(o)) }
+
+func (o String) At(idx int) Object {
+	for i, r := range o {
+		if int64(i) == int64(idx) {
+			return Char(r)
+		}
+	}
+	return Undefined // should not happend
+}
+
+func (o String) Slice(start, stop int) Object {
+	rs := []rune(o)
+	return String(rs[start:stop])
+}
+
+func (o String) Convert(p any) error {
+	b, ok := p.(*Bytes)
+	if !ok {
+		return ErrNotConvertible
+	}
+	*b = []byte(o)
+	return nil
+}
+
+func (o String) Compare(op token.Token, rhs Object) (bool, error) {
+	y, ok := rhs.(String)
+	if !ok {
+		return false, ErrInvalidOperator
+	}
+	switch op {
+	case token.Equal:
+		return o == y, nil
+	case token.NotEqual:
+		return o != y, nil
+	case token.Less:
+		return o < y, nil
+	case token.Greater:
+		return o > y, nil
+	case token.LessEq:
+		return o <= y, nil
+	case token.GreaterEq:
+		return o >= y, nil
+	}
+	return false, ErrInvalidOperator
+}
+
+func (o String) BinaryOp(op token.Token, rhs Object) (Object, error) {
+	y, ok := rhs.(String)
+	if !ok {
+		return nil, ErrInvalidOperator
+	}
+	switch op {
+	case token.Add:
+		return o + y, nil
+	}
+	return nil, ErrInvalidOperator
+}
+
+func (o String) IndexGet(index Object) (res Object, err error) {
+	intIdx, ok := index.(Int)
+	if !ok {
+		return nil, ErrInvalidIndexType
+	}
+	if intIdx < 0 {
+		return Undefined, nil
+	}
+	for i, r := range o {
+		if int64(i) == int64(intIdx) {
+			return Char(r), nil
+		}
+	}
+	return Undefined, nil
+}
+
+func (o String) Iterate() Iterator { return &stringIterator{s: []rune(o), i: 0} }
+
+type stringIterator struct {
+	s []rune
+	i int
+}
+
+func (it *stringIterator) TypeName() string { return "string-iterator" }
+func (it *stringIterator) String() string   { return "<string-iterator>" }
+func (it *stringIterator) IsFalsy() bool    { return true }
+func (it *stringIterator) Copy() Object     { return &stringIterator{s: it.s, i: it.i} }
+
+func (it *stringIterator) Next(key, value *Object) bool {
+	if it.i < len(it.s) {
+		if key != nil {
+			*key = Int(it.i)
+		}
+		if value != nil {
+			*value = Char(it.s[it.i])
+		}
+		it.i++
+		return true
+	}
+	return false
+}
+
+// Bytes represents a byte array.
+type Bytes []byte
+
+func (o Bytes) String() string   { return string(o) }
+func (o Bytes) TypeName() string { return "bytes" }
+func (o Bytes) IsFalsy() bool    { return len(o) == 0 }
+func (o Bytes) Copy() Object     { return slices.Clone(o) }
+func (o Bytes) Hash() uint32     { return murmur32(o) }
+
+func (o Bytes) Len() int                     { return len(o) }
+func (o Bytes) At(i int) Object              { return Int(o[i]) }
+func (o Bytes) Slice(start, stop int) Object { return o[start:stop] }
+
+func (o Bytes) Convert(p any) error {
+	s, ok := p.(*String)
+	if !ok {
+		return ErrNotConvertible
+	}
+	*s = String(o)
+	return nil
+}
+
+func (o Bytes) Compare(op token.Token, rhs Object) (bool, error) {
+	y, ok := rhs.(Bytes)
+	if !ok {
+		return false, ErrInvalidOperator
+	}
+	switch op {
+	case token.Equal:
+		return bytes.Equal(o, y), nil
+	case token.NotEqual:
+		return !bytes.Equal(o, y), nil
+	case token.Less:
+		return bytes.Compare(o, y) < 0, nil
+	case token.Greater:
+		return bytes.Compare(o, y) > 0, nil
+	case token.LessEq:
+		return bytes.Compare(o, y) <= 0, nil
+	case token.GreaterEq:
+		return bytes.Compare(o, y) >= 0, nil
+	}
+	return false, ErrInvalidOperator
+}
+
+func (o Bytes) BinaryOp(op token.Token, rhs Object) (Object, error) {
+	y, ok := rhs.(Bytes)
+	if !ok {
+		return nil, ErrInvalidOperator
+	}
+	switch op {
+	case token.Add:
+		if len(o)+len(y) > MaxBytesLen {
+			return nil, ErrBytesLimit
+		}
+		return slices.Concat(o, y), nil
+	}
+	return nil, ErrInvalidOperator
+}
+
+func (o Bytes) IndexGet(index Object) (res Object, err error) {
+	intIdx, ok := index.(Int)
+	if !ok {
+		return nil, ErrInvalidIndexType
+	}
+	if intIdx < 0 || int64(intIdx) >= int64(len(o)) {
+		return Undefined, nil
+	}
+	return Int(o[intIdx]), nil
+}
+
+func (o Bytes) Iterate() Iterator { return &bytesIterator{b: o, i: 0} }
+
+type bytesIterator struct {
+	b Bytes
+	i int
+}
+
+func (it *bytesIterator) TypeName() string { return "bytes-iterator" }
+func (it *bytesIterator) String() string   { return "<bytes-iterator>" }
+func (it *bytesIterator) IsFalsy() bool    { return true }
+func (it *bytesIterator) Copy() Object     { return &bytesIterator{b: it.b, i: it.i} }
+
+func (it *bytesIterator) Next(key, value *Object) bool {
+	if it.i < len(it.b) {
+		if key != nil {
+			*key = Int(it.i)
+		}
+		if value != nil {
+			*value = Int(it.b[it.i])
+		}
+		it.i++
+		return true
+	}
+	return false
+}
+
+// Char represents a character value.
+type Char rune
+
+func (o Char) String() string   { return string(o) }
+func (o Char) TypeName() string { return "char" }
+func (o Char) IsFalsy() bool    { return o == 0 }
+func (o Char) Copy() Object     { return o }
+func (o Char) Hash() uint32     { return murmur32Int32(int32(o)) }
+
+func (o Char) Convert(p any) error {
+	i, ok := p.(*Int)
+	if !ok {
+		return ErrNotConvertible
+	}
+	*i = Int(o)
+	return nil
+}
+
+func (o Char) Compare(op token.Token, rhs Object) (bool, error) {
+	switch y := rhs.(type) {
+	case Char:
+		switch op {
+		case token.Equal:
+			return o == y, nil
+		case token.NotEqual:
+			return o != y, nil
+		case token.Less:
+			return o < y, nil
+		case token.Greater:
+			return o > y, nil
+		case token.LessEq:
+			return o <= y, nil
+		case token.GreaterEq:
+			return o >= y, nil
+		}
+	case Int:
+		switch op {
+		case token.Equal:
+			return Int(o) == y, nil
+		case token.NotEqual:
+			return Int(o) != y, nil
+		case token.Less:
+			return Int(o) < y, nil
+		case token.Greater:
+			return Int(o) > y, nil
+		case token.LessEq:
+			return Int(o) <= y, nil
+		case token.GreaterEq:
+			return Int(o) >= y, nil
+		}
+	}
+	return false, ErrInvalidOperator
+}
+
+func (o Char) BinaryOp(op token.Token, rhs Object) (Object, error) {
+	switch y := rhs.(type) {
+	case Char:
+		switch op {
+		case token.Add:
+			return o + y, nil
+		case token.Sub:
+			return o - y, nil
+		}
+	case Int:
+		switch op {
+		case token.Add:
+			return o + Char(y), nil
+		case token.Sub:
+			return o - Char(y), nil
+		}
+	}
+	return nil, ErrInvalidOperator
+}
+
+type Array struct {
+	elems     []Object
+	immutable bool
+	itercount uint32 // number of active iterators (ignored if frozen)
+}
+
+func NewArray(elems []Object) *Array {
+	return &Array{
+		elems:     elems,
+		immutable: false,
+		itercount: 0,
+	}
+}
+
+func (o *Array) TypeName() string { return "array" }
+
+func (o *Array) String() string {
+	var b strings.Builder
+	b.WriteByte('[')
+	for i, v := range o.elems {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(v.String())
+	}
+	b.WriteByte(']')
+	return b.String()
+}
+
+func (o *Array) IsFalsy() bool { return len(o.elems) == 0 }
+
+func (o *Array) Copy() Object {
+	if o.immutable {
+		return o
+	}
+	elems := make([]Object, 0, len(o.elems))
+	for _, elem := range o.elems {
+		elems = append(elems, elem.Copy())
+	}
+	return &Array{elems: elems, immutable: false}
+}
+
+func (o *Array) AsImmutable() Object {
+	if o.immutable {
+		return o
+	}
+	elems := make([]Object, 0, len(o.elems))
+	for _, elem := range o.elems {
+		elems = append(elems, AsImmutable(elem))
+	}
+	return &Array{elems: elems, immutable: true}
+}
+
+func (o *Array) Len() int        { return len(o.elems) }
+func (o *Array) At(i int) Object { return o.elems[i] }
+
+func (o *Array) Slice(start, stop int) Object {
+	return &Array{
+		elems:     o.elems[start:stop],
+		immutable: o.immutable,
+		itercount: 0,
+	}
+}
+
+func (o *Array) Append(x Object) error {
+	if err := o.checkMutable("append to"); err != nil {
+		return err
+	}
+	o.elems = append(o.elems, x)
+	return nil
+}
+
+func (o *Array) Compare(op token.Token, rhs Object) (bool, error) {
+	y, ok := rhs.(*Array)
+	if !ok {
+		return false, ErrInvalidOperator
+	}
+	switch op {
+	case token.Equal:
+		if len(o.elems) != len(y.elems) {
+			return false, nil
+		}
+		for i := range o.Len() {
+			if eq, err := Equals(o.elems[i], y.elems[i]); err != nil {
+				return false, err
+			} else if !eq {
+				return false, nil
+			}
+		}
+	case token.NotEqual:
+		if len(o.elems) != len(y.elems) {
+			return true, nil
+		}
+		for i := range len(o.elems) {
+			if eq, err := Equals(o.elems[i], y.elems[i]); err != nil {
+				return false, err
+			} else if !eq {
+				return true, nil
+			}
+		}
+	}
+	return false, ErrInvalidOperator
+}
+
+func (o *Array) BinaryOp(op token.Token, rhs Object) (Object, error) {
+	y, ok := rhs.(*Array)
+	if !ok {
+		return nil, ErrInvalidOperator
+	}
+	switch op {
+	case token.Add:
+		if err := o.checkMutable("add elements from another list to"); err != nil {
+			return nil, err
+		}
+		return &Array{elems: slices.Concat(o.elems, y.elems), immutable: false}, nil
+	}
+	return nil, ErrInvalidOperator
+}
+
+func (o *Array) IndexGet(index Object) (res Object, err error) {
+	intIdx, ok := index.(Int)
+	if !ok {
+		return nil, ErrInvalidIndexType
+	}
+	if intIdx < 0 || int64(intIdx) >= int64(len(o.elems)) {
+		return Undefined, nil
+	}
+	return o.elems[intIdx], nil
+}
+
+func (o *Array) IndexSet(index, value Object) (err error) {
+	if err := o.checkMutable("assign to element of"); err != nil {
+		return err
+	}
+	intIdx, ok := index.(Int)
+	if !ok {
+		return ErrInvalidIndexType
+	}
+	if intIdx < 0 || int64(intIdx) >= int64(len(o.elems)) {
+		return ErrIndexOutOfBounds
+	}
+	o.elems[intIdx] = value
+	return nil
+}
+
+func (o *Array) Iterate() Iterator {
+	if !o.immutable {
+		o.itercount++
+	}
+	return &arrayIterator{a: o, i: 0}
+}
+
+func (o *Array) Elements() iter.Seq[Object] {
+	return func(yield func(Object) bool) {
+		if !o.immutable {
+			o.itercount++
+			defer func() { o.itercount-- }()
+		}
+		for _, x := range o.elems {
+			if !yield(x) {
+				break
+			}
+		}
+	}
+}
+
+func (o *Array) Entries() iter.Seq2[Object, Object] {
+	return func(yield func(Object, Object) bool) {
+		if !o.immutable {
+			o.itercount++
+			defer func() { o.itercount-- }()
+		}
+		for i, x := range o.elems {
+			if !yield(Int(i), x) {
+				break
+			}
+		}
+	}
+}
+
+// checkMutable reports an error if the array should not be mutated.
+// verb+" dict" should describe the operation.
+func (o *Array) checkMutable(verb string) error {
+	if o.immutable {
+		return fmt.Errorf("cannot %s immutable array", verb)
+	}
+	if o.itercount > 0 {
+		return fmt.Errorf("cannot %s hash table during iteration", verb)
+	}
+	return nil
+}
+
+type arrayIterator struct {
+	a *Array
+	i int
+}
+
+func (it *arrayIterator) TypeName() string { return "array-iterator" }
+func (it *arrayIterator) String() string   { return "<array-iterator>" }
+func (it *arrayIterator) IsFalsy() bool    { return true }
+func (it *arrayIterator) Copy() Object     { return &arrayIterator{a: it.a, i: it.i} }
+
+func (it *arrayIterator) Next(key, value *Object) bool {
+	if it.i < len(it.a.elems) {
+		if key != nil {
+			*key = Int(it.i)
+		}
+		if value != nil {
+			*value = it.a.elems[it.i]
+		}
+		it.i++
+		return true
+	}
+	return false
+}
+
+func (it *arrayIterator) Close() {
+	if !it.a.immutable {
+		it.a.itercount--
+	}
 }
 
 // Map represents a map of objects.
 type Map struct {
-	ObjectImpl
-	Value map[string]Object
+	ht hashtable
 }
 
-// TypeName returns the name of the type.
-func (o *Map) TypeName() string {
-	return "map"
+func NewMap(size int) *Map {
+	m := new(Map)
+	m.ht.init(size)
+	return m
 }
+
+func (o *Map) TypeName() string { return "map" }
 
 func (o *Map) String() string {
-	var pairs []string
-	for k, v := range o.Value {
-		pairs = append(pairs, fmt.Sprintf("%s: %s", k, v.String()))
+	var b strings.Builder
+	b.WriteByte('{')
+	for key, value := range o.ht.entries() {
+		if b.Len() != 1 {
+			b.WriteString(", ")
+		}
+		b.WriteString(key.String())
+		b.WriteString(": ")
+		b.WriteString(value.String())
 	}
-	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
+	b.WriteByte('}')
+	return b.String()
 }
 
-// Copy returns a copy of the type.
+func (o *Map) IsFalsy() bool { return o.ht.len == 0 }
+
 func (o *Map) Copy() Object {
-	c := make(map[string]Object)
-	for k, v := range o.Value {
-		c[k] = v.Copy()
-	}
-	return &Map{Value: c}
+	m := new(Map)
+	m.ht.init(o.Len())
+	m.ht.copyAll(&o.ht)
+	return m
 }
 
-// IsFalsy returns true if the value of the type is falsy.
-func (o *Map) IsFalsy() bool {
-	return len(o.Value) == 0
+func (o *Map) AsImmutable() Object {
+	if o.ht.immutable {
+		return o
+	}
+	m := new(Map)
+	m.ht.init(o.Len())
+	m.ht.copyAllImmutable(&o.ht)
+	m.ht.immutable = true
+	return m
 }
 
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *Map) Equals(x Object) bool {
-	var xVal map[string]Object
-	switch x := x.(type) {
-	case *Map:
-		xVal = x.Value
-	case *ImmutableMap:
-		xVal = x.Value
-	default:
-		return false
-	}
-	if len(o.Value) != len(xVal) {
-		return false
-	}
-	for k, v := range o.Value {
-		tv := xVal[k]
-		if !v.Equals(tv) {
-			return false
-		}
-	}
-	return true
-}
+func (o *Map) Len() int { return int(o.ht.len) }
 
-// IndexGet returns the value for the given key.
-func (o *Map) IndexGet(index Object) (res Object, err error) {
-	strIdx, ok := ToString(index)
+func (o *Map) Compare(op token.Token, rhs Object) (bool, error) {
+	y, ok := rhs.(*Map)
 	if !ok {
-		err = ErrInvalidIndexType
-		return
+		return false, ErrInvalidOperator
 	}
-	res, ok = o.Value[strIdx]
-	if !ok {
-		res = UndefinedValue
-	}
-	return
-}
-
-// IndexSet sets the value for the given key.
-func (o *Map) IndexSet(index, value Object) (err error) {
-	strIdx, ok := ToString(index)
-	if !ok {
-		err = ErrInvalidIndexType
-		return
-	}
-	o.Value[strIdx] = value
-	return nil
-}
-
-// Iterate creates a map iterator.
-func (o *Map) Iterate() Iterator {
-	var keys []string
-	for k := range o.Value {
-		keys = append(keys, k)
-	}
-	return &MapIterator{
-		v: o.Value,
-		k: keys,
-		l: len(keys),
-	}
-}
-
-// CanIterate returns whether the Object can be Iterated.
-func (o *Map) CanIterate() bool {
-	return true
-}
-
-// ObjectPtr represents a free variable.
-type ObjectPtr struct {
-	ObjectImpl
-	Value *Object
-}
-
-func (o *ObjectPtr) String() string {
-	return "free-var"
-}
-
-// TypeName returns the name of the type.
-func (o *ObjectPtr) TypeName() string {
-	return "<free-var>"
-}
-
-// Copy returns a copy of the type.
-func (o *ObjectPtr) Copy() Object {
-	return o
-}
-
-// IsFalsy returns true if the value of the type is falsy.
-func (o *ObjectPtr) IsFalsy() bool {
-	return o.Value == nil
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *ObjectPtr) Equals(x Object) bool {
-	return o == x
-}
-
-// String represents a string value.
-type String struct {
-	ObjectImpl
-	Value   string
-	runeStr []rune
-}
-
-// TypeName returns the name of the type.
-func (o *String) TypeName() string {
-	return "string"
-}
-
-func (o *String) String() string {
-	return strconv.Quote(o.Value)
-}
-
-// BinaryOp returns another object that is the result of a given binary
-// operator and a right-hand side object.
-func (o *String) BinaryOp(op token.Token, rhs Object) (Object, error) {
 	switch op {
-	case token.Add:
-		switch rhs := rhs.(type) {
-		case *String:
-			if len(o.Value)+len(rhs.Value) > MaxStringLen {
-				return nil, ErrStringLimit
-			}
-			return &String{Value: o.Value + rhs.Value}, nil
-		default:
-			rhsStr := rhs.String()
-			if len(o.Value)+len(rhsStr) > MaxStringLen {
-				return nil, ErrStringLimit
-			}
-			return &String{Value: o.Value + rhsStr}, nil
+	case token.Equal:
+		eq, err := o.ht.equals(&y.ht)
+		if err != nil {
+			return false, err
 		}
-	case token.Less:
-		switch rhs := rhs.(type) {
-		case *String:
-			if o.Value < rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
+		return eq, nil
+	case token.NotEqual:
+		eq, err := o.ht.equals(&y.ht)
+		if err != nil {
+			return false, err
 		}
-	case token.LessEq:
-		switch rhs := rhs.(type) {
-		case *String:
-			if o.Value <= rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		}
-	case token.Greater:
-		switch rhs := rhs.(type) {
-		case *String:
-			if o.Value > rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		}
-	case token.GreaterEq:
-		switch rhs := rhs.(type) {
-		case *String:
-			if o.Value >= rhs.Value {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		}
+		return !eq, nil
+	}
+	return false, ErrInvalidOperator
+}
+
+func (o *Map) BinaryOp(op token.Token, rhs Object) (Object, error) {
+	y, ok := rhs.(*Map)
+	if !ok {
+		return nil, ErrInvalidOperator
+	}
+	switch op {
+	case token.Or:
+		z := new(Map)
+		z.ht.init(o.Len())
+		z.ht.addAll(&o.ht)
+		z.ht.addAll(&y.ht)
+		return z, nil
 	}
 	return nil, ErrInvalidOperator
 }
 
-// IsFalsy returns true if the value of the type is falsy.
-func (o *String) IsFalsy() bool {
-	return len(o.Value) == 0
+func (o *Map) IndexGet(index Object) (res Object, err error) { return o.ht.lookup(index) }
+func (o *Map) IndexSet(index, value Object) (err error)      { return o.ht.insert(index, value) }
+func (o *Map) Iterate() Iterator                             { return o.ht.iterate() }
+func (o *Map) Elements() iter.Seq[Object]                    { return o.ht.elements() }
+func (o *Map) Entries() iter.Seq2[Object, Object]            { return o.ht.entries() }
+
+type Error struct {
+	message string
+	cause   *Error
 }
 
-// Copy returns a copy of the type.
-func (o *String) Copy() Object {
-	return &String{Value: o.Value}
+func (e *Error) TypeName() string { return "error" }
+
+func (e *Error) String() string {
+	var b strings.Builder
+	b.WriteString(e.message)
+	if e.cause != nil {
+		b.WriteString(": ")
+		b.WriteString(e.cause.String())
+	}
+	return b.String()
 }
 
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *String) Equals(x Object) bool {
-	t, ok := x.(*String)
+func (e *Error) IsFalsy() bool { return true }
+
+func (e *Error) Copy() Object {
+	var cause *Error
+	if e.cause != nil {
+		cause = e.cause.Copy().(*Error)
+	}
+	return &Error{message: e.message, cause: cause}
+}
+
+func (e *Error) Hash() uint32 { return murmur32String(e.String()) }
+
+func (e *Error) Compare(op token.Token, rhs Object) (bool, error) {
+	y, ok := rhs.(*Error)
 	if !ok {
-		return false
+		return false, ErrInvalidOperator
 	}
-	return o.Value == t.Value
-}
-
-// IndexGet returns a character at a given index.
-func (o *String) IndexGet(index Object) (res Object, err error) {
-	intIdx, ok := index.(*Int)
-	if !ok {
-		err = ErrInvalidIndexType
-		return
+	switch op {
+	case token.Equal:
+		return e == y, nil
+	case token.NotEqual:
+		return e != y, nil
 	}
-	idxVal := int(intIdx.Value)
-	if o.runeStr == nil {
-		o.runeStr = []rune(o.Value)
-	}
-	if idxVal < 0 || idxVal >= len(o.runeStr) {
-		res = UndefinedValue
-		return
-	}
-	res = &Char{Value: o.runeStr[idxVal]}
-	return
+	return false, ErrInvalidOperator
 }
 
-// Iterate creates a string iterator.
-func (o *String) Iterate() Iterator {
-	if o.runeStr == nil {
-		o.runeStr = []rune(o.Value)
-	}
-	return &StringIterator{
-		v: o.runeStr,
-		l: len(o.runeStr),
-	}
-}
-
-// CanIterate returns whether the Object can be Iterated.
-func (o *String) CanIterate() bool {
-	return true
-}
-
-// Time represents a time value.
-type Time struct {
-	ObjectImpl
-	Value time.Time
-}
-
-func (o *Time) String() string {
-	return o.Value.String()
-}
-
-// TypeName returns the name of the type.
-func (o *Time) TypeName() string {
-	return "time"
-}
-
-// BinaryOp returns another object that is the result of a given binary
-// operator and a right-hand side object.
-func (o *Time) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	switch rhs := rhs.(type) {
-	case *Int:
-		switch op {
-		case token.Add: // time + int => time
-			if rhs.Value == 0 {
-				return o, nil
-			}
-			return &Time{Value: o.Value.Add(time.Duration(rhs.Value))}, nil
-		case token.Sub: // time - int => time
-			if rhs.Value == 0 {
-				return o, nil
-			}
-			return &Time{Value: o.Value.Add(time.Duration(-rhs.Value))}, nil
+func (e *Error) FieldGet(name string) (res Object, err error) {
+	switch name {
+	case "message":
+		return String(e.message), nil
+	case "cause":
+		if e.cause != nil {
+			return e.cause, nil
 		}
-	case *Time:
-		switch op {
-		case token.Sub: // time - time => int (duration)
-			return &Int{Value: int64(o.Value.Sub(rhs.Value))}, nil
-		case token.Less: // time < time => bool
-			if o.Value.Before(rhs.Value) {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.Greater:
-			if o.Value.After(rhs.Value) {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.LessEq:
-			if o.Value.Equal(rhs.Value) || o.Value.Before(rhs.Value) {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
-		case token.GreaterEq:
-			if o.Value.Equal(rhs.Value) || o.Value.After(rhs.Value) {
-				return TrueValue, nil
-			}
-			return FalseValue, nil
+		return Undefined, nil
+	case "wrap":
+		return &BuiltinFunction{
+			Name:     "error.wrap",
+			Receiver: e,
+			Func:     errorWrapMd,
+		}, nil
+	}
+	return nil, ErrNoSuchField
+}
+
+func errorWrapMd(args ...Object) (ret Object, err error) {
+	var (
+		recv   = args[0].(*Error)
+		format string
+		rest   []Object
+	)
+	if err := UnpackArgs(args[1:], "format", &format, "...", &rest); err != nil {
+		return nil, err
+	}
+	var s string
+	if len(rest) != 0 {
+		s, err = Format(format, rest...)
+		if err != nil {
+			return nil, err
 		}
+	} else {
+		s = format
 	}
-	return nil, ErrInvalidOperator
+	return &Error{message: s, cause: recv}, nil
 }
 
-// Copy returns a copy of the type.
-func (o *Time) Copy() Object {
-	return &Time{Value: o.Value}
+// objectPtr represents a free variable.
+type objectPtr struct {
+	p *Object
 }
 
-// IsFalsy returns true if the value of the type is falsy.
-func (o *Time) IsFalsy() bool {
-	return o.Value.IsZero()
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *Time) Equals(x Object) bool {
-	t, ok := x.(*Time)
-	if !ok {
-		return false
-	}
-	return o.Value.Equal(t.Value)
-}
-
-// Undefined represents an undefined value.
-type Undefined struct {
-	ObjectImpl
-}
-
-// TypeName returns the name of the type.
-func (o *Undefined) TypeName() string {
-	return "undefined"
-}
-
-func (o *Undefined) String() string {
-	return "<undefined>"
-}
-
-// Copy returns a copy of the type.
-func (o *Undefined) Copy() Object {
-	return o
-}
-
-// IsFalsy returns true if the value of the type is falsy.
-func (o *Undefined) IsFalsy() bool {
-	return true
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *Undefined) Equals(x Object) bool {
-	return o == x
-}
-
-// IndexGet returns an element at a given index.
-func (o *Undefined) IndexGet(_ Object) (Object, error) {
-	return UndefinedValue, nil
-}
-
-// Iterate creates a map iterator.
-func (o *Undefined) Iterate() Iterator {
-	return o
-}
-
-// CanIterate returns whether the Object can be Iterated.
-func (o *Undefined) CanIterate() bool {
-	return true
-}
-
-// Next returns true if there are more elements to iterate.
-func (o *Undefined) Next() bool {
-	return false
-}
-
-// Key returns the key or index value of the current element.
-func (o *Undefined) Key() Object {
-	return o
-}
-
-// Value returns the value of the current element.
-func (o *Undefined) Value() Object {
-	return o
-}
-
-// UserFunction represents a user function.
-type UserFunction struct {
-	ObjectImpl
-	Name  string
-	Value CallableFunc
-}
-
-// TypeName returns the name of the type.
-func (o *UserFunction) TypeName() string {
-	return "user-function:" + o.Name
-}
-
-func (o *UserFunction) String() string {
-	return "<user-function>"
-}
-
-// Copy returns a copy of the type.
-func (o *UserFunction) Copy() Object {
-	return &UserFunction{Value: o.Value, Name: o.Name}
-}
-
-// Equals returns true if the value of the type is equal to the value of
-// another object.
-func (o *UserFunction) Equals(_ Object) bool {
-	return false
-}
-
-// Call invokes a user function.
-func (o *UserFunction) Call(args ...Object) (Object, error) {
-	return o.Value(args...)
-}
-
-// CanCall returns whether the Object can be Called.
-func (o *UserFunction) CanCall() bool {
-	return true
-}
+func (o *objectPtr) String() string   { return "free-var" }
+func (o *objectPtr) TypeName() string { return "<free-var>" }
+func (o *objectPtr) IsFalsy() bool    { return o.p == nil }
+func (o *objectPtr) Copy() Object     { return o }

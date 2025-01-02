@@ -11,33 +11,33 @@ func makeOSExecCommand(cmd *exec.Cmd) *tengo.ImmutableMap {
 		Value: map[string]tengo.Object{
 			// combined_output() => bytes/error
 			"combined_output": &tengo.UserFunction{
-				Name:  "combined_output",
-				Value: FuncARYE(cmd.CombinedOutput),
+				Name: "combined_output",
+				Func: FuncARYE(cmd.CombinedOutput),
 			},
 			// output() => bytes/error
 			"output": &tengo.UserFunction{
-				Name:  "output",
-				Value: FuncARYE(cmd.Output),
+				Name: "output",
+				Func: FuncARYE(cmd.Output),
 			}, //
 			// run() => error
 			"run": &tengo.UserFunction{
-				Name:  "run",
-				Value: FuncARE(cmd.Run),
+				Name: "run",
+				Func: FuncARE(cmd.Run),
 			}, //
 			// start() => error
 			"start": &tengo.UserFunction{
-				Name:  "start",
-				Value: FuncARE(cmd.Start),
+				Name: "start",
+				Func: FuncARE(cmd.Start),
 			}, //
 			// wait() => error
 			"wait": &tengo.UserFunction{
-				Name:  "wait",
-				Value: FuncARE(cmd.Wait),
+				Name: "wait",
+				Func: FuncARE(cmd.Wait),
 			}, //
 			// set_path(path string)
 			"set_path": &tengo.UserFunction{
 				Name: "set_path",
-				Value: func(args ...tengo.Object) (tengo.Object, error) {
+				Func: func(args ...tengo.Object) (tengo.Object, error) {
 					if len(args) != 1 {
 						return nil, tengo.ErrWrongNumArguments
 					}
@@ -50,13 +50,13 @@ func makeOSExecCommand(cmd *exec.Cmd) *tengo.ImmutableMap {
 						}
 					}
 					cmd.Path = s1
-					return tengo.UndefinedValue, nil
+					return tengo.Undefined, nil
 				},
 			},
 			// set_dir(dir string)
 			"set_dir": &tengo.UserFunction{
 				Name: "set_dir",
-				Value: func(args ...tengo.Object) (tengo.Object, error) {
+				Func: func(args ...tengo.Object) (tengo.Object, error) {
 					if len(args) != 1 {
 						return nil, tengo.ErrWrongNumArguments
 					}
@@ -69,13 +69,13 @@ func makeOSExecCommand(cmd *exec.Cmd) *tengo.ImmutableMap {
 						}
 					}
 					cmd.Dir = s1
-					return tengo.UndefinedValue, nil
+					return tengo.Undefined, nil
 				},
 			},
 			// set_env(env array(string))
 			"set_env": &tengo.UserFunction{
 				Name: "set_env",
-				Value: func(args ...tengo.Object) (tengo.Object, error) {
+				Func: func(args ...tengo.Object) (tengo.Object, error) {
 					if len(args) != 1 {
 						return nil, tengo.ErrWrongNumArguments
 					}
@@ -101,13 +101,13 @@ func makeOSExecCommand(cmd *exec.Cmd) *tengo.ImmutableMap {
 						}
 					}
 					cmd.Env = env
-					return tengo.UndefinedValue, nil
+					return tengo.Undefined, nil
 				},
 			},
 			// process() => imap(process)
 			"process": &tengo.UserFunction{
 				Name: "process",
-				Value: func(args ...tengo.Object) (tengo.Object, error) {
+				Func: func(args ...tengo.Object) (tengo.Object, error) {
 					if len(args) != 0 {
 						return nil, tengo.ErrWrongNumArguments
 					}

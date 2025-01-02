@@ -37,18 +37,17 @@ func MakeInstruction(opcode parser.Opcode, operands ...int) []byte {
 		}
 		offset += width
 	}
+
 	return instruction
 }
 
 // FormatInstructions returns string representation of bytecode instructions.
 func FormatInstructions(b []byte, posOffset int) []string {
 	var out []string
-
 	i := 0
 	for i < len(b) {
 		numOperands := parser.OpcodeOperands[b[i]]
 		operands, read := parser.ReadOperands(numOperands, b[i+1:])
-
 		switch len(numOperands) {
 		case 0:
 			out = append(out, fmt.Sprintf("%04d %-7s",

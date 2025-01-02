@@ -14,8 +14,6 @@ type Script struct {
 	variables        map[string]*Variable
 	modules          ModuleGetter
 	input            []byte
-	maxAllocs        int64
-	maxConstObjects  int
 	enableFileImport bool
 	importDir        string
 }
@@ -23,24 +21,14 @@ type Script struct {
 // NewScript creates a Script instance with an input script.
 func NewScript(input []byte) *Script {
 	return &Script{
-		variables:       make(map[string]*Variable),
-		input:           input,
-		maxAllocs:       -1,
-		maxConstObjects: -1,
+		variables: make(map[string]*Variable),
+		input:     input,
 	}
 }
 
 // Add adds a new variable or updates an existing variable to the script.
-func (s *Script) Add(name string, value interface{}) error {
-	obj, err := FromInterface(value)
-	if err != nil {
-		return err
-	}
-	s.variables[name] = &Variable{
-		name:  name,
-		value: obj,
-	}
-	return nil
+func (s *Script) Add(name string, value Object) {
+	s.variables[name] = &Variable{name: name, value: value}
 }
 
 // Remove removes (undefines) an existing variable for the script. It returns
@@ -68,19 +56,6 @@ func (s *Script) SetImportDir(dir string) error {
 	return nil
 }
 
-// SetMaxAllocs sets the maximum number of objects allocations during the run
-// time. Compiled script will return ErrObjectAllocLimit error if it
-// exceeds this limit.
-func (s *Script) SetMaxAllocs(n int64) {
-	s.maxAllocs = n
-}
-
-// SetMaxConstObjects sets the maximum number of objects in the compiled
-// constants.
-func (s *Script) SetMaxConstObjects(n int) {
-	s.maxConstObjects = n
-}
-
 // EnableFileImport enables or disables module loading from local files. Local
 // file modules are disabled by default.
 func (s *Script) EnableFileImport(enable bool) {
@@ -90,10 +65,7 @@ func (s *Script) EnableFileImport(enable bool) {
 // Compile compiles the script with all the defined variables, and, returns
 // Compiled object.
 func (s *Script) Compile() (*Compiled, error) {
-	symbolTable, globals, err := s.prepCompile()
-	if err != nil {
-		return nil, err
-	}
+	symbolTable, globals := s.prepCompile()
 
 	fileSet := parser.NewFileSet()
 	srcFile := fileSet.AddFile("(main)", -1, len(s.input))
@@ -126,18 +98,10 @@ func (s *Script) Compile() (*Compiled, error) {
 	bytecode := c.Bytecode()
 	bytecode.RemoveDuplicates()
 
-	// check the constant objects limit
-	if s.maxConstObjects >= 0 {
-		cnt := bytecode.CountObjects()
-		if cnt > s.maxConstObjects {
-			return nil, fmt.Errorf("exceeding constant objects limit: %d", cnt)
-		}
-	}
 	return &Compiled{
 		globalIndexes: globalIndexes,
 		bytecode:      bytecode,
 		globals:       globals,
-		maxAllocs:     s.maxAllocs,
 	}, nil
 }
 
@@ -148,27 +112,25 @@ func (s *Script) Run() (compiled *Compiled, err error) {
 	if err != nil {
 		return
 	}
-	err = compiled.Run()
-	return
+	if err := compiled.Run(); err != nil {
+		return nil, err
+	}
+	return compiled, nil
 }
 
 // RunContext is like Run but includes a context.
-func (s *Script) RunContext(
-	ctx context.Context,
-) (compiled *Compiled, err error) {
+func (s *Script) RunContext(ctx context.Context) (compiled *Compiled, err error) {
 	compiled, err = s.Compile()
 	if err != nil {
 		return
 	}
-	err = compiled.RunContext(ctx)
-	return
+	if err := compiled.RunContext(ctx); err != nil {
+		return nil, err
+	}
+	return compiled, nil
 }
 
-func (s *Script) prepCompile() (
-	symbolTable *SymbolTable,
-	globals []Object,
-	err error,
-) {
+func (s *Script) prepCompile() (symbolTable *SymbolTable, globals []Object) {
 	var names []string
 	for name := range s.variables {
 		names = append(names, name)
@@ -189,7 +151,8 @@ func (s *Script) prepCompile() (
 		}
 		globals[symbol.Index] = s.variables[name].value
 	}
-	return
+
+	return symbolTable, globals
 }
 
 // Compiled is a compiled instance of the user script. Use Script.Compile() to
@@ -198,7 +161,6 @@ type Compiled struct {
 	globalIndexes map[string]int // global symbol name to index
 	bytecode      *Bytecode
 	globals       []Object
-	maxAllocs     int64
 	lock          sync.RWMutex
 }
 
@@ -207,7 +169,7 @@ func (c *Compiled) Run() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	v := NewVM(c.bytecode, c.globals, c.maxAllocs)
+	v := NewVM(c.bytecode, c.globals)
 	return v.Run()
 }
 
@@ -216,7 +178,7 @@ func (c *Compiled) RunContext(ctx context.Context) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	v := NewVM(c.bytecode, c.globals, c.maxAllocs)
+	v := NewVM(c.bytecode, c.globals)
 	ch := make(chan error, 1)
 	go func() {
 		defer func() {
@@ -254,14 +216,15 @@ func (c *Compiled) Clone() *Compiled {
 		globalIndexes: c.globalIndexes,
 		bytecode:      c.bytecode,
 		globals:       make([]Object, len(c.globals)),
-		maxAllocs:     c.maxAllocs,
 	}
+
 	// copy global objects
 	for idx, g := range c.globals {
 		if g != nil {
 			clone.globals[idx] = g.Copy()
 		}
 	}
+
 	return clone
 }
 
@@ -275,11 +238,13 @@ func (c *Compiled) IsDefined(name string) bool {
 	if !ok {
 		return false
 	}
+
 	v := c.globals[idx]
 	if v == nil {
 		return false
 	}
-	return v != UndefinedValue
+
+	return v != Undefined
 }
 
 // Get returns a variable identified by the name.
@@ -287,13 +252,14 @@ func (c *Compiled) Get(name string) *Variable {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	value := UndefinedValue
+	value := Object(Undefined)
 	if idx, ok := c.globalIndexes[name]; ok {
 		value = c.globals[idx]
 		if value == nil {
-			value = UndefinedValue
+			value = Undefined
 		}
 	}
+
 	return &Variable{
 		name:  name,
 		value: value,
@@ -309,30 +275,28 @@ func (c *Compiled) GetAll() []*Variable {
 	for name, idx := range c.globalIndexes {
 		value := c.globals[idx]
 		if value == nil {
-			value = UndefinedValue
+			value = Undefined
 		}
 		vars = append(vars, &Variable{
 			name:  name,
 			value: value,
 		})
 	}
+
 	return vars
 }
 
 // Set replaces the value of a global variable identified by the name. An error
 // will be returned if the name was not defined during compilation.
-func (c *Compiled) Set(name string, value interface{}) error {
+func (c *Compiled) Set(name string, value Object) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	obj, err := FromInterface(value)
-	if err != nil {
-		return err
-	}
 	idx, ok := c.globalIndexes[name]
 	if !ok {
-		return fmt.Errorf("'%s' is not defined", name)
+		return fmt.Errorf("%q is not defined", name)
 	}
-	c.globals[idx] = obj
+	c.globals[idx] = value
+
 	return nil
 }

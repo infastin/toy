@@ -29,9 +29,9 @@ func NewGoProxy(ctx context.Context) *GoProxy {
 	mod.callbacks = make(map[string]tengo.Object)
 	mod.callChan = make(chan *CallArgs, 1)
 	mod.moduleMap = map[string]tengo.Object{
-		"next":     &tengo.UserFunction{Value: mod.next},
-		"register": &tengo.UserFunction{Value: mod.register},
-		"args":     &tengo.UserFunction{Value: mod.args},
+		"next":     &tengo.UserFunction{Func: mod.next},
+		"register": &tengo.UserFunction{Func: mod.register},
+		"args":     &tengo.UserFunction{Func: mod.args},
 	}
 	mod.tasks = list.New()
 	return mod
@@ -74,12 +74,12 @@ func (mod *GoProxy) next(args ...tengo.Object) (tengo.Object, error) {
 	defer mod.mtx.Unlock()
 	select {
 	case <-mod.ctx.Done():
-		return tengo.FalseValue, nil
+		return tengo.False, nil
 	case args := <-mod.callChan:
 		if args != nil {
 			mod.tasks.PushBack(args)
 		}
-		return tengo.TrueValue, nil
+		return tengo.True, nil
 	}
 }
 
@@ -102,7 +102,7 @@ func (mod *GoProxy) register(args ...tengo.Object) (tengo.Object, error) {
 			Found:    args[0].TypeName(),
 		}
 	}
-	return tengo.UndefinedValue, nil
+	return tengo.Undefined, nil
 }
 
 func (mod *GoProxy) args(args ...tengo.Object) (tengo.Object, error) {
@@ -110,7 +110,7 @@ func (mod *GoProxy) args(args ...tengo.Object) (tengo.Object, error) {
 	defer mod.mtx.Unlock()
 
 	if mod.tasks.Len() == 0 {
-		return tengo.UndefinedValue, nil
+		return tengo.Undefined, nil
 	}
 	el := mod.tasks.Front()
 	callArgs, ok := el.Value.(*CallArgs)
@@ -120,11 +120,11 @@ func (mod *GoProxy) args(args ...tengo.Object) (tengo.Object, error) {
 	mod.tasks.Remove(el)
 	f, ok := mod.callbacks[callArgs.Func]
 	if !ok {
-		return tengo.UndefinedValue, nil
+		return tengo.Undefined, nil
 	}
 	compiledFunc, ok := f.(*tengo.CompiledFunction)
 	if !ok {
-		return tengo.UndefinedValue, nil
+		return tengo.Undefined, nil
 	}
 	params := callArgs.Params
 	if params == nil {
@@ -134,16 +134,16 @@ func (mod *GoProxy) args(args ...tengo.Object) (tengo.Object, error) {
 	return &tengo.ImmutableMap{
 		Value: map[string]tengo.Object{
 			"result": &tengo.UserFunction{
-				Value: func(args ...tengo.Object) (tengo.Object, error) {
+				Func: func(args ...tengo.Object) (tengo.Object, error) {
 					if len(args) > 0 {
 						callArgs.Result <- args[0]
-						return tengo.UndefinedValue, nil
+						return tengo.Undefined, nil
 					}
 					callArgs.Result <- &tengo.Error{
 						Value: &tengo.String{
 							Value: tengo.ErrWrongNumArguments.Error()},
 					}
-					return tengo.UndefinedValue, nil
+					return tengo.Undefined, nil
 				}},
 			"num_params": &tengo.Int{Value: int64(compiledFunc.NumParameters)},
 			"callable":   compiledFunc,
@@ -187,9 +187,9 @@ func main() {
 	 // goproxy and proxy must be imported.
 	 goproxy := import("goproxy")
 	 proxy := import("proxy")
- 
+
 	 global := 0
- 
+
 	 callbacks := {
 		 sum: func(a, b) {
 			 return a + b
@@ -202,10 +202,10 @@ func main() {
 			 return global
 		 }
 	 }
- 
+
 	 // Register callbacks to call them in goproxy loop.
 	 goproxy.register(callbacks)
- 
+
 	 // goproxy loop waits for new call requests and run them with the help of
 	 // "proxy" source module. Cancelling the context breaks the loop.
 	 for goproxy.next() {

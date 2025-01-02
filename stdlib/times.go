@@ -41,148 +41,148 @@ var timesModule = map[string]tengo.Object{
 	"november":            &tengo.Int{Value: int64(time.November)},
 	"december":            &tengo.Int{Value: int64(time.December)},
 	"sleep": &tengo.UserFunction{
-		Name:  "sleep",
-		Value: timesSleep,
+		Name: "sleep",
+		Func: timesSleep,
 	}, // sleep(int)
 	"parse_duration": &tengo.UserFunction{
-		Name:  "parse_duration",
-		Value: timesParseDuration,
+		Name: "parse_duration",
+		Func: timesParseDuration,
 	}, // parse_duration(str) => int
 	"since": &tengo.UserFunction{
-		Name:  "since",
-		Value: timesSince,
+		Name: "since",
+		Func: timesSince,
 	}, // since(time) => int
 	"until": &tengo.UserFunction{
-		Name:  "until",
-		Value: timesUntil,
+		Name: "until",
+		Func: timesUntil,
 	}, // until(time) => int
 	"duration_hours": &tengo.UserFunction{
-		Name:  "duration_hours",
-		Value: timesDurationHours,
+		Name: "duration_hours",
+		Func: timesDurationHours,
 	}, // duration_hours(int) => float
 	"duration_minutes": &tengo.UserFunction{
-		Name:  "duration_minutes",
-		Value: timesDurationMinutes,
+		Name: "duration_minutes",
+		Func: timesDurationMinutes,
 	}, // duration_minutes(int) => float
 	"duration_nanoseconds": &tengo.UserFunction{
-		Name:  "duration_nanoseconds",
-		Value: timesDurationNanoseconds,
+		Name: "duration_nanoseconds",
+		Func: timesDurationNanoseconds,
 	}, // duration_nanoseconds(int) => int
 	"duration_seconds": &tengo.UserFunction{
-		Name:  "duration_seconds",
-		Value: timesDurationSeconds,
+		Name: "duration_seconds",
+		Func: timesDurationSeconds,
 	}, // duration_seconds(int) => float
 	"duration_string": &tengo.UserFunction{
-		Name:  "duration_string",
-		Value: timesDurationString,
+		Name: "duration_string",
+		Func: timesDurationString,
 	}, // duration_string(int) => string
 	"month_string": &tengo.UserFunction{
-		Name:  "month_string",
-		Value: timesMonthString,
+		Name: "month_string",
+		Func: timesMonthString,
 	}, // month_string(int) => string
 	"date": &tengo.UserFunction{
-		Name:  "date",
-		Value: timesDate,
+		Name: "date",
+		Func: timesDate,
 	}, // date(year, month, day, hour, min, sec, nsec) => time
 	"now": &tengo.UserFunction{
-		Name:  "now",
-		Value: timesNow,
+		Name: "now",
+		Func: timesNow,
 	}, // now() => time
 	"parse": &tengo.UserFunction{
-		Name:  "parse",
-		Value: timesParse,
+		Name: "parse",
+		Func: timesParse,
 	}, // parse(format, str) => time
 	"unix": &tengo.UserFunction{
-		Name:  "unix",
-		Value: timesUnix,
+		Name: "unix",
+		Func: timesUnix,
 	}, // unix(sec, nsec) => time
 	"add": &tengo.UserFunction{
-		Name:  "add",
-		Value: timesAdd,
+		Name: "add",
+		Func: timesAdd,
 	}, // add(time, int) => time
 	"add_date": &tengo.UserFunction{
-		Name:  "add_date",
-		Value: timesAddDate,
+		Name: "add_date",
+		Func: timesAddDate,
 	}, // add_date(time, years, months, days) => time
 	"sub": &tengo.UserFunction{
-		Name:  "sub",
-		Value: timesSub,
+		Name: "sub",
+		Func: timesSub,
 	}, // sub(t time, u time) => int
 	"after": &tengo.UserFunction{
-		Name:  "after",
-		Value: timesAfter,
+		Name: "after",
+		Func: timesAfter,
 	}, // after(t time, u time) => bool
 	"before": &tengo.UserFunction{
-		Name:  "before",
-		Value: timesBefore,
+		Name: "before",
+		Func: timesBefore,
 	}, // before(t time, u time) => bool
 	"time_year": &tengo.UserFunction{
-		Name:  "time_year",
-		Value: timesTimeYear,
+		Name: "time_year",
+		Func: timesTimeYear,
 	}, // time_year(time) => int
 	"time_month": &tengo.UserFunction{
-		Name:  "time_month",
-		Value: timesTimeMonth,
+		Name: "time_month",
+		Func: timesTimeMonth,
 	}, // time_month(time) => int
 	"time_day": &tengo.UserFunction{
-		Name:  "time_day",
-		Value: timesTimeDay,
+		Name: "time_day",
+		Func: timesTimeDay,
 	}, // time_day(time) => int
 	"time_weekday": &tengo.UserFunction{
-		Name:  "time_weekday",
-		Value: timesTimeWeekday,
+		Name: "time_weekday",
+		Func: timesTimeWeekday,
 	}, // time_weekday(time) => int
 	"time_hour": &tengo.UserFunction{
-		Name:  "time_hour",
-		Value: timesTimeHour,
+		Name: "time_hour",
+		Func: timesTimeHour,
 	}, // time_hour(time) => int
 	"time_minute": &tengo.UserFunction{
-		Name:  "time_minute",
-		Value: timesTimeMinute,
+		Name: "time_minute",
+		Func: timesTimeMinute,
 	}, // time_minute(time) => int
 	"time_second": &tengo.UserFunction{
-		Name:  "time_second",
-		Value: timesTimeSecond,
+		Name: "time_second",
+		Func: timesTimeSecond,
 	}, // time_second(time) => int
 	"time_nanosecond": &tengo.UserFunction{
-		Name:  "time_nanosecond",
-		Value: timesTimeNanosecond,
+		Name: "time_nanosecond",
+		Func: timesTimeNanosecond,
 	}, // time_nanosecond(time) => int
 	"time_unix": &tengo.UserFunction{
-		Name:  "time_unix",
-		Value: timesTimeUnix,
+		Name: "time_unix",
+		Func: timesTimeUnix,
 	}, // time_unix(time) => int
 	"time_unix_nano": &tengo.UserFunction{
-		Name:  "time_unix_nano",
-		Value: timesTimeUnixNano,
+		Name: "time_unix_nano",
+		Func: timesTimeUnixNano,
 	}, // time_unix_nano(time) => int
 	"time_format": &tengo.UserFunction{
-		Name:  "time_format",
-		Value: timesTimeFormat,
+		Name: "time_format",
+		Func: timesTimeFormat,
 	}, // time_format(time, format) => string
 	"time_location": &tengo.UserFunction{
-		Name:  "time_location",
-		Value: timesTimeLocation,
+		Name: "time_location",
+		Func: timesTimeLocation,
 	}, // time_location(time) => string
 	"time_string": &tengo.UserFunction{
-		Name:  "time_string",
-		Value: timesTimeString,
+		Name: "time_string",
+		Func: timesTimeString,
 	}, // time_string(time) => string
 	"is_zero": &tengo.UserFunction{
-		Name:  "is_zero",
-		Value: timesIsZero,
+		Name: "is_zero",
+		Func: timesIsZero,
 	}, // is_zero(time) => bool
 	"to_local": &tengo.UserFunction{
-		Name:  "to_local",
-		Value: timesToLocal,
+		Name: "to_local",
+		Func: timesToLocal,
 	}, // to_local(time) => time
 	"to_utc": &tengo.UserFunction{
-		Name:  "to_utc",
-		Value: timesToUTC,
+		Name: "to_utc",
+		Func: timesToUTC,
 	}, // to_utc(time) => time
 	"in_location": &tengo.UserFunction{
-		Name:  "in_location",
-		Value: timesInLocation,
+		Name: "in_location",
+		Func: timesInLocation,
 	}, // in_location(time, location) => time
 }
 
@@ -203,7 +203,7 @@ func timesSleep(args ...tengo.Object) (ret tengo.Object, err error) {
 	}
 
 	time.Sleep(time.Duration(i1))
-	ret = tengo.UndefinedValue
+	ret = tengo.Undefined
 
 	return
 }
@@ -750,9 +750,9 @@ func timesAfter(args ...tengo.Object) (ret tengo.Object, err error) {
 	}
 
 	if t1.After(t2) {
-		ret = tengo.TrueValue
+		ret = tengo.True
 	} else {
-		ret = tengo.FalseValue
+		ret = tengo.False
 	}
 
 	return
@@ -785,9 +785,9 @@ func timesBefore(args ...tengo.Object) (ret tengo.Object, err error) {
 	}
 
 	if t1.Before(t2) {
-		ret = tengo.TrueValue
+		ret = tengo.True
 	} else {
-		ret = tengo.FalseValue
+		ret = tengo.False
 	}
 
 	return
@@ -1063,9 +1063,9 @@ func timesIsZero(args ...tengo.Object) (ret tengo.Object, err error) {
 	}
 
 	if t1.IsZero() {
-		ret = tengo.TrueValue
+		ret = tengo.True
 	} else {
-		ret = tengo.FalseValue
+		ret = tengo.False
 	}
 
 	return

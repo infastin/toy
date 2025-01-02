@@ -2,8 +2,7 @@ package tengo
 
 // Importable interface represents importable module instance.
 type Importable interface {
-	// Import should return either an Object or module source code ([]byte).
-	Import(moduleName string) (interface{}, error)
+	importable()
 }
 
 // ModuleGetter enables implementing dynamic module loading.
@@ -30,13 +29,13 @@ func (m *ModuleMap) Add(name string, module Importable) {
 }
 
 // AddBuiltinModule adds a builtin module.
-func (m *ModuleMap) AddBuiltinModule(name string, attrs map[string]Object) {
-	m.m[name] = &BuiltinModule{Attrs: attrs}
+func (m *ModuleMap) AddBuiltinModule(name string, fields map[string]Object) {
+	m.m[name] = &BuiltinModule{Name: name, Fields: fields}
 }
 
 // AddSourceModule adds a source module.
 func (m *ModuleMap) AddSourceModule(name string, src []byte) {
-	m.m[name] = &SourceModule{Src: src}
+	m.m[name] = SourceModule(src)
 }
 
 // Remove removes a named module.
@@ -87,12 +86,36 @@ func (m *ModuleMap) AddMap(o *ModuleMap) {
 	}
 }
 
-// SourceModule is an importable module that's written in Tengo.
-type SourceModule struct {
-	Src []byte
+// BuiltinModule is an importable module that's written in Go.
+type BuiltinModule struct {
+	Name   string
+	Fields map[string]Object
 }
 
-// Import returns a module source code.
-func (m *SourceModule) Import(_ string) (interface{}, error) {
-	return m.Src, nil
+func (m *BuiltinModule) importable() {}
+
+func (m *BuiltinModule) TypeName() string { return "module" }
+func (m *BuiltinModule) String() string   { return "<module>" }
+func (m *BuiltinModule) IsFalsy() bool    { return false }
+
+func (m *BuiltinModule) Copy() Object {
+	fields := make(map[string]Object)
+	for name, value := range m.Fields {
+		fields[name] = value.Copy()
+	}
+	return &BuiltinModule{Name: m.Name, Fields: m.Fields}
 }
+
+func (m *BuiltinModule) FieldGet(name string) (Object, error) {
+	field, ok := m.Fields[name]
+	if !ok {
+		return nil, ErrNoSuchField
+	}
+	return field, nil
+}
+
+// SourceModule is an importable module that's written in Tengo.
+type SourceModule []byte
+
+// Import returns a module source code.
+func (m SourceModule) importable() {}

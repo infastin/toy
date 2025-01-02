@@ -248,7 +248,7 @@ func Encode(o tengo.Object) ([]byte, error) {
 			return nil, err
 		}
 		b = append(b, y...)
-	case *tengo.Undefined:
+	case *tengo.UndefinedType:
 		b = append(b, "null"...)
 	default:
 		// unknown type: ignore

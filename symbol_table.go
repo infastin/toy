@@ -41,10 +41,8 @@ func NewSymbolTable() *SymbolTable {
 func (t *SymbolTable) Define(name string) *Symbol {
 	symbol := &Symbol{Name: name, Index: t.nextIndex()}
 	t.numDefinition++
-
 	if t.Parent(true) == nil {
 		symbol.Scope = ScopeGlobal
-
 		// if symbol is defined in a block of global scope, symbol index must
 		// be tracked at the root-level table instead.
 		if p := t.parent; p != nil {
@@ -54,7 +52,6 @@ func (t *SymbolTable) Define(name string) *Symbol {
 			t.numDefinition--
 			p.numDefinition++
 		}
-
 	} else {
 		symbol.Scope = ScopeLocal
 	}
@@ -68,7 +65,6 @@ func (t *SymbolTable) DefineBuiltin(index int, name string) *Symbol {
 	if t.parent != nil {
 		return t.parent.DefineBuiltin(index, name)
 	}
-
 	symbol := &Symbol{
 		Name:  name,
 		Index: index,
@@ -111,6 +107,7 @@ func (t *SymbolTable) Resolve(
 		symbol.Scope != ScopeBuiltin {
 		return t.defineFree(symbol), depth, true
 	}
+
 	return symbol, depth, true
 }
 

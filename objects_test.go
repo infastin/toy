@@ -35,7 +35,7 @@ func TestObject_TypeName(t *testing.T) {
 	require.Equal(t, "user-function:fn", o.TypeName())
 	o = &tengo.CompiledFunction{}
 	require.Equal(t, "compiled-function", o.TypeName())
-	o = &tengo.Undefined{}
+	o = &tengo.UndefinedType{}
 	require.Equal(t, "undefined", o.TypeName())
 	o = &tengo.Error{}
 	require.Equal(t, "error", o.TypeName())
@@ -78,7 +78,7 @@ func TestObject_IsFalsy(t *testing.T) {
 	require.False(t, o.IsFalsy())
 	o = &tengo.CompiledFunction{}
 	require.False(t, o.IsFalsy())
-	o = &tengo.Undefined{}
+	o = &tengo.UndefinedType{}
 	require.True(t, o.IsFalsy())
 	o = &tengo.Error{}
 	require.True(t, o.IsFalsy())
@@ -119,7 +119,7 @@ func TestObject_String(t *testing.T) {
 	require.Equal(t, "<array-iterator>", o.String())
 	o = &tengo.MapIterator{}
 	require.Equal(t, "<map-iterator>", o.String())
-	o = &tengo.Undefined{}
+	o = &tengo.UndefinedType{}
 	require.Equal(t, "<undefined>", o.String())
 	o = &tengo.Bytes{}
 	require.Equal(t, "", o.String())
@@ -129,34 +129,34 @@ func TestObject_String(t *testing.T) {
 
 func TestObject_BinaryOp(t *testing.T) {
 	var o tengo.Object = &tengo.Char{}
-	_, err := o.BinaryOp(token.Add, tengo.UndefinedValue)
+	_, err := o.BinaryOp(token.Add, tengo.Undefined)
 	require.Error(t, err)
 	o = &tengo.Bool{}
-	_, err = o.BinaryOp(token.Add, tengo.UndefinedValue)
+	_, err = o.BinaryOp(token.Add, tengo.Undefined)
 	require.Error(t, err)
 	o = &tengo.Map{}
-	_, err = o.BinaryOp(token.Add, tengo.UndefinedValue)
+	_, err = o.BinaryOp(token.Add, tengo.Undefined)
 	require.Error(t, err)
 	o = &tengo.ArrayIterator{}
-	_, err = o.BinaryOp(token.Add, tengo.UndefinedValue)
+	_, err = o.BinaryOp(token.Add, tengo.Undefined)
 	require.Error(t, err)
 	o = &tengo.StringIterator{}
-	_, err = o.BinaryOp(token.Add, tengo.UndefinedValue)
+	_, err = o.BinaryOp(token.Add, tengo.Undefined)
 	require.Error(t, err)
 	o = &tengo.MapIterator{}
-	_, err = o.BinaryOp(token.Add, tengo.UndefinedValue)
+	_, err = o.BinaryOp(token.Add, tengo.Undefined)
 	require.Error(t, err)
 	o = &tengo.BuiltinFunction{}
-	_, err = o.BinaryOp(token.Add, tengo.UndefinedValue)
+	_, err = o.BinaryOp(token.Add, tengo.Undefined)
 	require.Error(t, err)
 	o = &tengo.CompiledFunction{}
-	_, err = o.BinaryOp(token.Add, tengo.UndefinedValue)
+	_, err = o.BinaryOp(token.Add, tengo.Undefined)
 	require.Error(t, err)
-	o = &tengo.Undefined{}
-	_, err = o.BinaryOp(token.Add, tengo.UndefinedValue)
+	o = &tengo.UndefinedType{}
+	_, err = o.BinaryOp(token.Add, tengo.Undefined)
 	require.Error(t, err)
 	o = &tengo.Error{}
-	_, err = o.BinaryOp(token.Add, tengo.UndefinedValue)
+	_, err = o.BinaryOp(token.Add, tengo.Undefined)
 	require.Error(t, err)
 }
 
@@ -730,7 +730,7 @@ func testBinaryOp(
 
 func boolValue(b bool) tengo.Object {
 	if b {
-		return tengo.TrueValue
+		return tengo.True
 	}
-	return tengo.FalseValue
+	return tengo.False
 }

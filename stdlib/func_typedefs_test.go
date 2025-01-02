@@ -15,7 +15,7 @@ func TestFuncAIR(t *testing.T) {
 	uf := stdlib.FuncAIR(func(int) {})
 	ret, err := funcCall(uf, &tengo.Int{Value: 10})
 	require.NoError(t, err)
-	require.Equal(t, tengo.UndefinedValue, ret)
+	require.Equal(t, tengo.Undefined, ret)
 	_, err = funcCall(uf)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
@@ -24,8 +24,8 @@ func TestFuncAR(t *testing.T) {
 	uf := stdlib.FuncAR(func() {})
 	ret, err := funcCall(uf)
 	require.NoError(t, err)
-	require.Equal(t, tengo.UndefinedValue, ret)
-	_, err = funcCall(uf, tengo.TrueValue)
+	require.Equal(t, tengo.Undefined, ret)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -34,7 +34,7 @@ func TestFuncARI(t *testing.T) {
 	ret, err := funcCall(uf)
 	require.NoError(t, err)
 	require.Equal(t, &tengo.Int{Value: 10}, ret)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -42,14 +42,14 @@ func TestFuncARE(t *testing.T) {
 	uf := stdlib.FuncARE(func() error { return nil })
 	ret, err := funcCall(uf)
 	require.NoError(t, err)
-	require.Equal(t, tengo.TrueValue, ret)
+	require.Equal(t, tengo.True, ret)
 	uf = stdlib.FuncARE(func() error { return errors.New("some error") })
 	ret, err = funcCall(uf)
 	require.NoError(t, err)
 	require.Equal(t, &tengo.Error{
 		Value: &tengo.String{Value: "some error"},
 	}, ret)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -69,7 +69,7 @@ func TestFuncARIsE(t *testing.T) {
 	require.Equal(t, &tengo.Error{
 		Value: &tengo.String{Value: "some error"},
 	}, ret)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -78,7 +78,7 @@ func TestFuncARS(t *testing.T) {
 	ret, err := funcCall(uf)
 	require.NoError(t, err)
 	require.Equal(t, &tengo.String{Value: "foo"}, ret)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -95,7 +95,7 @@ func TestFuncARSE(t *testing.T) {
 	require.Equal(t, &tengo.Error{
 		Value: &tengo.String{Value: "some error"},
 	}, ret)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -105,7 +105,7 @@ func TestFuncARSs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, array(&tengo.String{Value: "foo"},
 		&tengo.String{Value: "bar"}), ret)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -113,7 +113,7 @@ func TestFuncASRE(t *testing.T) {
 	uf := stdlib.FuncASRE(func(a string) error { return nil })
 	ret, err := funcCall(uf, &tengo.String{Value: "foo"})
 	require.NoError(t, err)
-	require.Equal(t, tengo.TrueValue, ret)
+	require.Equal(t, tengo.True, ret)
 	uf = stdlib.FuncASRE(func(a string) error {
 		return errors.New("some error")
 	})
@@ -148,7 +148,7 @@ func TestFuncASI64RE(t *testing.T) {
 	uf := stdlib.FuncASI64RE(func(a string, b int64) error { return nil })
 	ret, err := funcCall(uf, &tengo.String{Value: "foo"}, &tengo.Int{Value: 5})
 	require.NoError(t, err)
-	require.Equal(t, tengo.TrueValue, ret)
+	require.Equal(t, tengo.True, ret)
 	uf = stdlib.FuncASI64RE(func(a string, b int64) error {
 		return errors.New("some error")
 	})
@@ -164,7 +164,7 @@ func TestFuncAIIRE(t *testing.T) {
 	uf := stdlib.FuncAIIRE(func(a, b int) error { return nil })
 	ret, err := funcCall(uf, &tengo.Int{Value: 5}, &tengo.Int{Value: 7})
 	require.NoError(t, err)
-	require.Equal(t, tengo.TrueValue, ret)
+	require.Equal(t, tengo.True, ret)
 	uf = stdlib.FuncAIIRE(func(a, b int) error {
 		return errors.New("some error")
 	})
@@ -181,7 +181,7 @@ func TestFuncASIIRE(t *testing.T) {
 	ret, err := funcCall(uf, &tengo.String{Value: "foo"}, &tengo.Int{Value: 5},
 		&tengo.Int{Value: 7})
 	require.NoError(t, err)
-	require.Equal(t, tengo.TrueValue, ret)
+	require.Equal(t, tengo.True, ret)
 	uf = stdlib.FuncASIIRE(func(a string, b, c int) error {
 		return errors.New("some error")
 	})
@@ -215,7 +215,7 @@ func TestFuncASSRE(t *testing.T) {
 	ret, err := funcCall(uf, &tengo.String{Value: "foo"},
 		&tengo.String{Value: "bar"})
 	require.NoError(t, err)
-	require.Equal(t, tengo.TrueValue, ret)
+	require.Equal(t, tengo.True, ret)
 	uf = stdlib.FuncASSRE(func(a, b string) error {
 		return errors.New("some error")
 	})
@@ -245,7 +245,7 @@ func TestFuncARF(t *testing.T) {
 	ret, err := funcCall(uf)
 	require.NoError(t, err)
 	require.Equal(t, &tengo.Float{Value: 10.0}, ret)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -256,7 +256,7 @@ func TestFuncAFRF(t *testing.T) {
 	require.Equal(t, &tengo.Float{Value: 10.0}, ret)
 	_, err = funcCall(uf)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, tengo.TrueValue, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -269,7 +269,7 @@ func TestFuncAIRF(t *testing.T) {
 	require.Equal(t, &tengo.Float{Value: 10.0}, ret)
 	_, err = funcCall(uf)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, tengo.TrueValue, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -282,7 +282,7 @@ func TestFuncAFRI(t *testing.T) {
 	require.Equal(t, &tengo.Int{Value: 10}, ret)
 	_, err = funcCall(uf)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, tengo.TrueValue, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -292,10 +292,10 @@ func TestFuncAFRB(t *testing.T) {
 	})
 	ret, err := funcCall(uf, &tengo.Float{Value: 0.1})
 	require.NoError(t, err)
-	require.Equal(t, tengo.TrueValue, ret)
+	require.Equal(t, tengo.True, ret)
 	_, err = funcCall(uf)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, tengo.TrueValue, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -309,7 +309,7 @@ func TestFuncAFFRF(t *testing.T) {
 	require.Equal(t, &tengo.Float{Value: 30.0}, ret)
 	_, err = funcCall(uf)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -322,7 +322,7 @@ func TestFuncASIRS(t *testing.T) {
 	require.Equal(t, &tengo.String{Value: "abab"}, ret)
 	_, err = funcCall(uf)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -335,7 +335,7 @@ func TestFuncAIFRF(t *testing.T) {
 	require.Equal(t, &tengo.Float{Value: 30.0}, ret)
 	_, err = funcCall(uf)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -348,7 +348,7 @@ func TestFuncAFIRF(t *testing.T) {
 	require.Equal(t, &tengo.Float{Value: 30.0}, ret)
 	_, err = funcCall(uf)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -358,10 +358,10 @@ func TestFuncAFIRB(t *testing.T) {
 	})
 	ret, err := funcCall(uf, &tengo.Float{Value: 10.0}, &tengo.Int{Value: 20})
 	require.NoError(t, err)
-	require.Equal(t, tengo.TrueValue, ret)
+	require.Equal(t, tengo.True, ret)
 	_, err = funcCall(uf)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -414,8 +414,8 @@ func TestFuncARB(t *testing.T) {
 	uf := stdlib.FuncARB(func() bool { return true })
 	ret, err := funcCall(uf)
 	require.NoError(t, err)
-	require.Equal(t, tengo.TrueValue, ret)
-	_, err = funcCall(uf, tengo.TrueValue)
+	require.Equal(t, tengo.True, ret)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -433,7 +433,7 @@ func TestFuncARYE(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t,
 		&tengo.Error{Value: &tengo.String{Value: "some error"}}, ret)
-	_, err = funcCall(uf, tengo.TrueValue)
+	_, err = funcCall(uf, tengo.True)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
 
@@ -494,7 +494,7 @@ func TestFuncASSRB(t *testing.T) {
 	ret, err := funcCall(uf,
 		&tengo.String{Value: "123"}, &tengo.String{Value: "12"})
 	require.NoError(t, err)
-	require.Equal(t, tengo.TrueValue, ret)
+	require.Equal(t, tengo.True, ret)
 	_, err = funcCall(uf, &tengo.String{Value: "foo"})
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
@@ -521,7 +521,7 @@ func TestFuncAI64R(t *testing.T) {
 	uf := stdlib.FuncAIR(func(a int) {})
 	ret, err := funcCall(uf, &tengo.Int{Value: 55})
 	require.NoError(t, err)
-	require.Equal(t, tengo.UndefinedValue, ret)
+	require.Equal(t, tengo.Undefined, ret)
 	_, err = funcCall(uf)
 	require.Equal(t, tengo.ErrWrongNumArguments, err)
 }
@@ -561,7 +561,7 @@ func funcCall(
 	fn tengo.CallableFunc,
 	args ...tengo.Object,
 ) (tengo.Object, error) {
-	userFunc := &tengo.UserFunction{Value: fn}
+	userFunc := &tengo.UserFunction{Func: fn}
 	return userFunc.Call(args...)
 }
 

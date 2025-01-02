@@ -80,7 +80,6 @@ func (s *Scanner) Scan() (
 	s.skipWhitespace()
 
 	pos = s.file.FileSetPos(s.offset)
-
 	insertSemi := false
 
 	// determine token value
@@ -221,10 +220,12 @@ func (s *Scanner) Scan() (
 			literal = string(ch)
 		}
 	}
+
 	if s.mode&DontInsertSemis == 0 {
 		s.insertSemi = insertSemi
 	}
-	return
+
+	return tok, literal, pos
 }
 
 func (s *Scanner) next() {
@@ -309,7 +310,6 @@ func (s *Scanner) scanComment() string {
 
 exit:
 	lit := s.src[offs:s.offset]
-
 	// On Windows, a (//-comment) line may end in "\r\n".
 	// Remove the final '\r' before analyzing the text for line directives (matching the compiler).
 	// Remove any other '\r' afterwards (matching the pre-existing behavior of the scanner).
@@ -325,7 +325,6 @@ exit:
 
 func (s *Scanner) findLineEnd() bool {
 	// initial '/' already consumed
-
 	defer func(offs int) {
 		// reset scanner state to where it was upon calling findLineEnd
 		s.ch = '/'
@@ -333,7 +332,6 @@ func (s *Scanner) findLineEnd() bool {
 		s.readOffset = offs + 1
 		s.next() // consume initial '/' again
 	}(s.offset - 1)
-
 	// read ahead until a newline, EOF, or non-comment tok is found
 	for s.ch == '/' || s.ch == '*' {
 		if s.ch == '/' {
@@ -478,6 +476,7 @@ func (s *Scanner) scanEscape(quote rune) bool {
 		s.error(offs, "escape sequence is invalid Unicode code point")
 		return false
 	}
+
 	return true
 }
 
@@ -512,12 +511,12 @@ func (s *Scanner) scanRune() string {
 	if valid && n != 1 {
 		s.error(offs, "illegal rune literal")
 	}
+
 	return string(s.src[offs:s.offset])
 }
 
 func (s *Scanner) scanString() string {
 	offs := s.offset - 1 // '"' opening already consumed
-
 	for {
 		ch := s.ch
 		if ch == '\n' || ch < 0 {
@@ -545,13 +544,10 @@ func (s *Scanner) scanRawString() string {
 			s.error(offs, "raw string literal not terminated")
 			break
 		}
-
 		s.next()
-
 		if ch == '`' {
 			break
 		}
-
 		if ch == '\r' {
 			hasCR = true
 		}
@@ -561,6 +557,7 @@ func (s *Scanner) scanRawString() string {
 	if hasCR {
 		lit = StripCR(lit, false)
 	}
+
 	return string(lit)
 }
 

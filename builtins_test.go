@@ -12,7 +12,7 @@ func Test_builtinDelete(t *testing.T) {
 	var builtinDelete func(args ...tengo.Object) (tengo.Object, error)
 	for _, f := range tengo.GetAllBuiltinFunctions() {
 		if f.Name == "delete" {
-			builtinDelete = f.Value
+			builtinDelete = f.Func
 			break
 		}
 	}
@@ -48,7 +48,7 @@ func Test_builtinDelete(t *testing.T) {
 		},
 		{name: "nil-map-empty-key",
 			args: args{[]tengo.Object{&tengo.Map{}, &tengo.String{}}},
-			want: tengo.UndefinedValue,
+			want: tengo.Undefined,
 		},
 		{name: "nil-map-nonstr-key",
 			args: args{[]tengo.Object{
@@ -67,7 +67,7 @@ func Test_builtinDelete(t *testing.T) {
 						"key": &tengo.String{Value: "value"},
 					}},
 					&tengo.String{Value: "key1"}}},
-			want: tengo.UndefinedValue,
+			want: tengo.Undefined,
 			target: &tengo.Map{
 				Value: map[string]tengo.Object{
 					"key": &tengo.String{
@@ -80,7 +80,7 @@ func Test_builtinDelete(t *testing.T) {
 						"key": &tengo.String{Value: "value"},
 					}},
 					&tengo.String{Value: "key"}}},
-			want:   tengo.UndefinedValue,
+			want:   tengo.Undefined,
 			target: &tengo.Map{Value: map[string]tengo.Object{}},
 		},
 		{name: "map-multi-keys",
@@ -91,7 +91,7 @@ func Test_builtinDelete(t *testing.T) {
 						"key2": &tengo.Int{Value: 10},
 					}},
 					&tengo.String{Value: "key1"}}},
-			want: tengo.UndefinedValue,
+			want: tengo.Undefined,
 			target: &tengo.Map{Value: map[string]tengo.Object{
 				"key2": &tengo.Int{Value: 10}}},
 		},
@@ -136,7 +136,7 @@ func Test_builtinSplice(t *testing.T) {
 	var builtinSplice func(args ...tengo.Object) (tengo.Object, error)
 	for _, f := range tengo.GetAllBuiltinFunctions() {
 		if f.Name == "splice" {
-			builtinSplice = f.Value
+			builtinSplice = f.Func
 			break
 		}
 	}
@@ -356,7 +356,7 @@ func Test_builtinRange(t *testing.T) {
 	var builtinRange func(args ...tengo.Object) (tengo.Object, error)
 	for _, f := range tengo.GetAllBuiltinFunctions() {
 		if f.Name == "range" {
-			builtinRange = f.Value
+			builtinRange = f.Func
 			break
 		}
 	}

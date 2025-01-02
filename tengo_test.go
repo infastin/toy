@@ -17,8 +17,8 @@ func TestInstructions_String(t *testing.T) {
 			tengo.MakeInstruction(parser.OpConstant, 2),
 			tengo.MakeInstruction(parser.OpConstant, 65535),
 		},
-		`0000 CONST   1    
-0003 CONST   2    
+		`0000 CONST   1
+0003 CONST   2
 0006 CONST   65535`)
 
 	assertInstructionString(t,
@@ -27,8 +27,8 @@ func TestInstructions_String(t *testing.T) {
 			tengo.MakeInstruction(parser.OpConstant, 2),
 			tengo.MakeInstruction(parser.OpConstant, 65535),
 		},
-		`0000 BINARYOP 11   
-0002 CONST   2    
+		`0000 BINARYOP 11
+0002 CONST   2
 0005 CONST   65535`)
 
 	assertInstructionString(t,
@@ -38,9 +38,9 @@ func TestInstructions_String(t *testing.T) {
 			tengo.MakeInstruction(parser.OpConstant, 2),
 			tengo.MakeInstruction(parser.OpConstant, 65535),
 		},
-		`0000 BINARYOP 11   
-0002 GETL    1    
-0004 CONST   2    
+		`0000 BINARYOP 11
+0002 GETL    1
+0004 CONST   2
 0007 CONST   65535`)
 }
 
@@ -67,8 +67,8 @@ func TestNumObjects(t *testing.T) {
 			&tengo.Int{Value: 5},
 		}},
 	}}, 7)
-	testCountObjects(t, tengo.TrueValue, 1)
-	testCountObjects(t, tengo.FalseValue, 1)
+	testCountObjects(t, tengo.True, 1)
+	testCountObjects(t, tengo.False, 1)
 	testCountObjects(t, &tengo.BuiltinFunction{}, 1)
 	testCountObjects(t, &tengo.Bytes{Value: []byte("foobar")}, 1)
 	testCountObjects(t, &tengo.Char{Value: '가'}, 1)
@@ -106,7 +106,7 @@ func TestNumObjects(t *testing.T) {
 	}}, 7)
 	testCountObjects(t, &tengo.String{Value: "foo bar"}, 1)
 	testCountObjects(t, &tengo.Time{Value: time.Now()}, 1)
-	testCountObjects(t, tengo.UndefinedValue, 1)
+	testCountObjects(t, tengo.Undefined, 1)
 }
 
 func testCountObjects(t *testing.T, o tengo.Object, expected int) {

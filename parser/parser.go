@@ -53,7 +53,6 @@ func (p ErrorList) Swap(i, j int) {
 func (p ErrorList) Less(i, j int) bool {
 	e := &p[i].Pos
 	f := &p[j].Pos
-
 	if e.Filename != f.Filename {
 		return e.Filename < f.Filename
 	}
@@ -129,7 +128,6 @@ func (p *Parser) ParseFile() (file *File, err error) {
 				panic(e)
 			}
 		}
-
 		p.errors.Sort()
 		err = p.errors.Err()
 	}()
@@ -148,20 +146,17 @@ func (p *Parser) ParseFile() (file *File, err error) {
 		return nil, p.errors.Err()
 	}
 
-	file = &File{
+	return &File{
 		InputFile: p.file,
 		Stmts:     stmts,
-	}
-	return
+	}, nil
 }
 
 func (p *Parser) parseExpr() Expr {
 	if p.trace {
 		defer untracep(tracep(p, "Expression"))
 	}
-
 	expr := p.parseBinaryExpr(token.LowestPrec + 1)
-
 	// ternary conditional expression
 	if p.token == token.Question {
 		return p.parseCondExpr(expr)
@@ -173,19 +168,14 @@ func (p *Parser) parseBinaryExpr(prec1 int) Expr {
 	if p.trace {
 		defer untracep(tracep(p, "BinaryExpression"))
 	}
-
 	x := p.parseUnaryExpr()
-
 	for {
 		op, prec := p.token, p.token.Precedence()
 		if prec < prec1 {
 			return x
 		}
-
 		pos := p.expect(op)
-
 		y := p.parseBinaryExpr(prec + 1)
-
 		x = &BinaryExpr{
 			LHS:      x,
 			RHS:      y,
@@ -200,7 +190,6 @@ func (p *Parser) parseCondExpr(cond Expr) Expr {
 	trueExpr := p.parseExpr()
 	colonPos := p.expect(token.Colon)
 	falseExpr := p.parseExpr()
-
 	return &CondExpr{
 		Cond:        cond,
 		True:        trueExpr,
@@ -214,7 +203,6 @@ func (p *Parser) parseUnaryExpr() Expr {
 	if p.trace {
 		defer untracep(tracep(p, "UnaryExpression"))
 	}
-
 	switch p.token {
 	case token.Add, token.Sub, token.Not, token.Xor:
 		pos, op := p.pos, p.token
@@ -233,9 +221,7 @@ func (p *Parser) parsePrimaryExpr() Expr {
 	if p.trace {
 		defer untracep(tracep(p, "PrimaryExpression"))
 	}
-
 	x := p.parseOperand()
-
 L:
 	for {
 		switch p.token {
@@ -285,6 +271,7 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 
 	p.exprLevel--
 	rparen := p.expect(token.RParen)
+
 	return &CallExpr{
 		Func:     x,
 		LParen:   lparen,
@@ -297,14 +284,12 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 func (p *Parser) expectComma(closing token.Token, want string) bool {
 	if p.token == token.Comma {
 		p.next()
-
 		if p.token == closing {
 			p.errorExpected(p.pos, want)
 			return false
 		}
 		return true
 	}
-
 	if p.token == token.Semicolon && p.tokenLit == "\n" {
 		p.next()
 	}
@@ -346,6 +331,7 @@ func (p *Parser) parseIndexOrSlice(x Expr) Expr {
 			High:   index[1],
 		}
 	}
+
 	return &IndexExpr{
 		Expr:   x,
 		LBrack: lbrack,
@@ -358,7 +344,6 @@ func (p *Parser) parseSelector(x Expr) Expr {
 	if p.trace {
 		defer untracep(tracep(p, "Selector"))
 	}
-
 	sel := p.parseIdent()
 	return &SelectorExpr{Expr: x, Sel: &StringLit{
 		Value:    sel.Name,
@@ -371,7 +356,6 @@ func (p *Parser) parseOperand() Expr {
 	if p.trace {
 		defer untracep(tracep(p, "Operand"))
 	}
-
 	switch p.token {
 	case token.Ident:
 		return p.parseIdent()
@@ -389,7 +373,6 @@ func (p *Parser) parseOperand() Expr {
 		}
 		p.next()
 		return x
-
 	case token.Float:
 		v, err := strconv.ParseFloat(p.tokenLit, 64)
 		if err == strconv.ErrRange {
@@ -455,14 +438,11 @@ func (p *Parser) parseOperand() Expr {
 		return p.parseMapLit()
 	case token.Func: // function literal
 		return p.parseFuncLit()
-	case token.Error: // error expression
-		return p.parseErrorExpr()
 	case token.Immutable: // immutable expression
 		return p.parseImmutableExpr()
 	default:
 		p.errorExpected(p.pos, "operand")
 	}
-
 	pos := p.pos
 	p.advance(stmtStart)
 	return &BadExpr{From: pos, To: p.pos}
@@ -477,7 +457,6 @@ func (p *Parser) parseImportExpr() Expr {
 		p.advance(stmtStart)
 		return &BadExpr{From: pos, To: p.pos}
 	}
-
 	// module name
 	moduleName, _ := strconv.Unquote(p.tokenLit)
 	expr := &ImportExpr{
@@ -485,7 +464,6 @@ func (p *Parser) parseImportExpr() Expr {
 		Token:      token.Import,
 		TokenPos:   pos,
 	}
-
 	p.next()
 	p.expect(token.RParen)
 	return expr
@@ -504,7 +482,6 @@ func (p *Parser) parseCharLit() Expr {
 			return x
 		}
 	}
-
 	pos := p.pos
 	p.error(pos, "illegal char literal")
 	p.next()
@@ -518,7 +495,6 @@ func (p *Parser) parseFuncLit() Expr {
 	if p.trace {
 		defer untracep(tracep(p, "FuncLit"))
 	}
-
 	typ := p.parseFuncType()
 	p.exprLevel++
 	body := p.parseBody()
@@ -548,6 +524,7 @@ func (p *Parser) parseArrayLit() Expr {
 
 	p.exprLevel--
 	rbrack := p.expect(token.RBrack)
+
 	return &ArrayLit{
 		Elements: elements,
 		LBrack:   lbrack,
@@ -555,24 +532,8 @@ func (p *Parser) parseArrayLit() Expr {
 	}
 }
 
-func (p *Parser) parseErrorExpr() Expr {
-	pos := p.pos
-
-	p.next()
-	lparen := p.expect(token.LParen)
-	value := p.parseExpr()
-	rparen := p.expect(token.RParen)
-	return &ErrorExpr{
-		ErrorPos: pos,
-		Expr:     value,
-		LParen:   lparen,
-		RParen:   rparen,
-	}
-}
-
 func (p *Parser) parseImmutableExpr() Expr {
 	pos := p.pos
-
 	p.next()
 	lparen := p.expect(token.LParen)
 	value := p.parseExpr()
@@ -589,7 +550,6 @@ func (p *Parser) parseFuncType() *FuncType {
 	if p.trace {
 		defer untracep(tracep(p, "FuncType"))
 	}
-
 	pos := p.expect(token.Func)
 	params := p.parseIdentList()
 	return &FuncType{
@@ -602,7 +562,6 @@ func (p *Parser) parseBody() *BlockStmt {
 	if p.trace {
 		defer untracep(tracep(p, "Body"))
 	}
-
 	lbrace := p.expect(token.LBrace)
 	list := p.parseStmtList()
 	rbrace := p.expect(token.RBrace)
@@ -617,17 +576,15 @@ func (p *Parser) parseStmtList() (list []Stmt) {
 	if p.trace {
 		defer untracep(tracep(p, "StatementList"))
 	}
-
 	for p.token != token.RBrace && p.token != token.EOF {
-		list = append(list, p.parseStmt())
+		return []Stmt{p.parseStmt()}
 	}
-	return
+	return nil
 }
 
 func (p *Parser) parseIdent() *Ident {
 	pos := p.pos
 	name := "_"
-
 	if p.token == token.Ident {
 		name = p.tokenLit
 		p.next()
@@ -678,10 +635,9 @@ func (p *Parser) parseStmt() (stmt Stmt) {
 	if p.trace {
 		defer untracep(tracep(p, "Statement"))
 	}
-
 	switch p.token {
 	case // simple statements
-		token.Func, token.Error, token.Immutable, token.Ident, token.Int,
+		token.Func, token.Ident, token.Int,
 		token.Float, token.Char, token.String, token.True, token.False,
 		token.Undefined, token.Import, token.LParen, token.LBrace,
 		token.LBrack, token.Add, token.Sub, token.Mul, token.And, token.Xor,
@@ -773,6 +729,7 @@ func (p *Parser) parseForStmt() Stmt {
 	body := p.parseBlockStmt()
 	p.expectSemi()
 	cond := p.makeExpr(s2, "condition expression")
+
 	return &ForStmt{
 		ForPos: pos,
 		Init:   s1,
@@ -813,7 +770,6 @@ func (p *Parser) parseIfStmt() Stmt {
 	var elseStmt Stmt
 	if p.token == token.Else {
 		p.next()
-
 		switch p.token {
 		case token.If:
 			elseStmt = p.parseIfStmt()
@@ -827,6 +783,7 @@ func (p *Parser) parseIfStmt() Stmt {
 	} else {
 		p.expectSemi()
 	}
+
 	return &IfStmt{
 		IfPos: pos,
 		Init:  init,
@@ -840,7 +797,6 @@ func (p *Parser) parseBlockStmt() *BlockStmt {
 	if p.trace {
 		defer untracep(tracep(p, "BlockStmt"))
 	}
-
 	lbrace := p.expect(token.LBrace)
 	list := p.parseStmtList()
 	rbrace := p.expect(token.RBrace)
@@ -867,14 +823,14 @@ func (p *Parser) parseIfHeader() (init Stmt, cond Expr) {
 	init = p.parseSimpleStmt(false)
 
 	var condStmt Stmt
-	if p.token == token.LBrace {
+	switch p.token {
+	case token.LBrace:
 		condStmt = init
 		init = nil
-	} else if p.token == token.Semicolon {
+	case token.Semicolon:
 		p.next()
-
 		condStmt = p.parseSimpleStmt(false)
-	} else {
+	default:
 		p.error(p.pos, "missing condition in if statement")
 	}
 
@@ -885,18 +841,17 @@ func (p *Parser) parseIfHeader() (init Stmt, cond Expr) {
 		cond = &BadExpr{From: p.pos, To: p.pos}
 	}
 	p.exprLevel = outer
-	return
+
+	return init, cond
 }
 
 func (p *Parser) makeExpr(s Stmt, want string) Expr {
 	if s == nil {
 		return nil
 	}
-
 	if es, isExpr := s.(*ExprStmt); isExpr {
 		return es.Expr
 	}
-
 	found := "simple statement"
 	if _, isAss := s.(*AssignStmt); isAss {
 		found = "assignment"
@@ -918,6 +873,7 @@ func (p *Parser) parseReturnStmt() Stmt {
 		x = p.parseExpr()
 	}
 	p.expectSemi()
+
 	return &ReturnStmt{
 		ReturnPos: pos,
 		Result:    x,
@@ -928,7 +884,6 @@ func (p *Parser) parseExportStmt() Stmt {
 	if p.trace {
 		defer untracep(tracep(p, "ExportStmt"))
 	}
-
 	pos := p.pos
 	p.expect(token.Export)
 	x := p.parseExpr()
@@ -1025,28 +980,27 @@ func (p *Parser) parseExprList() (list []Expr) {
 	if p.trace {
 		defer untracep(tracep(p, "ExpressionList"))
 	}
-
 	list = append(list, p.parseExpr())
 	for p.token == token.Comma {
 		p.next()
 		list = append(list, p.parseExpr())
 	}
-	return
+	return list
 }
 
 func (p *Parser) parseMapElementLit() *MapElementLit {
 	if p.trace {
 		defer untracep(tracep(p, "MapElementLit"))
 	}
-
 	pos := p.pos
 	name := "_"
-	if p.token == token.Ident {
+	switch p.token {
+	case token.Ident:
 		name = p.tokenLit
-	} else if p.token == token.String {
+	case token.String:
 		v, _ := strconv.Unquote(p.tokenLit)
 		name = v
-	} else {
+	default:
 		p.errorExpected(pos, "map key")
 	}
 	p.next()
@@ -1071,7 +1025,6 @@ func (p *Parser) parseMapLit() *MapLit {
 	var elements []*MapElementLit
 	for p.token != token.RBrace && p.token != token.EOF {
 		elements = append(elements, p.parseMapElementLit())
-
 		if !p.expectComma(token.RBrace, "map element") {
 			break
 		}
@@ -1088,7 +1041,6 @@ func (p *Parser) parseMapLit() *MapLit {
 
 func (p *Parser) expect(token token.Token) Pos {
 	pos := p.pos
-
 	if p.token != token {
 		p.errorExpected(pos, "'"+token.String()+"'")
 	}
@@ -1130,7 +1082,6 @@ func (p *Parser) advance(to map[token.Token]bool) {
 
 func (p *Parser) error(pos Pos, msg string) {
 	filePos := p.file.Position(pos)
-
 	n := len(p.errors)
 	if n > 0 && p.errors[n-1].Pos.Line == filePos.Line {
 		// discard errors reported on the same line
@@ -1179,7 +1130,6 @@ func (p *Parser) printTrace(a ...interface{}) {
 		dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
 		n    = len(dots)
 	)
-
 	filePos := p.file.Position(p.pos)
 	_, _ = fmt.Fprintf(p.traceOut, "%5d: %5d:%3d: ", p.pos, filePos.Line,
 		filePos.Column)
@@ -1195,7 +1145,6 @@ func (p *Parser) printTrace(a ...interface{}) {
 func (p *Parser) safePos(pos Pos) Pos {
 	fileBase := p.file.Base
 	fileSize := p.file.Size
-
 	if int(pos) < fileBase || int(pos) > fileBase+fileSize {
 		return Pos(fileBase + fileSize)
 	}

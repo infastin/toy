@@ -10,20 +10,20 @@ import (
 
 var jsonModule = map[string]tengo.Object{
 	"decode": &tengo.UserFunction{
-		Name:  "decode",
-		Value: jsonDecode,
+		Name: "decode",
+		Func: jsonDecode,
 	},
 	"encode": &tengo.UserFunction{
-		Name:  "encode",
-		Value: jsonEncode,
+		Name: "encode",
+		Func: jsonEncode,
 	},
 	"indent": &tengo.UserFunction{
-		Name:  "encode",
-		Value: jsonIndent,
+		Name: "encode",
+		Func: jsonIndent,
 	},
 	"html_escape": &tengo.UserFunction{
-		Name:  "html_escape",
-		Value: jsonHTMLEscape,
+		Name: "html_escape",
+		Func: jsonHTMLEscape,
 	},
 }
 

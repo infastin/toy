@@ -134,29 +134,26 @@ func Equal(
 		}
 	case []tengo.Object:
 		equalObjectSlice(t, expected, actual.([]tengo.Object), msg...)
-	case *tengo.Int:
-		Equal(t, expected.Value, actual.(*tengo.Int).Value, msg...)
-	case *tengo.Float:
-		Equal(t, expected.Value, actual.(*tengo.Float).Value, msg...)
-	case *tengo.String:
-		Equal(t, expected.Value, actual.(*tengo.String).Value, msg...)
-	case *tengo.Char:
-		Equal(t, expected.Value, actual.(*tengo.Char).Value, msg...)
-	case *tengo.Bool:
+	case tengo.Int:
+		Equal(t, expected, actual.(tengo.Int), msg...)
+	case tengo.Float:
+		Equal(t, expected, actual.(tengo.Float), msg...)
+	case tengo.Bool:
 		if expected != actual {
 			failExpectedActual(t, expected, actual, msg...)
+		}
+	case tengo.String:
+		Equal(t, expected, actual.(tengo.String), msg...)
+	case tengo.Char:
+		Equal(t, expected, actual.(tengo.Char), msg...)
+	case tengo.Bytes:
+		if !bytes.Equal(expected, actual.(tengo.Bytes)) {
+			failExpectedActual(t, string(expected),
+				string(actual.(tengo.Bytes)), msg...)
 		}
 	case *tengo.Array:
 		equalObjectSlice(t, expected.Value,
 			actual.(*tengo.Array).Value, msg...)
-	case *tengo.ImmutableArray:
-		equalObjectSlice(t, expected.Value,
-			actual.(*tengo.ImmutableArray).Value, msg...)
-	case *tengo.Bytes:
-		if !bytes.Equal(expected.Value, actual.(*tengo.Bytes).Value) {
-			failExpectedActual(t, string(expected.Value),
-				string(actual.(*tengo.Bytes).Value), msg...)
-		}
 	case *tengo.Map:
 		equalObjectMap(t, expected.Value,
 			actual.(*tengo.Map).Value, msg...)
@@ -166,7 +163,7 @@ func Equal(
 	case *tengo.CompiledFunction:
 		equalCompiledFunction(t, expected,
 			actual.(*tengo.CompiledFunction), msg...)
-	case *tengo.Undefined:
+	case *tengo.UndefinedType:
 		if expected != actual {
 			failExpectedActual(t, expected, actual, msg...)
 		}

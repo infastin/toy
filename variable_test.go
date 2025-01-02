@@ -53,13 +53,13 @@ func TestVariable(t *testing.T) {
 			FloatValue:  0,
 			BoolValue:   true,
 			StringValue: "true",
-			Object:      tengo.TrueValue,
+			Object:      tengo.True,
 		},
 		{
 			Name:        "d",
 			Value:       nil,
 			ValueType:   "undefined",
-			Object:      tengo.UndefinedValue,
+			Object:      tengo.Undefined,
 			IsUndefined: true,
 		},
 	}

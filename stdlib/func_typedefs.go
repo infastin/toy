@@ -13,7 +13,7 @@ func FuncAR(fn func()) tengo.CallableFunc {
 			return nil, tengo.ErrWrongNumArguments
 		}
 		fn()
-		return tengo.UndefinedValue, nil
+		return tengo.Undefined, nil
 	}
 }
 
@@ -76,7 +76,7 @@ func FuncAI64R(fn func(int64)) tengo.CallableFunc {
 			}
 		}
 		fn(i1)
-		return tengo.UndefinedValue, nil
+		return tengo.Undefined, nil
 	}
 }
 
@@ -88,9 +88,9 @@ func FuncARB(fn func() bool) tengo.CallableFunc {
 			return nil, tengo.ErrWrongNumArguments
 		}
 		if fn() {
-			return tengo.TrueValue, nil
+			return tengo.True, nil
 		}
-		return tengo.FalseValue, nil
+		return tengo.False, nil
 	}
 }
 
@@ -262,7 +262,7 @@ func FuncAIR(fn func(int)) tengo.CallableFunc {
 			}
 		}
 		fn(i1)
-		return tengo.UndefinedValue, nil
+		return tengo.Undefined, nil
 	}
 }
 
@@ -409,9 +409,9 @@ func FuncAFIRB(fn func(float64, int) bool) tengo.CallableFunc {
 			}
 		}
 		if fn(f1, i2) {
-			return tengo.TrueValue, nil
+			return tengo.True, nil
 		}
-		return tengo.FalseValue, nil
+		return tengo.False, nil
 	}
 }
 
@@ -431,9 +431,9 @@ func FuncAFRB(fn func(float64) bool) tengo.CallableFunc {
 			}
 		}
 		if fn(f1) {
-			return tengo.TrueValue, nil
+			return tengo.True, nil
 		}
-		return tengo.FalseValue, nil
+		return tengo.False, nil
 	}
 }
 
@@ -721,9 +721,9 @@ func FuncASSRB(fn func(string, string) bool) tengo.CallableFunc {
 			}
 		}
 		if fn(s1, s2) {
-			return tengo.TrueValue, nil
+			return tengo.True, nil
 		}
-		return tengo.FalseValue, nil
+		return tengo.False, nil
 	}
 }
 

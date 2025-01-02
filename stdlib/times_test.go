@@ -14,7 +14,7 @@ func TestTimes(t *testing.T) {
 	location, _ := time.LoadLocation("Pacific/Auckland")
 	time3 := time.Date(1982, 9, 28, 19, 21, 44, 999, location)
 
-	module(t, "times").call("sleep", 1).expect(tengo.UndefinedValue)
+	module(t, "times").call("sleep", 1).expect(tengo.Undefined)
 
 	require.True(t, module(t, "times").
 		call("since", time.Now().Add(-time.Hour)).

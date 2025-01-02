@@ -11,20 +11,20 @@ func makeOSProcessState(state *os.ProcessState) *tengo.ImmutableMap {
 	return &tengo.ImmutableMap{
 		Value: map[string]tengo.Object{
 			"exited": &tengo.UserFunction{
-				Name:  "exited",
-				Value: FuncARB(state.Exited),
+				Name: "exited",
+				Func: FuncARB(state.Exited),
 			},
 			"pid": &tengo.UserFunction{
-				Name:  "pid",
-				Value: FuncARI(state.Pid),
+				Name: "pid",
+				Func: FuncARI(state.Pid),
 			},
 			"string": &tengo.UserFunction{
-				Name:  "string",
-				Value: FuncARS(state.String),
+				Name: "string",
+				Func: FuncARS(state.String),
 			},
 			"success": &tengo.UserFunction{
-				Name:  "success",
-				Value: FuncARB(state.Success),
+				Name: "success",
+				Func: FuncARB(state.Success),
 			},
 		},
 	}
@@ -34,16 +34,16 @@ func makeOSProcess(proc *os.Process) *tengo.ImmutableMap {
 	return &tengo.ImmutableMap{
 		Value: map[string]tengo.Object{
 			"kill": &tengo.UserFunction{
-				Name:  "kill",
-				Value: FuncARE(proc.Kill),
+				Name: "kill",
+				Func: FuncARE(proc.Kill),
 			},
 			"release": &tengo.UserFunction{
-				Name:  "release",
-				Value: FuncARE(proc.Release),
+				Name: "release",
+				Func: FuncARE(proc.Release),
 			},
 			"signal": &tengo.UserFunction{
 				Name: "signal",
-				Value: func(args ...tengo.Object) (tengo.Object, error) {
+				Func: func(args ...tengo.Object) (tengo.Object, error) {
 					if len(args) != 1 {
 						return nil, tengo.ErrWrongNumArguments
 					}
@@ -60,7 +60,7 @@ func makeOSProcess(proc *os.Process) *tengo.ImmutableMap {
 			},
 			"wait": &tengo.UserFunction{
 				Name: "wait",
-				Value: func(args ...tengo.Object) (tengo.Object, error) {
+				Func: func(args ...tengo.Object) (tengo.Object, error) {
 					if len(args) != 0 {
 						return nil, tengo.ErrWrongNumArguments
 					}

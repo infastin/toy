@@ -12,192 +12,192 @@ import (
 
 var textModule = map[string]tengo.Object{
 	"re_match": &tengo.UserFunction{
-		Name:  "re_match",
-		Value: textREMatch,
+		Name: "re_match",
+		Func: textREMatch,
 	}, // re_match(pattern, text) => bool/error
 	"re_find": &tengo.UserFunction{
-		Name:  "re_find",
-		Value: textREFind,
+		Name: "re_find",
+		Func: textREFind,
 	}, // re_find(pattern, text, count) => [[{text:,begin:,end:}]]/undefined
 	"re_replace": &tengo.UserFunction{
-		Name:  "re_replace",
-		Value: textREReplace,
+		Name: "re_replace",
+		Func: textREReplace,
 	}, // re_replace(pattern, text, repl) => string/error
 	"re_split": &tengo.UserFunction{
-		Name:  "re_split",
-		Value: textRESplit,
+		Name: "re_split",
+		Func: textRESplit,
 	}, // re_split(pattern, text, count) => [string]/error
 	"re_compile": &tengo.UserFunction{
-		Name:  "re_compile",
-		Value: textRECompile,
+		Name: "re_compile",
+		Func: textRECompile,
 	}, // re_compile(pattern) => Regexp/error
 	"compare": &tengo.UserFunction{
-		Name:  "compare",
-		Value: FuncASSRI(strings.Compare),
+		Name: "compare",
+		Func: FuncASSRI(strings.Compare),
 	}, // compare(a, b) => int
 	"contains": &tengo.UserFunction{
-		Name:  "contains",
-		Value: FuncASSRB(strings.Contains),
+		Name: "contains",
+		Func: FuncASSRB(strings.Contains),
 	}, // contains(s, substr) => bool
 	"contains_any": &tengo.UserFunction{
-		Name:  "contains_any",
-		Value: FuncASSRB(strings.ContainsAny),
+		Name: "contains_any",
+		Func: FuncASSRB(strings.ContainsAny),
 	}, // contains_any(s, chars) => bool
 	"count": &tengo.UserFunction{
-		Name:  "count",
-		Value: FuncASSRI(strings.Count),
+		Name: "count",
+		Func: FuncASSRI(strings.Count),
 	}, // count(s, substr) => int
 	"equal_fold": &tengo.UserFunction{
-		Name:  "equal_fold",
-		Value: FuncASSRB(strings.EqualFold),
+		Name: "equal_fold",
+		Func: FuncASSRB(strings.EqualFold),
 	}, // "equal_fold(s, t) => bool
 	"fields": &tengo.UserFunction{
-		Name:  "fields",
-		Value: FuncASRSs(strings.Fields),
+		Name: "fields",
+		Func: FuncASRSs(strings.Fields),
 	}, // fields(s) => [string]
 	"has_prefix": &tengo.UserFunction{
-		Name:  "has_prefix",
-		Value: FuncASSRB(strings.HasPrefix),
+		Name: "has_prefix",
+		Func: FuncASSRB(strings.HasPrefix),
 	}, // has_prefix(s, prefix) => bool
 	"has_suffix": &tengo.UserFunction{
-		Name:  "has_suffix",
-		Value: FuncASSRB(strings.HasSuffix),
+		Name: "has_suffix",
+		Func: FuncASSRB(strings.HasSuffix),
 	}, // has_suffix(s, suffix) => bool
 	"index": &tengo.UserFunction{
-		Name:  "index",
-		Value: FuncASSRI(strings.Index),
+		Name: "index",
+		Func: FuncASSRI(strings.Index),
 	}, // index(s, substr) => int
 	"index_any": &tengo.UserFunction{
-		Name:  "index_any",
-		Value: FuncASSRI(strings.IndexAny),
+		Name: "index_any",
+		Func: FuncASSRI(strings.IndexAny),
 	}, // index_any(s, chars) => int
 	"join": &tengo.UserFunction{
-		Name:  "join",
-		Value: textJoin,
+		Name: "join",
+		Func: textJoin,
 	}, // join(arr, sep) => string
 	"last_index": &tengo.UserFunction{
-		Name:  "last_index",
-		Value: FuncASSRI(strings.LastIndex),
+		Name: "last_index",
+		Func: FuncASSRI(strings.LastIndex),
 	}, // last_index(s, substr) => int
 	"last_index_any": &tengo.UserFunction{
-		Name:  "last_index_any",
-		Value: FuncASSRI(strings.LastIndexAny),
+		Name: "last_index_any",
+		Func: FuncASSRI(strings.LastIndexAny),
 	}, // last_index_any(s, chars) => int
 	"repeat": &tengo.UserFunction{
-		Name:  "repeat",
-		Value: textRepeat,
+		Name: "repeat",
+		Func: textRepeat,
 	}, // repeat(s, count) => string
 	"replace": &tengo.UserFunction{
-		Name:  "replace",
-		Value: textReplace,
+		Name: "replace",
+		Func: textReplace,
 	}, // replace(s, old, new, n) => string
 	"substr": &tengo.UserFunction{
-		Name:  "substr",
-		Value: textSubstring,
+		Name: "substr",
+		Func: textSubstring,
 	}, // substr(s, lower, upper) => string
 	"split": &tengo.UserFunction{
-		Name:  "split",
-		Value: FuncASSRSs(strings.Split),
+		Name: "split",
+		Func: FuncASSRSs(strings.Split),
 	}, // split(s, sep) => [string]
 	"split_after": &tengo.UserFunction{
-		Name:  "split_after",
-		Value: FuncASSRSs(strings.SplitAfter),
+		Name: "split_after",
+		Func: FuncASSRSs(strings.SplitAfter),
 	}, // split_after(s, sep) => [string]
 	"split_after_n": &tengo.UserFunction{
-		Name:  "split_after_n",
-		Value: FuncASSIRSs(strings.SplitAfterN),
+		Name: "split_after_n",
+		Func: FuncASSIRSs(strings.SplitAfterN),
 	}, // split_after_n(s, sep, n) => [string]
 	"split_n": &tengo.UserFunction{
-		Name:  "split_n",
-		Value: FuncASSIRSs(strings.SplitN),
+		Name: "split_n",
+		Func: FuncASSIRSs(strings.SplitN),
 	}, // split_n(s, sep, n) => [string]
 	"title": &tengo.UserFunction{
-		Name:  "title",
-		Value: FuncASRS(strings.Title),
+		Name: "title",
+		Func: FuncASRS(strings.Title),
 	}, // title(s) => string
 	"to_lower": &tengo.UserFunction{
-		Name:  "to_lower",
-		Value: FuncASRS(strings.ToLower),
+		Name: "to_lower",
+		Func: FuncASRS(strings.ToLower),
 	}, // to_lower(s) => string
 	"to_title": &tengo.UserFunction{
-		Name:  "to_title",
-		Value: FuncASRS(strings.ToTitle),
+		Name: "to_title",
+		Func: FuncASRS(strings.ToTitle),
 	}, // to_title(s) => string
 	"to_upper": &tengo.UserFunction{
-		Name:  "to_upper",
-		Value: FuncASRS(strings.ToUpper),
+		Name: "to_upper",
+		Func: FuncASRS(strings.ToUpper),
 	}, // to_upper(s) => string
 	"pad_left": &tengo.UserFunction{
-		Name:  "pad_left",
-		Value: textPadLeft,
+		Name: "pad_left",
+		Func: textPadLeft,
 	}, // pad_left(s, pad_len, pad_with) => string
 	"pad_right": &tengo.UserFunction{
-		Name:  "pad_right",
-		Value: textPadRight,
+		Name: "pad_right",
+		Func: textPadRight,
 	}, // pad_right(s, pad_len, pad_with) => string
 	"trim": &tengo.UserFunction{
-		Name:  "trim",
-		Value: FuncASSRS(strings.Trim),
+		Name: "trim",
+		Func: FuncASSRS(strings.Trim),
 	}, // trim(s, cutset) => string
 	"trim_left": &tengo.UserFunction{
-		Name:  "trim_left",
-		Value: FuncASSRS(strings.TrimLeft),
+		Name: "trim_left",
+		Func: FuncASSRS(strings.TrimLeft),
 	}, // trim_left(s, cutset) => string
 	"trim_prefix": &tengo.UserFunction{
-		Name:  "trim_prefix",
-		Value: FuncASSRS(strings.TrimPrefix),
+		Name: "trim_prefix",
+		Func: FuncASSRS(strings.TrimPrefix),
 	}, // trim_prefix(s, prefix) => string
 	"trim_right": &tengo.UserFunction{
-		Name:  "trim_right",
-		Value: FuncASSRS(strings.TrimRight),
+		Name: "trim_right",
+		Func: FuncASSRS(strings.TrimRight),
 	}, // trim_right(s, cutset) => string
 	"trim_space": &tengo.UserFunction{
-		Name:  "trim_space",
-		Value: FuncASRS(strings.TrimSpace),
+		Name: "trim_space",
+		Func: FuncASRS(strings.TrimSpace),
 	}, // trim_space(s) => string
 	"trim_suffix": &tengo.UserFunction{
-		Name:  "trim_suffix",
-		Value: FuncASSRS(strings.TrimSuffix),
+		Name: "trim_suffix",
+		Func: FuncASSRS(strings.TrimSuffix),
 	}, // trim_suffix(s, suffix) => string
 	"atoi": &tengo.UserFunction{
-		Name:  "atoi",
-		Value: FuncASRIE(strconv.Atoi),
+		Name: "atoi",
+		Func: FuncASRIE(strconv.Atoi),
 	}, // atoi(str) => int/error
 	"format_bool": &tengo.UserFunction{
-		Name:  "format_bool",
-		Value: textFormatBool,
+		Name: "format_bool",
+		Func: textFormatBool,
 	}, // format_bool(b) => string
 	"format_float": &tengo.UserFunction{
-		Name:  "format_float",
-		Value: textFormatFloat,
+		Name: "format_float",
+		Func: textFormatFloat,
 	}, // format_float(f, fmt, prec, bits) => string
 	"format_int": &tengo.UserFunction{
-		Name:  "format_int",
-		Value: textFormatInt,
+		Name: "format_int",
+		Func: textFormatInt,
 	}, // format_int(i, base) => string
 	"itoa": &tengo.UserFunction{
-		Name:  "itoa",
-		Value: FuncAIRS(strconv.Itoa),
+		Name: "itoa",
+		Func: FuncAIRS(strconv.Itoa),
 	}, // itoa(i) => string
 	"parse_bool": &tengo.UserFunction{
-		Name:  "parse_bool",
-		Value: textParseBool,
+		Name: "parse_bool",
+		Func: textParseBool,
 	}, // parse_bool(str) => bool/error
 	"parse_float": &tengo.UserFunction{
-		Name:  "parse_float",
-		Value: textParseFloat,
+		Name: "parse_float",
+		Func: textParseFloat,
 	}, // parse_float(str, bits) => float/error
 	"parse_int": &tengo.UserFunction{
-		Name:  "parse_int",
-		Value: textParseInt,
+		Name: "parse_int",
+		Func: textParseInt,
 	}, // parse_int(str, base, bits) => int/error
 	"quote": &tengo.UserFunction{
-		Name:  "quote",
-		Value: FuncASRS(strconv.Quote),
+		Name: "quote",
+		Func: FuncASRS(strconv.Quote),
 	}, // quote(str) => string
 	"unquote": &tengo.UserFunction{
-		Name:  "unquote",
-		Value: FuncASRSE(strconv.Unquote),
+		Name: "unquote",
+		Func: FuncASRSE(strconv.Unquote),
 	}, // unquote(str) => string/error
 }
 
@@ -234,9 +234,9 @@ func textREMatch(args ...tengo.Object) (ret tengo.Object, err error) {
 	}
 
 	if matched {
-		ret = tengo.TrueValue
+		ret = tengo.True
 	} else {
-		ret = tengo.FalseValue
+		ret = tengo.False
 	}
 
 	return
@@ -278,7 +278,7 @@ func textREFind(args ...tengo.Object) (ret tengo.Object, err error) {
 	if numArgs < 3 {
 		m := re.FindStringSubmatchIndex(s2)
 		if m == nil {
-			ret = tengo.UndefinedValue
+			ret = tengo.Undefined
 			return
 		}
 
@@ -308,7 +308,7 @@ func textREFind(args ...tengo.Object) (ret tengo.Object, err error) {
 	}
 	m := re.FindAllStringSubmatchIndex(s2, i3)
 	if m == nil {
-		ret = tengo.UndefinedValue
+		ret = tengo.Undefined
 		return
 	}
 
@@ -816,7 +816,7 @@ func textFormatBool(args ...tengo.Object) (ret tengo.Object, err error) {
 		return
 	}
 
-	if b1 == tengo.TrueValue {
+	if b1 == tengo.True {
 		ret = &tengo.String{Value: "true"}
 	} else {
 		ret = &tengo.String{Value: "false"}
@@ -930,9 +930,9 @@ func textParseBool(args ...tengo.Object) (ret tengo.Object, err error) {
 	}
 
 	if parsed {
-		ret = tengo.TrueValue
+		ret = tengo.True
 	} else {
-		ret = tengo.FalseValue
+		ret = tengo.False
 	}
 
 	return

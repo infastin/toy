@@ -124,10 +124,10 @@ func (c callres) call(funcName string, args ...interface{}) callres {
 				"non-callable: %s", funcName)}
 		}
 
-		res, err := f.Value(oargs...)
+		res, err := f.Func(oargs...)
 		return callres{t: c.t, o: res, e: err}
 	case *tengo.UserFunction:
-		res, err := o.Value(oargs...)
+		res, err := o.Func(oargs...)
 		return callres{t: c.t, o: res, e: err}
 	case *tengo.ImmutableMap:
 		m, ok := o.Value[funcName]
@@ -177,9 +177,9 @@ func object(v interface{}) tengo.Object {
 		return &tengo.Int{Value: int64(v)}
 	case bool:
 		if v {
-			return tengo.TrueValue
+			return tengo.True
 		}
-		return tengo.FalseValue
+		return tengo.False
 	case rune:
 		return &tengo.Char{Value: v}
 	case byte: // for convenience

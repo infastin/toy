@@ -85,8 +85,8 @@ func TestScript_BuiltinModules(t *testing.T) {
 func TestScript_SourceModules(t *testing.T) {
 	s := tengo.NewScript([]byte(`
 enum := import("enum")
-a := enum.all([1,2,3], func(_, v) { 
-	return v > 0 
+a := enum.all([1,2,3], func(_, v) {
+	return v > 0
 })
 `))
 	s.SetImports(stdlib.GetModuleMap("enum"))
@@ -173,7 +173,7 @@ e := mod1.double(s)
 `)
 	mod1 := map[string]tengo.Object{
 		"double": &tengo.UserFunction{
-			Value: func(args ...tengo.Object) (
+			Func: func(args ...tengo.Object) (
 				ret tengo.Object,
 				err error,
 			) {
@@ -352,7 +352,7 @@ func TestScriptSourceModule(t *testing.T) {
 		map[string]tengo.Object{
 			"title": &tengo.UserFunction{
 				Name: "title",
-				Value: func(args ...tengo.Object) (tengo.Object, error) {
+				Func: func(args ...tengo.Object) (tengo.Object, error) {
 					s, _ := tengo.ToString(args[0])
 					return &tengo.String{Value: strings.Title(s)}, nil
 				}},
@@ -451,10 +451,10 @@ func TestCompiled_Set(t *testing.T) {
 
 	// case #2
 	c = compile(t, `
-a := func() { 
+a := func() {
 	return func() {
 		return b + 5
-	}() 
+	}()
 }()`, M{"b": 5})
 	compiledRun(t, c)
 	compiledGet(t, c, "a", int64(10))
@@ -519,24 +519,24 @@ func (n *customNumber) binaryOpInt(op token.Token, rhs *tengo.Int) (tengo.Object
 	switch op {
 	case token.Less:
 		if i < rhs.Value {
-			return tengo.TrueValue, nil
+			return tengo.True, nil
 		}
-		return tengo.FalseValue, nil
+		return tengo.False, nil
 	case token.Greater:
 		if i > rhs.Value {
-			return tengo.TrueValue, nil
+			return tengo.True, nil
 		}
-		return tengo.FalseValue, nil
+		return tengo.False, nil
 	case token.LessEq:
 		if i <= rhs.Value {
-			return tengo.TrueValue, nil
+			return tengo.True, nil
 		}
-		return tengo.FalseValue, nil
+		return tengo.False, nil
 	case token.GreaterEq:
 		if i >= rhs.Value {
-			return tengo.TrueValue, nil
+			return tengo.True, nil
 		}
-		return tengo.FalseValue, nil
+		return tengo.False, nil
 	}
 	return nil, tengo.ErrInvalidOperator
 }

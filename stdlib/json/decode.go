@@ -195,13 +195,13 @@ func (d *decodeState) literal() (tengo.Object, error) {
 
 	switch c := item[0]; c {
 	case 'n': // null
-		return tengo.UndefinedValue, nil
+		return tengo.Undefined, nil
 
 	case 't', 'f': // true, false
 		if c == 't' {
-			return tengo.TrueValue, nil
+			return tengo.True, nil
 		}
-		return tengo.FalseValue, nil
+		return tengo.False, nil
 
 	case '"': // string
 		s, ok := unquote(item)

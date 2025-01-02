@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,7 +54,7 @@ func main() {
 		return
 	}
 
-	inputData, err := ioutil.ReadFile(inputFile)
+	inputData, err := os.ReadFile(inputFile)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr,
 			"Error reading input file: %s\n", err.Error())
@@ -172,10 +171,10 @@ func RunREPL(modules *tengo.ModuleMap, in io.Reader, out io.Writer) {
 	symbol := symbolTable.Define("__repl_println__")
 	globals[symbol.Index] = &tengo.UserFunction{
 		Name: "println",
-		Value: func(args ...tengo.Object) (ret tengo.Object, err error) {
+		Func: func(args ...tengo.Object) (ret tengo.Object, err error) {
 			var printArgs []interface{}
 			for _, arg := range args {
-				if _, isUndefined := arg.(*tengo.Undefined); isUndefined {
+				if _, isUndefined := arg.(*tengo.UndefinedType); isUndefined {
 					printArgs = append(printArgs, "<undefined>")
 				} else {
 					s, _ := tengo.ToString(arg)

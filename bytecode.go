@@ -1,9 +1,7 @@
 package tengo
 
 import (
-	"encoding/gob"
 	"fmt"
-	"io"
 	"reflect"
 
 	"github.com/d5/tengo/v2/parser"
@@ -11,47 +9,26 @@ import (
 
 // Bytecode is a compiled instructions and constants.
 type Bytecode struct {
-	FileSet      *parser.SourceFileSet
-	MainFunction *CompiledFunction
-	Constants    []Object
-}
-
-// Encode writes Bytecode data to the writer.
-func (b *Bytecode) Encode(w io.Writer) error {
-	enc := gob.NewEncoder(w)
-	if err := enc.Encode(b.FileSet); err != nil {
-		return err
-	}
-	if err := enc.Encode(b.MainFunction); err != nil {
-		return err
-	}
-	return enc.Encode(b.Constants)
-}
-
-// CountObjects returns the number of objects found in Constants.
-func (b *Bytecode) CountObjects() int {
-	n := 0
-	for _, c := range b.Constants {
-		n += CountObjects(c)
-	}
-	return n
+	fileSet      *parser.SourceFileSet
+	mainFunction *CompiledFunction
+	constants    []Object
 }
 
 // FormatInstructions returns human readable string representations of
 // compiled instructions.
 func (b *Bytecode) FormatInstructions() []string {
-	return FormatInstructions(b.MainFunction.Instructions, 0)
+	return FormatInstructions(b.mainFunction.instructions, 0)
 }
 
 // FormatConstants returns human readable string representations of
 // compiled constants.
 func (b *Bytecode) FormatConstants() (output []string) {
-	for cidx, cn := range b.Constants {
+	for cidx, cn := range b.constants {
 		switch cn := cn.(type) {
 		case *CompiledFunction:
 			output = append(output, fmt.Sprintf(
 				"[% 3d] (Compiled Function|%p)", cidx, &cn))
-			for _, l := range FormatInstructions(cn.Instructions, 0) {
+			for _, l := range FormatInstructions(cn.instructions, 0) {
 				output = append(output, fmt.Sprintf("     %s", l))
 			}
 		default:
@@ -62,35 +39,6 @@ func (b *Bytecode) FormatConstants() (output []string) {
 	return
 }
 
-// Decode reads Bytecode data from the reader.
-func (b *Bytecode) Decode(r io.Reader, modules *ModuleMap) error {
-	if modules == nil {
-		modules = NewModuleMap()
-	}
-
-	dec := gob.NewDecoder(r)
-	if err := dec.Decode(&b.FileSet); err != nil {
-		return err
-	}
-	// TODO: files in b.FileSet.File does not have their 'set' field properly
-	//  set to b.FileSet as it's private field and not serialized by gob
-	//  encoder/decoder.
-	if err := dec.Decode(&b.MainFunction); err != nil {
-		return err
-	}
-	if err := dec.Decode(&b.Constants); err != nil {
-		return err
-	}
-	for i, v := range b.Constants {
-		fv, err := fixDecodedObject(v, modules)
-		if err != nil {
-			return err
-		}
-		b.Constants[i] = fv
-	}
-	return nil
-}
-
 // RemoveDuplicates finds and remove the duplicate values in Constants.
 // Note this function mutates Bytecode.
 func (b *Bytecode) RemoveDuplicates() {
@@ -98,13 +46,13 @@ func (b *Bytecode) RemoveDuplicates() {
 
 	indexMap := make(map[int]int) // mapping from old constant index to new index
 	fns := make(map[*CompiledFunction]int)
-	ints := make(map[int64]int)
-	strings := make(map[string]int)
-	floats := make(map[float64]int)
-	chars := make(map[rune]int)
-	immutableMaps := make(map[string]int) // for modules
+	ints := make(map[Int]int)
+	strings := make(map[String]int)
+	floats := make(map[Float]int)
+	chars := make(map[Char]int)
+	modules := make(map[string]int)
 
-	for curIdx, c := range b.Constants {
+	for curIdx, c := range b.constants {
 		switch c := c.(type) {
 		case *CompiledFunction:
 			if newIdx, ok := fns[c]; ok {
@@ -115,130 +63,70 @@ func (b *Bytecode) RemoveDuplicates() {
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
-		case *ImmutableMap:
-			modName := inferModuleName(c)
-			newIdx, ok := immutableMaps[modName]
-			if modName != "" && ok {
+		case *BuiltinModule:
+			newIdx, ok := modules[c.Name]
+			if c.Name != "" && ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				immutableMaps[modName] = newIdx
+				modules[c.Name] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
-		case *Int:
-			if newIdx, ok := ints[c.Value]; ok {
+		case Int:
+			if newIdx, ok := ints[c]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				ints[c.Value] = newIdx
+				ints[c] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
-		case *String:
-			if newIdx, ok := strings[c.Value]; ok {
+		case String:
+			if newIdx, ok := strings[c]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				strings[c.Value] = newIdx
+				strings[c] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
-		case *Float:
-			if newIdx, ok := floats[c.Value]; ok {
+		case Float:
+			if newIdx, ok := floats[c]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				floats[c.Value] = newIdx
+				floats[c] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
-		case *Char:
-			if newIdx, ok := chars[c.Value]; ok {
+		case Char:
+			if newIdx, ok := chars[c]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				chars[c.Value] = newIdx
+				chars[c] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
 		default:
-			panic(fmt.Errorf("unsupported top-level constant type: %s",
-				c.TypeName()))
+			panic(fmt.Errorf("unsupported top-level constant type: %s", c.TypeName()))
 		}
 	}
 
 	// replace with de-duplicated constants
-	b.Constants = deduped
+	b.constants = deduped
 
 	// update CONST instructions with new indexes
 	// main function
-	updateConstIndexes(b.MainFunction.Instructions, indexMap)
+	updateConstIndexes(b.mainFunction.instructions, indexMap)
 	// other compiled functions in constants
-	for _, c := range b.Constants {
+	for _, c := range b.constants {
 		switch c := c.(type) {
 		case *CompiledFunction:
-			updateConstIndexes(c.Instructions, indexMap)
+			updateConstIndexes(c.instructions, indexMap)
 		}
 	}
-}
-
-func fixDecodedObject(
-	o Object,
-	modules *ModuleMap,
-) (Object, error) {
-	switch o := o.(type) {
-	case *Bool:
-		if o.IsFalsy() {
-			return FalseValue, nil
-		}
-		return TrueValue, nil
-	case *Undefined:
-		return UndefinedValue, nil
-	case *Array:
-		for i, v := range o.Value {
-			fv, err := fixDecodedObject(v, modules)
-			if err != nil {
-				return nil, err
-			}
-			o.Value[i] = fv
-		}
-	case *ImmutableArray:
-		for i, v := range o.Value {
-			fv, err := fixDecodedObject(v, modules)
-			if err != nil {
-				return nil, err
-			}
-			o.Value[i] = fv
-		}
-	case *Map:
-		for k, v := range o.Value {
-			fv, err := fixDecodedObject(v, modules)
-			if err != nil {
-				return nil, err
-			}
-			o.Value[k] = fv
-		}
-	case *ImmutableMap:
-		modName := inferModuleName(o)
-		if mod := modules.GetBuiltinModule(modName); mod != nil {
-			return mod.AsImmutableMap(modName), nil
-		}
-
-		for k, v := range o.Value {
-			// encoding of user function not supported
-			if _, isUserFunction := v.(*UserFunction); isUserFunction {
-				return nil, fmt.Errorf("user function not decodable")
-			}
-
-			fv, err := fixDecodedObject(v, modules)
-			if err != nil {
-				return nil, err
-			}
-			o.Value[k] = fv
-		}
-	}
-	return o, nil
 }
 
 func updateConstIndexes(insts []byte, indexMap map[int]int) {
@@ -268,31 +156,4 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 
 		i += 1 + read
 	}
-}
-
-func inferModuleName(mod *ImmutableMap) string {
-	if modName, ok := mod.Value["__module_name__"].(*String); ok {
-		return modName.Value
-	}
-	return ""
-}
-
-func init() {
-	gob.Register(&parser.SourceFileSet{})
-	gob.Register(&parser.SourceFile{})
-	gob.Register(&Array{})
-	gob.Register(&Bool{})
-	gob.Register(&Bytes{})
-	gob.Register(&Char{})
-	gob.Register(&CompiledFunction{})
-	gob.Register(&Error{})
-	gob.Register(&Float{})
-	gob.Register(&ImmutableArray{})
-	gob.Register(&ImmutableMap{})
-	gob.Register(&Int{})
-	gob.Register(&Map{})
-	gob.Register(&String{})
-	gob.Register(&Time{})
-	gob.Register(&Undefined{})
-	gob.Register(&UserFunction{})
 }

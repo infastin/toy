@@ -11,7 +11,7 @@ func makeTextRegexp(re *regexp.Regexp) *tengo.ImmutableMap {
 		Value: map[string]tengo.Object{
 			// match(text) => bool
 			"match": &tengo.UserFunction{
-				Value: func(args ...tengo.Object) (
+				Func: func(args ...tengo.Object) (
 					ret tengo.Object,
 					err error,
 				) {
@@ -31,9 +31,9 @@ func makeTextRegexp(re *regexp.Regexp) *tengo.ImmutableMap {
 					}
 
 					if re.MatchString(s1) {
-						ret = tengo.TrueValue
+						ret = tengo.True
 					} else {
-						ret = tengo.FalseValue
+						ret = tengo.False
 					}
 
 					return
@@ -43,7 +43,7 @@ func makeTextRegexp(re *regexp.Regexp) *tengo.ImmutableMap {
 			// find(text) 			=> array(array({text:,begin:,end:}))/undefined
 			// find(text, maxCount) => array(array({text:,begin:,end:}))/undefined
 			"find": &tengo.UserFunction{
-				Value: func(args ...tengo.Object) (
+				Func: func(args ...tengo.Object) (
 					ret tengo.Object,
 					err error,
 				) {
@@ -66,7 +66,7 @@ func makeTextRegexp(re *regexp.Regexp) *tengo.ImmutableMap {
 					if numArgs == 1 {
 						m := re.FindStringSubmatchIndex(s1)
 						if m == nil {
-							ret = tengo.UndefinedValue
+							ret = tengo.Undefined
 							return
 						}
 
@@ -103,7 +103,7 @@ func makeTextRegexp(re *regexp.Regexp) *tengo.ImmutableMap {
 					}
 					m := re.FindAllStringSubmatchIndex(s1, i2)
 					if m == nil {
-						ret = tengo.UndefinedValue
+						ret = tengo.Undefined
 						return
 					}
 
@@ -137,7 +137,7 @@ func makeTextRegexp(re *regexp.Regexp) *tengo.ImmutableMap {
 
 			// replace(src, repl) => string
 			"replace": &tengo.UserFunction{
-				Value: func(args ...tengo.Object) (
+				Func: func(args ...tengo.Object) (
 					ret tengo.Object,
 					err error,
 				) {
@@ -180,7 +180,7 @@ func makeTextRegexp(re *regexp.Regexp) *tengo.ImmutableMap {
 			// split(text) 			 => array(string)
 			// split(text, maxCount) => array(string)
 			"split": &tengo.UserFunction{
-				Value: func(args ...tengo.Object) (
+				Func: func(args ...tengo.Object) (
 					ret tengo.Object,
 					err error,
 				) {

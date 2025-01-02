@@ -8,36 +8,36 @@ import (
 
 var randModule = map[string]tengo.Object{
 	"int": &tengo.UserFunction{
-		Name:  "int",
-		Value: FuncARI64(rand.Int63),
+		Name: "int",
+		Func: FuncARI64(rand.Int63),
 	},
 	"float": &tengo.UserFunction{
-		Name:  "float",
-		Value: FuncARF(rand.Float64),
+		Name: "float",
+		Func: FuncARF(rand.Float64),
 	},
 	"intn": &tengo.UserFunction{
-		Name:  "intn",
-		Value: FuncAI64RI64(rand.Int63n),
+		Name: "intn",
+		Func: FuncAI64RI64(rand.Int63n),
 	},
 	"exp_float": &tengo.UserFunction{
-		Name:  "exp_float",
-		Value: FuncARF(rand.ExpFloat64),
+		Name: "exp_float",
+		Func: FuncARF(rand.ExpFloat64),
 	},
 	"norm_float": &tengo.UserFunction{
-		Name:  "norm_float",
-		Value: FuncARF(rand.NormFloat64),
+		Name: "norm_float",
+		Func: FuncARF(rand.NormFloat64),
 	},
 	"perm": &tengo.UserFunction{
-		Name:  "perm",
-		Value: FuncAIRIs(rand.Perm),
+		Name: "perm",
+		Func: FuncAIRIs(rand.Perm),
 	},
 	"seed": &tengo.UserFunction{
-		Name:  "seed",
-		Value: FuncAI64R(rand.Seed),
+		Name: "seed",
+		Func: FuncAI64R(rand.Seed),
 	},
 	"read": &tengo.UserFunction{
 		Name: "read",
-		Value: func(args ...tengo.Object) (ret tengo.Object, err error) {
+		Func: func(args ...tengo.Object) (ret tengo.Object, err error) {
 			if len(args) != 1 {
 				return nil, tengo.ErrWrongNumArguments
 			}
@@ -59,7 +59,7 @@ var randModule = map[string]tengo.Object{
 	},
 	"rand": &tengo.UserFunction{
 		Name: "rand",
-		Value: func(args ...tengo.Object) (tengo.Object, error) {
+		Func: func(args ...tengo.Object) (tengo.Object, error) {
 			if len(args) != 1 {
 				return nil, tengo.ErrWrongNumArguments
 			}
@@ -81,36 +81,36 @@ func randRand(r *rand.Rand) *tengo.ImmutableMap {
 	return &tengo.ImmutableMap{
 		Value: map[string]tengo.Object{
 			"int": &tengo.UserFunction{
-				Name:  "int",
-				Value: FuncARI64(r.Int63),
+				Name: "int",
+				Func: FuncARI64(r.Int63),
 			},
 			"float": &tengo.UserFunction{
-				Name:  "float",
-				Value: FuncARF(r.Float64),
+				Name: "float",
+				Func: FuncARF(r.Float64),
 			},
 			"intn": &tengo.UserFunction{
-				Name:  "intn",
-				Value: FuncAI64RI64(r.Int63n),
+				Name: "intn",
+				Func: FuncAI64RI64(r.Int63n),
 			},
 			"exp_float": &tengo.UserFunction{
-				Name:  "exp_float",
-				Value: FuncARF(r.ExpFloat64),
+				Name: "exp_float",
+				Func: FuncARF(r.ExpFloat64),
 			},
 			"norm_float": &tengo.UserFunction{
-				Name:  "norm_float",
-				Value: FuncARF(r.NormFloat64),
+				Name: "norm_float",
+				Func: FuncARF(r.NormFloat64),
 			},
 			"perm": &tengo.UserFunction{
-				Name:  "perm",
-				Value: FuncAIRIs(r.Perm),
+				Name: "perm",
+				Func: FuncAIRIs(r.Perm),
 			},
 			"seed": &tengo.UserFunction{
-				Name:  "seed",
-				Value: FuncAI64R(r.Seed),
+				Name: "seed",
+				Func: FuncAI64R(r.Seed),
 			},
 			"read": &tengo.UserFunction{
 				Name: "read",
-				Value: func(args ...tengo.Object) (
+				Func: func(args ...tengo.Object) (
 					ret tengo.Object,
 					err error,
 				) {

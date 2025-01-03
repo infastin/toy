@@ -133,8 +133,8 @@ type Indexable interface {
 // A Sliceable is a sequence that can be cut into pieces with the slice operator.
 type Sliceable interface {
 	Indexable
-	// The caller must ensure that the start and stop indices are valid.
-	Slice(start, stop int) Object
+	// The caller must ensure that the low and high indices are valid.
+	Slice(low, high int) Object
 }
 
 // Convertible represents an object that can be converted to another type.
@@ -277,26 +277,26 @@ func FieldSet(x Object, name string, value Object) error {
 	return xi.IndexSet(String(name), value)
 }
 
-func Slice(x Object, start, stop int) (Object, error) {
+func Slice(x Object, low, high int) (Object, error) {
 	xs, ok := x.(Sliceable)
 	if !ok {
 		return nil, ErrNotSliceable
 	}
 	n := xs.Len()
-	if start > stop {
-		return nil, fmt.Errorf("invalid slice index: %d > %d", start, stop)
+	if low > high {
+		return nil, fmt.Errorf("invalid slice index: %d > %d", low, high)
 	}
-	if start < 0 {
-		start = 0
-	} else if start > n {
-		start = n
+	if low < 0 {
+		low = 0
+	} else if low > n {
+		low = n
 	}
-	if stop < 0 {
-		stop = 0
-	} else if stop > n {
-		stop = n
+	if high < 0 {
+		high = 0
+	} else if high > n {
+		high = n
 	}
-	return xs.Slice(start, stop), nil
+	return xs.Slice(low, high), nil
 }
 
 func Convert[T Object](p *T, o Object) error {
@@ -327,7 +327,14 @@ func Convert[T Object](p *T, o Object) error {
 	return nil
 }
 
-func Elements(it Iterator) iter.Seq[Object] {
+func Elements(iterable Iterable) iter.Seq[Object] {
+	type hasElements interface {
+		Elements() iter.Seq[Object]
+	}
+	if iterable, ok := iterable.(hasElements); ok {
+		return iterable.Elements()
+	}
+	it := iterable.Iterate()
 	return func(yield func(Object) bool) {
 		if c, ok := it.(CloseableIterator); ok {
 			defer c.Close()
@@ -341,7 +348,14 @@ func Elements(it Iterator) iter.Seq[Object] {
 	}
 }
 
-func Entries(it Iterator) iter.Seq2[Object, Object] {
+func Entries(iterable Iterable) iter.Seq2[Object, Object] {
+	type hasEntries interface {
+		Entries() iter.Seq2[Object, Object]
+	}
+	if iterable, ok := iterable.(hasEntries); ok {
+		return iterable.Entries()
+	}
+	it := iterable.Iterate()
 	return func(yield func(Object, Object) bool) {
 		if c, ok := it.(CloseableIterator); ok {
 			defer c.Close()
@@ -656,9 +670,9 @@ func (o String) At(idx int) Object {
 	return Undefined // should not happend
 }
 
-func (o String) Slice(start, stop int) Object {
+func (o String) Slice(low, high int) Object {
 	rs := []rune(o)
-	return String(rs[start:stop])
+	return String(rs[low:high])
 }
 
 func (o String) Convert(p any) error {
@@ -755,9 +769,9 @@ func (o Bytes) IsFalsy() bool    { return len(o) == 0 }
 func (o Bytes) Copy() Object     { return slices.Clone(o) }
 func (o Bytes) Hash() uint32     { return murmur32(o) }
 
-func (o Bytes) Len() int                     { return len(o) }
-func (o Bytes) At(i int) Object              { return Int(o[i]) }
-func (o Bytes) Slice(start, stop int) Object { return o[start:stop] }
+func (o Bytes) Len() int                   { return len(o) }
+func (o Bytes) At(i int) Object            { return Int(o[i]) }
+func (o Bytes) Slice(low, high int) Object { return o[low:high] }
 
 func (o Bytes) Convert(p any) error {
 	s, ok := p.(*String)
@@ -969,22 +983,32 @@ func (o *Array) AsImmutable() Object {
 	return &Array{elems: elems, immutable: true}
 }
 
-func (o *Array) Len() int        { return len(o.elems) }
-func (o *Array) At(i int) Object { return o.elems[i] }
+func (o *Array) Len() int         { return len(o.elems) }
+func (o *Array) At(i int) Object  { return o.elems[i] }
+func (o *Array) Values() []Object { return o.elems }
 
-func (o *Array) Slice(start, stop int) Object {
+func (o *Array) Slice(low, high int) Object {
 	return &Array{
-		elems:     o.elems[start:stop],
+		elems:     o.elems[low:high],
 		immutable: o.immutable,
 		itercount: 0,
 	}
 }
 
-func (o *Array) Append(x Object) error {
+func (o *Array) Append(xs ...Object) error {
 	if err := o.checkMutable("append to"); err != nil {
 		return err
 	}
-	o.elems = append(o.elems, x)
+	o.elems = append(o.elems, xs...)
+	return nil
+}
+
+func (o *Array) Clear() error {
+	if err := o.checkMutable("clear"); err != nil {
+		return err
+	}
+	clear(o.elems)
+	o.elems = o.elems[:0]
 	return nil
 }
 
@@ -998,7 +1022,7 @@ func (o *Array) Compare(op token.Token, rhs Object) (bool, error) {
 		if len(o.elems) != len(y.elems) {
 			return false, nil
 		}
-		for i := range o.Len() {
+		for i := range len(o.elems) {
 			if eq, err := Equals(o.elems[i], y.elems[i]); err != nil {
 				return false, err
 			} else if !eq {
@@ -1027,10 +1051,11 @@ func (o *Array) BinaryOp(op token.Token, rhs Object) (Object, error) {
 	}
 	switch op {
 	case token.Add:
-		if err := o.checkMutable("add elements from another list to"); err != nil {
-			return nil, err
-		}
-		return &Array{elems: slices.Concat(o.elems, y.elems), immutable: false}, nil
+		return &Array{
+			elems:     append(o.elems, y.elems...),
+			immutable: o.immutable,
+			itercount: 0,
+		}, nil
 	}
 	return nil, ErrInvalidOperator
 }
@@ -1232,10 +1257,139 @@ func (o *Map) Iterate() Iterator                             { return o.ht.itera
 func (o *Map) Elements() iter.Seq[Object]                    { return o.ht.elements() }
 func (o *Map) Entries() iter.Seq2[Object, Object]            { return o.ht.entries() }
 
+func (o *Map) Insert(key, value Object) error    { return o.ht.insert(key, value) }
+func (o *Map) Delete(key Object) (Object, error) { return o.ht.delete(key) }
+func (o *Map) Keys() []Object                    { return o.ht.keys() }
+func (o *Map) Values() []Object                  { return o.ht.values() }
+func (o *Map) Items() []Tuple                    { return o.ht.items() }
+
+type Tuple []Object
+
+func (o Tuple) TypeName() string { return "tuple" }
+
+func (o Tuple) String() string {
+	var b strings.Builder
+	b.WriteString("#(")
+	for i, v := range o {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(v.String())
+	}
+	b.WriteByte(')')
+	return b.String()
+}
+
+func (o Tuple) IsFalsy() bool { return len(o) == 0 }
+
+func (o Tuple) Copy() Object {
+	t := make(Tuple, 0, len(o))
+	for _, elem := range o {
+		t = append(t, elem.Copy())
+	}
+	return t
+}
+
+func (o Tuple) Len() int                   { return len(o) }
+func (o Tuple) At(i int) Object            { return o[i] }
+func (o Tuple) Slice(low, high int) Object { return o[low:high] }
+
+func (o Tuple) Compare(op token.Token, rhs Object) (bool, error) {
+	y, ok := rhs.(Tuple)
+	if !ok {
+		return false, ErrInvalidOperator
+	}
+	switch op {
+	case token.Equal:
+		if len(o) != len(y) {
+			return false, nil
+		}
+		for i := range o.Len() {
+			if eq, err := Equals(o[i], y[i]); err != nil {
+				return false, err
+			} else if !eq {
+				return false, nil
+			}
+		}
+	case token.NotEqual:
+		if len(o) != len(y) {
+			return true, nil
+		}
+		for i := range len(o) {
+			if eq, err := Equals(o[i], y[i]); err != nil {
+				return false, err
+			} else if !eq {
+				return true, nil
+			}
+		}
+	}
+	return false, ErrInvalidOperator
+}
+
+func (o Tuple) IndexGet(index Object) (res Object, err error) {
+	intIdx, ok := index.(Int)
+	if !ok {
+		return nil, ErrInvalidIndexType
+	}
+	if intIdx < 0 || int64(intIdx) >= int64(len(o)) {
+		return Undefined, nil
+	}
+	return o[intIdx], nil
+}
+
+func (o Tuple) Iterate() Iterator { return &tupleIterator{t: o, i: 0} }
+
+func (o Tuple) Elements() iter.Seq[Object] {
+	return func(yield func(Object) bool) {
+		for _, x := range o {
+			if !yield(x) {
+				break
+			}
+		}
+	}
+}
+
+func (o Tuple) Entries() iter.Seq2[Object, Object] {
+	return func(yield func(Object, Object) bool) {
+		for i, x := range o {
+			if !yield(Int(i), x) {
+				break
+			}
+		}
+	}
+}
+
+type tupleIterator struct {
+	t Tuple
+	i int
+}
+
+func (it *tupleIterator) TypeName() string { return "tuple-iterator" }
+func (it *tupleIterator) String() string   { return "<tuple-iterator>" }
+func (it *tupleIterator) IsFalsy() bool    { return true }
+func (it *tupleIterator) Copy() Object     { return &tupleIterator{t: it.t, i: it.i} }
+
+func (it *tupleIterator) Next(key, value *Object) bool {
+	if it.i < len(it.t) {
+		if key != nil {
+			*key = Int(it.i)
+		}
+		if value != nil {
+			*value = it.t[it.i]
+		}
+		it.i++
+		return true
+	}
+	return false
+}
+
 type Error struct {
 	message string
 	cause   *Error
 }
+
+func (e *Error) Message() string { return e.message }
+func (e *Error) Cause() *Error   { return e.cause }
 
 func (e *Error) TypeName() string { return "error" }
 
@@ -1268,9 +1422,19 @@ func (e *Error) Compare(op token.Token, rhs Object) (bool, error) {
 	}
 	switch op {
 	case token.Equal:
-		return e == y, nil
+		for x := e; x != nil; x = x.cause {
+			if x == y {
+				return true, nil
+			}
+		}
+		return false, nil
 	case token.NotEqual:
-		return e != y, nil
+		for x := e; x != nil; x = x.cause {
+			if x == y {
+				return false, nil
+			}
+		}
+		return true, nil
 	}
 	return false, ErrInvalidOperator
 }
@@ -1284,35 +1448,12 @@ func (e *Error) FieldGet(name string) (res Object, err error) {
 			return e.cause, nil
 		}
 		return Undefined, nil
-	case "wrap":
-		return &BuiltinFunction{
-			Name:     "error.wrap",
-			Receiver: e,
-			Func:     errorWrapMd,
-		}, nil
+	}
+	method, ok := ErrorMethods[name]
+	if ok {
+		return method.WithReceiver(e), nil
 	}
 	return nil, ErrNoSuchField
-}
-
-func errorWrapMd(args ...Object) (ret Object, err error) {
-	var (
-		recv   = args[0].(*Error)
-		format string
-		rest   []Object
-	)
-	if err := UnpackArgs(args[1:], "format", &format, "...", &rest); err != nil {
-		return nil, err
-	}
-	var s string
-	if len(rest) != 0 {
-		s, err = Format(format, rest...)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		s = format
-	}
-	return &Error{message: s, cause: recv}, nil
 }
 
 // objectPtr represents a free variable.

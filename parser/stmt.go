@@ -33,15 +33,23 @@ func (s *AssignStmt) End() Pos {
 }
 
 func (s *AssignStmt) String() string {
-	var lhs, rhs []string
-	for _, e := range s.LHS {
-		lhs = append(lhs, e.String())
+	var b strings.Builder
+	for i, elem := range s.LHS {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(elem.String())
 	}
-	for _, e := range s.RHS {
-		rhs = append(rhs, e.String())
+	b.WriteByte(' ')
+	b.WriteString(s.Token.String())
+	b.WriteByte(' ')
+	for i, elem := range s.RHS {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(elem.String())
 	}
-	return strings.Join(lhs, ", ") + " " + s.Token.String() +
-		" " + strings.Join(rhs, ", ")
+	return b.String()
 }
 
 // BadStmt represents a bad statement.
@@ -86,11 +94,16 @@ func (s *BlockStmt) End() Pos {
 }
 
 func (s *BlockStmt) String() string {
-	var list []string
-	for _, e := range s.Stmts {
-		list = append(list, e.String())
+	var b strings.Builder
+	b.WriteByte('{')
+	for i, e := range s.Stmts {
+		if i != 0 {
+			b.WriteString("; ")
+		}
+		b.WriteString(e.String())
 	}
-	return "{" + strings.Join(list, "; ") + "}"
+	b.WriteByte('}')
+	return b.String()
 }
 
 // BranchStmt represents a branch statement.
@@ -112,7 +125,6 @@ func (s *BranchStmt) End() Pos {
 	if s.Label != nil {
 		return s.Label.End()
 	}
-
 	return Pos(int(s.TokenPos) + len(s.Token.String()))
 }
 
@@ -214,12 +226,18 @@ func (s *ForInStmt) End() Pos {
 }
 
 func (s *ForInStmt) String() string {
+	var b strings.Builder
+	b.WriteString("for ")
+	b.WriteString(s.Key.String())
 	if s.Value != nil {
-		return "for " + s.Key.String() + ", " + s.Value.String() +
-			" in " + s.Iterable.String() + " " + s.Body.String()
+		b.WriteString(", ")
+		b.WriteString(s.Value.String())
 	}
-	return "for " + s.Key.String() + " in " + s.Iterable.String() +
-		" " + s.Body.String()
+	b.WriteString(" in ")
+	b.WriteString(s.Iterable.String())
+	b.WriteByte(' ')
+	b.WriteString(s.Body.String())
+	return b.String()
 }
 
 // ForStmt represents a for statement.
@@ -244,21 +262,25 @@ func (s *ForStmt) End() Pos {
 }
 
 func (s *ForStmt) String() string {
-	var init, cond, post string
-	if s.Init != nil {
-		init = s.Init.String()
+	var b strings.Builder
+	b.WriteString("for ")
+	if s.Init != nil || s.Post != nil {
+		if s.Init != nil {
+			b.WriteString(s.Init.String())
+		}
+		b.WriteString(" ; ")
 	}
 	if s.Cond != nil {
-		cond = s.Cond.String() + " "
+		b.WriteString(s.Cond.String())
 	}
-	if s.Post != nil {
-		post = s.Post.String()
+	if s.Init != nil || s.Post != nil {
+		b.WriteString(" ; ")
+		if s.Post != nil {
+			b.WriteString(s.Post.String())
+		}
 	}
-
-	if init != "" || post != "" {
-		return "for " + init + " ; " + cond + " ; " + post + s.Body.String()
-	}
-	return "for " + cond + s.Body.String()
+	b.WriteString(s.Body.String())
+	return b.String()
 }
 
 // IfStmt represents an if statement.
@@ -286,15 +308,20 @@ func (s *IfStmt) End() Pos {
 }
 
 func (s *IfStmt) String() string {
-	var initStmt, elseStmt string
+	var b strings.Builder
+	b.WriteString("if ")
 	if s.Init != nil {
-		initStmt = s.Init.String() + "; "
+		b.WriteString(s.Init.String())
+		b.WriteString("; ")
 	}
+	b.WriteString(s.Cond.String())
+	b.WriteByte(' ')
+	b.WriteString(s.Body.String())
 	if s.Else != nil {
-		elseStmt = " else " + s.Else.String()
+		b.WriteString(" else ")
+		b.WriteString(s.Else.String())
 	}
-	return "if " + initStmt + s.Cond.String() + " " +
-		s.Body.String() + elseStmt
+	return b.String()
 }
 
 // IncDecStmt represents increment or decrement statement.
@@ -323,7 +350,7 @@ func (s *IncDecStmt) String() string {
 // ReturnStmt represents a return statement.
 type ReturnStmt struct {
 	ReturnPos Pos
-	Result    Expr
+	Results   []Expr
 }
 
 func (s *ReturnStmt) stmtNode() {}
@@ -335,15 +362,24 @@ func (s *ReturnStmt) Pos() Pos {
 
 // End returns the position of first character immediately after the node.
 func (s *ReturnStmt) End() Pos {
-	if s.Result != nil {
-		return s.Result.End()
+	end := s.ReturnPos + 6
+	for _, r := range s.Results {
+		end = r.End()
 	}
-	return s.ReturnPos + 6
+	return end
 }
 
 func (s *ReturnStmt) String() string {
-	if s.Result != nil {
-		return "return " + s.Result.String()
+	var b strings.Builder
+	b.WriteString("return")
+	if len(s.Results) != 0 {
+		b.WriteByte(' ')
+		for i, r := range s.Results {
+			if i != 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(r.String())
+		}
 	}
-	return "return"
+	return b.String()
 }

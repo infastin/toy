@@ -139,7 +139,7 @@ func (v *VM) run() {
 			tok := token.Token(v.curInsts[v.ip])
 			v.sp--
 
-			res, err := UnaryOp(token.Add, operand)
+			res, err := UnaryOp(tok, operand)
 			if err != nil {
 				v.err = fmt.Errorf("operation %s%s has failed: %w",
 					tok.String(), operand.TypeName(), err)
@@ -227,6 +227,18 @@ func (v *VM) run() {
 
 			v.stack[v.sp] = m
 			v.sp++
+		case parser.OpTuple:
+			v.ip += 2
+			numElements := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+
+			var tuple Tuple
+			for i := v.sp - numElements; i < v.sp; i++ {
+				tuple = append(tuple, v.stack[i])
+			}
+			v.sp -= numElements
+
+			v.stack[v.sp] = tuple
+			v.sp++
 		case parser.OpImmutable:
 			value := v.stack[v.sp-1]
 			v.stack[v.sp-1] = AsImmutable(value)
@@ -246,13 +258,13 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 		case parser.OpField:
-			name := v.stack[v.sp-1]
+			name := v.stack[v.sp-1].(String)
 			left := v.stack[v.sp-2]
 			v.sp -= 2
-			val, err := FieldGet(left, name.String())
+			val, err := FieldGet(left, string(name))
 			if err != nil {
 				v.err = fmt.Errorf("operation %s.%s has failed: %w",
-					left.TypeName(), name.String(), err)
+					left.TypeName(), string(name), err)
 				return
 			}
 			if val == nil {
@@ -419,23 +431,33 @@ func (v *VM) run() {
 				v.sp++
 			}
 		case parser.OpReturn:
-			v.ip++
+			v.ip += 2
+			numResults := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+
 			var retVal Object
-			if int(v.curInsts[v.ip]) == 1 {
-				retVal = v.stack[v.sp-1]
-			} else {
+			switch numResults {
+			case 0:
 				retVal = Undefined
+			case 1:
+				retVal = v.stack[v.sp-1]
+			default:
+				var tuple Tuple
+				for i := v.sp - numResults; i < v.sp; i++ {
+					tuple = append(tuple, v.stack[i])
+				}
+				retVal = tuple
 			}
-			//v.sp--
+
+			// v.sp--
 			v.framesIndex--
 			v.curFrame = &v.frames[v.framesIndex-1]
 			v.curInsts = v.curFrame.fn.instructions
 			v.ip = v.curFrame.ip
-			//v.sp = lastFrame.basePointer - 1
+			// v.sp = lastFrame.basePointer - 1
 			v.sp = v.frames[v.framesIndex].basePointer
 			// skip stack overflow check because (newSP) <= (oldSP)
 			v.stack[v.sp-1] = retVal
-			//v.sp++
+			// v.sp++
 		case parser.OpDefineLocal:
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
@@ -493,7 +515,7 @@ func (v *VM) run() {
 		case parser.OpGetBuiltin:
 			v.ip++
 			builtinIndex := int(v.curInsts[v.ip])
-			v.stack[v.sp] = builtinFuncs[builtinIndex]
+			v.stack[v.sp] = BuiltinFuncs[builtinIndex]
 			v.sp++
 		case parser.OpClosure:
 			v.ip += 3
@@ -584,28 +606,21 @@ func (v *VM) run() {
 			v.stack[v.sp] = iterator
 			v.sp++
 		case parser.OpIteratorNext:
+			v.ip++
 			iterator := v.stack[v.sp-1].(Iterator)
+			op := v.curInsts[v.ip]
 			v.sp--
 
 			var (
-				key    Object
-				keyPtr *Object
+				key, value       Object
+				keyPtr, valuePtr *Object
 			)
-			if v.curInsts[v.ip+1] != 0 {
-				v.sp--
+			if op&0x1 != 0 {
 				keyPtr = &key
 			}
-
-			var (
-				value    Object
-				valuePtr *Object
-			)
-			if v.curInsts[v.ip+2] != 0 {
-				v.sp--
+			if op&0x2 != 0 {
 				valuePtr = &value
 			}
-
-			v.ip += 2
 
 			hasMore := iterator.Next(keyPtr, valuePtr)
 			if hasMore {
@@ -618,8 +633,15 @@ func (v *VM) run() {
 					v.sp++
 				}
 			}
+
 			v.stack[v.sp] = Bool(hasMore)
 			v.sp++
+		case parser.OpIteratorClose:
+			iterator, ok := v.stack[v.sp-1].(CloseableIterator)
+			if ok {
+				iterator.Close()
+			}
+			v.sp--
 		case parser.OpSuspend:
 			return
 		default:

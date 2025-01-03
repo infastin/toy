@@ -32,11 +32,16 @@ func (e *ArrayLit) End() Pos {
 }
 
 func (e *ArrayLit) String() string {
-	var elements []string
-	for _, m := range e.Elements {
-		elements = append(elements, m.String())
+	var b strings.Builder
+	b.WriteByte('[')
+	for i, elem := range e.Elements {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(elem.String())
 	}
-	return "[" + strings.Join(elements, ", ") + "]"
+	b.WriteByte(']')
+	return b.String()
 }
 
 // BadExpr represents a bad expression.
@@ -82,8 +87,15 @@ func (e *BinaryExpr) End() Pos {
 }
 
 func (e *BinaryExpr) String() string {
-	return "(" + e.LHS.String() + " " + e.Token.String() +
-		" " + e.RHS.String() + ")"
+	var b strings.Builder
+	b.WriteByte('(')
+	b.WriteString(e.LHS.String())
+	b.WriteByte(' ')
+	b.WriteString(e.Token.String())
+	b.WriteByte(' ')
+	b.WriteString(e.RHS.String())
+	b.WriteByte(')')
+	return b.String()
 }
 
 // BoolLit represents a boolean literal.
@@ -131,14 +143,20 @@ func (e *CallExpr) End() Pos {
 }
 
 func (e *CallExpr) String() string {
-	var args []string
-	for _, e := range e.Args {
-		args = append(args, e.String())
+	var b strings.Builder
+	b.WriteString(e.Func.String())
+	b.WriteByte('(')
+	for i, arg := range e.Args {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(arg.String())
 	}
-	if len(args) > 0 && e.Ellipsis.IsValid() {
-		args[len(args)-1] = args[len(args)-1] + "..."
+	if e.Ellipsis.IsValid() && len(e.Args) > 0 {
+		b.WriteString("...")
 	}
-	return e.Func.String() + "(" + strings.Join(args, ", ") + ")"
+	b.WriteByte(')')
+	return b.String()
 }
 
 // CharLit represents a character literal.
@@ -186,8 +204,15 @@ func (e *CondExpr) End() Pos {
 }
 
 func (e *CondExpr) String() string {
-	return "(" + e.Cond.String() + " ? " + e.True.String() +
-		" : " + e.False.String() + ")"
+	var b strings.Builder
+	b.WriteByte('(')
+	b.WriteString(e.Cond.String())
+	b.WriteString(" ? ")
+	b.WriteString(e.True.String())
+	b.WriteString(" : ")
+	b.WriteString(e.False.String())
+	b.WriteByte(')')
+	return b.String()
 }
 
 // FloatLit represents a floating point literal.
@@ -232,7 +257,7 @@ func (e *FuncLit) End() Pos {
 }
 
 func (e *FuncLit) String() string {
-	return "func" + e.Type.Params.String() + " " + e.Body.String()
+	return "fn" + e.Type.Params.String() + " " + e.Body.String()
 }
 
 // FuncType represents a function type definition.
@@ -254,7 +279,7 @@ func (e *FuncType) End() Pos {
 }
 
 func (e *FuncType) String() string {
-	return "func" + e.Params.String()
+	return "fn" + e.Params.String()
 }
 
 // Ident represents an identifier.
@@ -425,11 +450,46 @@ func (e *MapLit) End() Pos {
 }
 
 func (e *MapLit) String() string {
-	var elements []string
-	for _, m := range e.Elements {
-		elements = append(elements, m.String())
+	var b strings.Builder
+	b.WriteByte('{')
+	for i, elem := range e.Elements {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(elem.String())
 	}
-	return "{" + strings.Join(elements, ", ") + "}"
+	b.WriteByte('}')
+	return b.String()
+}
+
+// TupleLit represents a tuple literal.
+type TupleLit struct {
+	Elements []Expr
+	Hash     Pos
+	RParen   Pos
+}
+
+func (e *TupleLit) exprNode() {}
+
+func (e *TupleLit) Pos() Pos {
+	return e.Hash
+}
+
+func (e *TupleLit) End() Pos {
+	return e.RParen
+}
+
+func (e *TupleLit) String() string {
+	var b strings.Builder
+	b.WriteString("#(")
+	for i, elem := range e.Elements {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(elem.String())
+	}
+	b.WriteByte(')')
+	return b.String()
 }
 
 // ParenExpr represents a parenthesis wrapped expression.
@@ -499,14 +559,18 @@ func (e *SliceExpr) End() Pos {
 }
 
 func (e *SliceExpr) String() string {
-	var low, high string
+	var b strings.Builder
+	b.WriteString(e.Expr.String())
+	b.WriteByte('[')
 	if e.Low != nil {
-		low = e.Low.String()
+		b.WriteString(e.Low.String())
 	}
+	b.WriteByte(':')
 	if e.High != nil {
-		high = e.High.String()
+		b.WriteString(e.High.String())
 	}
-	return e.Expr.String() + "[" + low + ":" + high + "]"
+	b.WriteByte(']')
+	return b.String()
 }
 
 // StringLit represents a string literal.

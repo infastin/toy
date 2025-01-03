@@ -1,5 +1,7 @@
 package tengo
 
+import "iter"
+
 var (
 	// MaxStringLen is the maximum byte-length for string value. Note this
 	// limit applies to all compiler/VM instances in the process.
@@ -26,3 +28,15 @@ const (
 
 // CallableFunc is a function signature for the callable functions.
 type CallableFunc = func(args ...Object) (ret Object, err error)
+
+func enumerate[T any](it iter.Seq[T]) iter.Seq2[int, T] {
+	return func(yield func(int, T) bool) {
+		i := 0
+		for v := range it {
+			if !yield(i, v) {
+				break
+			}
+			i++
+		}
+	}
+}

@@ -67,6 +67,7 @@ const (
 	Semicolon    // ;
 	Colon        // :
 	Question     // ?
+	Hash         // #
 	_operatorEnd
 	_keywordBeg
 	Break
@@ -142,11 +143,13 @@ var tokens = [...]string{
 	Semicolon:    ";",
 	Colon:        ":",
 	Question:     "?",
+	Hash:         "#",
 	Break:        "break",
 	Continue:     "continue",
 	Else:         "else",
 	For:          "for",
-	Func:         "func",
+	Func:         "fn",
+	Immutable:    "immutable",
 	If:           "if",
 	Return:       "return",
 	Export:       "export",

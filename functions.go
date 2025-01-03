@@ -36,6 +36,14 @@ func (o *BuiltinFunction) Call(args ...Object) (Object, error) {
 	return o.Func(args...)
 }
 
+func (o *BuiltinFunction) WithReceiver(recv Object) *BuiltinFunction {
+	return &BuiltinFunction{
+		Name:     o.Name,
+		Receiver: recv,
+		Func:     o.Func,
+	}
+}
+
 // CompiledFunction represents a compiled function.
 type CompiledFunction struct {
 	instructions  []byte
@@ -45,6 +53,9 @@ type CompiledFunction struct {
 	sourceMap     map[int]parser.Pos
 	free          []*objectPtr
 }
+
+func (o *CompiledFunction) Instructions() []byte { return o.instructions }
+func (o *CompiledFunction) NumParameters() int   { return o.numParameters }
 
 // SourcePos returns the source position of the instruction at ip.
 func (o *CompiledFunction) SourcePos(ip int) parser.Pos {

@@ -31,6 +31,13 @@ func (s *Script) Add(name string, value Object) {
 	s.variables[name] = &Variable{name: name, value: value}
 }
 
+// AddAll adds or updates multiple variables to the script.
+func (s *Script) AddAll(variables []*Variable) {
+	for _, v := range variables {
+		s.variables[v.name] = v
+	}
+}
+
 // Remove removes (undefines) an existing variable for the script. It returns
 // false if the variable name is not defined.
 func (s *Script) Remove(name string) bool {
@@ -137,7 +144,7 @@ func (s *Script) prepCompile() (symbolTable *SymbolTable, globals []Object) {
 	}
 
 	symbolTable = NewSymbolTable()
-	for idx, fn := range builtinFuncs {
+	for idx, fn := range BuiltinFuncs {
 		symbolTable.DefineBuiltin(idx, fn.Name)
 	}
 
@@ -155,8 +162,8 @@ func (s *Script) prepCompile() (symbolTable *SymbolTable, globals []Object) {
 	return symbolTable, globals
 }
 
-// Compiled is a compiled instance of the user script. Use Script.Compile() to
-// create Compiled object.
+// Compiled is a compiled instance of the user script.
+// Use Script.Compile() to create Compiled object.
 type Compiled struct {
 	globalIndexes map[string]int // global symbol name to index
 	bytecode      *Bytecode
@@ -204,6 +211,11 @@ func (c *Compiled) RunContext(ctx context.Context) (err error) {
 	case err = <-ch:
 	}
 	return
+}
+
+// Bytecode returns a compiled bytecode.
+func (c *Compiled) Bytecode() *Bytecode {
+	return c.bytecode
 }
 
 // Clone creates a new copy of Compiled. Cloned copies are safe for concurrent

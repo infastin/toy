@@ -14,6 +14,9 @@ type Bytecode struct {
 	constants    []Object
 }
 
+func (b *Bytecode) MainFunction() *CompiledFunction { return b.mainFunction }
+func (b *Bytecode) Constants() []Object             { return b.constants }
+
 // FormatInstructions returns human readable string representations of
 // compiled instructions.
 func (b *Bytecode) FormatInstructions() []string {
@@ -33,10 +36,10 @@ func (b *Bytecode) FormatConstants() (output []string) {
 			}
 		default:
 			output = append(output, fmt.Sprintf("[% 3d] %s (%s|%p)",
-				cidx, cn, reflect.TypeOf(cn).Elem().Name(), &cn))
+				cidx, cn, reflect.TypeOf(cn).Name(), &cn))
 		}
 	}
-	return
+	return output
 }
 
 // RemoveDuplicates finds and remove the duplicate values in Constants.

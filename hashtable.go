@@ -239,6 +239,30 @@ func (ht *hashtable) count(iter Iterator) (int, error) {
 	return count, nil
 }
 
+func (ht *hashtable) keys() []Object {
+	keys := make([]Object, 0, ht.len)
+	for e := ht.head; e != nil; e = e.next {
+		keys = append(keys, e.key)
+	}
+	return keys
+}
+
+func (ht *hashtable) values() []Object {
+	values := make([]Object, 0, ht.len)
+	for e := ht.head; e != nil; e = e.next {
+		values = append(values, e.value)
+	}
+	return values
+}
+
+func (ht *hashtable) items() []Tuple {
+	items := make([]Tuple, 0, ht.len)
+	for e := ht.head; e != nil; e = e.next {
+		items = append(items, Tuple{e.key, e.value})
+	}
+	return items
+}
+
 func (ht *hashtable) delete(k Object) (v Object, err error) {
 	if err := ht.checkMutable("delete from"); err != nil {
 		return nil, err

@@ -1,41 +1,95 @@
 package tengo
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
-var builtinFuncs = []*BuiltinFunction{
-	{Name: "copy", Func: builtinCopy},
-	{Name: "copy", Func: builtinCopy},
-	{Name: "string", Func: builtinConvert[String]},
-	{Name: "int", Func: builtinConvert[Int]},
-	{Name: "bool", Func: builtinConvert[Bool]},
-	{Name: "float", Func: builtinConvert[Float]},
-	{Name: "char", Func: builtinConvert[Char]},
-	{Name: "bytes", Func: builtinConvert[Bytes]},
-	{Name: "is_int", Func: builtinIs[Int]},
-	{Name: "is_float", Func: builtinIs[Float]},
-	{Name: "is_string", Func: builtinIs[String]},
-	{Name: "is_bool", Func: builtinIs[Bool]},
-	{Name: "is_char", Func: builtinIs[Char]},
-	{Name: "is_bytes", Func: builtinIs[Bytes]},
-	{Name: "is_array", Func: builtinIs[*Array]},
-	{Name: "is_immutable_array", Func: builtinIsImmutableArray},
-	{Name: "is_map", Func: builtinIs[*Map]},
-	{Name: "is_immutable_map", Func: builtinIsImmutableMap},
-	{Name: "is_iterable", Func: builtinIs[Iterable]},
-	{Name: "is_error", Func: builtinIs[*Error]},
-	{Name: "is_undefined", Func: builtinIs[UndefinedType]},
-	{Name: "is_function", Func: builtinIs[*CompiledFunction]},
-	{Name: "is_callable", Func: builtinIs[Callable]},
-	{Name: "type_name", Func: builtinTypeName},
-	{Name: "format", Func: builtinFormat},
-	{Name: "range", Func: builtinRange},
-	{Name: "error", Func: builtinError},
-}
+var (
+	BuiltinFuncs = []*BuiltinFunction{
+		{Name: "copy", Func: builtinCopy},
+		{Name: "len", Func: builtinLen},
+		{Name: "string", Func: builtinConvert[String]},
+		{Name: "int", Func: builtinConvert[Int]},
+		{Name: "bool", Func: builtinConvert[Bool]},
+		{Name: "float", Func: builtinConvert[Float]},
+		{Name: "char", Func: builtinConvert[Char]},
+		{Name: "bytes", Func: builtinConvert[Bytes]},
+		{Name: "isInt", Func: builtinIs[Int]},
+		{Name: "isFloat", Func: builtinIs[Float]},
+		{Name: "isString", Func: builtinIs[String]},
+		{Name: "isBool", Func: builtinIs[Bool]},
+		{Name: "isChar", Func: builtinIs[Char]},
+		{Name: "isBytes", Func: builtinIs[Bytes]},
+		{Name: "isArray", Func: builtinIs[*Array]},
+		{Name: "isImmutableArray", Func: builtinIsImmutableArray},
+		{Name: "isMap", Func: builtinIs[*Map]},
+		{Name: "isImmutableMap", Func: builtinIsImmutableMap},
+		{Name: "isIterable", Func: builtinIs[Iterable]},
+		{Name: "isError", Func: builtinIs[*Error]},
+		{Name: "isUndefined", Func: builtinIs[UndefinedType]},
+		{Name: "isFunction", Func: builtinIs[*CompiledFunction]},
+		{Name: "isCallable", Func: builtinIs[Callable]},
+		{Name: "typename", Func: builtinTypeName},
+		{Name: "format", Func: builtinFormat},
+		{Name: "range", Func: builtinRange},
+		{Name: "error", Func: builtinError},
+	}
 
-// GetAllBuiltinFunctions returns all builtin function objects.
-func GetAllBuiltinFunctions() []*BuiltinFunction {
-	return append([]*BuiltinFunction{}, builtinFuncs...)
-}
+	ArrayMethods = map[string]*BuiltinFunction{
+		"append":   {Name: "append", Func: builtinArrayAppend},
+		"clear":    {Name: "clear", Func: builtinArrayClear},
+		"index":    {Name: "index", Func: builtinArrayIndex},
+		"contains": {},
+		"insert":   {Name: "insert", Func: builtinArrayInsert},
+		"pop":      {Name: "pop", Func: builtinArrayPop},
+		"remove":   {Name: "remove", Func: builtinArrayRemove},
+	}
+
+	MapMethods = map[string]*BuiltinFunction{
+		"clear":  {},
+		"pop":    {},
+		"keys":   {},
+		"values": {},
+		"items":  {},
+	}
+
+	StringMethods = map[string]*BuiltinFunction{
+		"count":        {},
+		"contains":     {},
+		"containsAny":  {},
+		"index":        {},
+		"indexAny":     {},
+		"lastIndex":    {},
+		"lastIndexAny": {},
+		"split":        {},
+		"splitAfter":   {},
+		"splitN":       {},
+		"splitAfterN":  {},
+		"fields":       {},
+		"join":         {},
+		"hasPrefix":    {},
+		"hasSuffix":    {},
+		"repeat":       {},
+		"upper":        {},
+		"lower":        {},
+		"title":        {},
+		"trim":         {},
+		"trimLeft":     {},
+		"trimRight":    {},
+		"trimSpace":    {},
+		"trimPrefix":   {},
+		"trimSuffix":   {},
+		"replace":      {},
+		"replaceAll":   {},
+		"quote":        {},
+		"unquote":      {},
+	}
+
+	ErrorMethods = map[string]*BuiltinFunction{
+		"wrap": {Name: "wrap", Func: builtinErrorWrap},
+	}
+)
 
 func builtinTypeName(args ...Object) (Object, error) {
 	if len(args) != 1 {
@@ -175,4 +229,124 @@ func builtinError(args ...Object) (ret Object, err error) {
 		s = format
 	}
 	return &Error{message: s}, nil
+}
+
+func builtinArrayAppend(args ...Object) (ret Object, err error) {
+	recv := args[0].(*Array)
+	args = args[1:]
+	if err := recv.Append(args...); err != nil {
+		return nil, err
+	}
+	return recv, nil
+}
+
+func builtinArrayClear(args ...Object) (ret Object, err error) {
+	recv := args[0].(*Array)
+	args = args[1:]
+	if len(args) != 0 {
+		return nil, fmt.Errorf("got %d arguments, want none", len(args))
+	}
+	if err := recv.Clear(); err != nil {
+		return nil, err
+	}
+	return Undefined, nil
+}
+
+func builtinArrayIndex(args ...Object) (ret Object, err error) {
+	var (
+		recv = args[0].(*Array)
+		x    Object
+	)
+	if err := UnpackArgs(args[1:], "x", &x); err != nil {
+		return nil, err
+	}
+	for i, elem := range recv.Entries() {
+		if eq, err := Equals(elem, x); err != nil {
+			return nil, err
+		} else if eq {
+			return i, nil
+		}
+	}
+	return Undefined, nil
+}
+
+func builtinArrayInsert(args ...Object) (ret Object, err error) {
+	var (
+		recv = args[0].(*Array)
+		i    int
+		rest []Object
+	)
+	if err := UnpackArgs(args[1:], "i", &i, "...", rest); err != nil {
+		return nil, err
+	}
+	if i < 0 || i > len(recv.elems) {
+		return nil, ErrIndexOutOfBounds
+	}
+	if err := recv.checkMutable("insert into"); err != nil {
+		return nil, err
+	}
+	recv.elems = slices.Insert(recv.elems, i, rest...)
+	return recv, nil
+}
+
+func builtinArrayPop(args ...Object) (ret Object, err error) {
+	var (
+		recv = args[0].(*Array)
+		i    = len(recv.elems) - 1
+	)
+	if err := UnpackArgs(args[1:], "i?", &i); err != nil {
+		return nil, err
+	}
+	if i < 0 || i >= len(recv.elems) {
+		return nil, ErrIndexOutOfBounds
+	}
+	if err := recv.checkMutable("pop from"); err != nil {
+		return nil, err
+	}
+	elem := recv.elems[i]
+	recv.elems = slices.Delete(recv.elems, i, i+1)
+	return elem, nil
+}
+
+func builtinArrayRemove(args ...Object) (ret Object, err error) {
+	var (
+		recv = args[0].(*Array)
+		x    Object
+	)
+	if err := UnpackArgs(args[1:], "x", &x); err != nil {
+		return nil, err
+	}
+	if err := recv.checkMutable("remove from"); err != nil {
+		return nil, err
+	}
+	for i, elem := range enumerate(recv.Elements()) {
+		if eq, err := Equals(elem, x); err != nil {
+			return nil, err
+		} else if eq {
+			recv.elems = slices.Delete(recv.elems, i, i+1)
+			return elem, nil
+		}
+	}
+	return Undefined, nil
+}
+
+func builtinErrorWrap(args ...Object) (ret Object, err error) {
+	var (
+		recv   = args[0].(*Error)
+		format string
+		rest   []Object
+	)
+	if err := UnpackArgs(args[1:], "error", &format, "...", &rest); err != nil {
+		return nil, err
+	}
+	var s string
+	if len(rest) != 0 {
+		s, err = Format(format, rest...)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		s = format
+	}
+	return &Error{message: s, cause: recv}, nil
 }

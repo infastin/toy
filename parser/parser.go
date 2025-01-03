@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strconv"
 
@@ -264,7 +265,7 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 			ellipsis = p.pos
 			p.next()
 		}
-		if !p.expectComma(token.RParen, "call argument") {
+		if !p.expectComma("call argument", token.RParen) {
 			break
 		}
 	}
@@ -281,10 +282,10 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 	}
 }
 
-func (p *Parser) expectComma(closing token.Token, want string) bool {
+func (p *Parser) expectComma(want string, closing ...token.Token) bool {
 	if p.token == token.Comma {
 		p.next()
-		if p.token == closing {
+		if slices.Contains(closing, p.token) {
 			p.errorExpected(p.pos, want)
 			return false
 		}
@@ -436,6 +437,8 @@ func (p *Parser) parseOperand() Expr {
 		return p.parseArrayLit()
 	case token.LBrace: // map literal
 		return p.parseMapLit()
+	case token.Hash: // tuple literal
+		return p.parseTupleLit()
 	case token.Func: // function literal
 		return p.parseFuncLit()
 	case token.Immutable: // immutable expression
@@ -516,8 +519,7 @@ func (p *Parser) parseArrayLit() Expr {
 	var elements []Expr
 	for p.token != token.RBrack && p.token != token.EOF {
 		elements = append(elements, p.parseExpr())
-
-		if !p.expectComma(token.RBrack, "array element") {
+		if !p.expectComma("array element", token.RBrack) {
 			break
 		}
 	}
@@ -529,6 +531,33 @@ func (p *Parser) parseArrayLit() Expr {
 		Elements: elements,
 		LBrack:   lbrack,
 		RBrack:   rbrack,
+	}
+}
+
+func (p *Parser) parseTupleLit() Expr {
+	if p.trace {
+		defer untracep(tracep(p, "TupleLit"))
+	}
+
+	hash := p.expect(token.Hash)
+	p.expect(token.LParen)
+	p.exprLevel++
+
+	var elements []Expr
+	for p.token != token.RParen && p.token != token.EOF {
+		elements = append(elements, p.parseExpr())
+		if !p.expectComma("tuple element", token.RParen) {
+			break
+		}
+	}
+
+	p.exprLevel--
+	rparen := p.expect(token.RParen)
+
+	return &TupleLit{
+		Elements: elements,
+		Hash:     hash,
+		RParen:   rparen,
 	}
 }
 
@@ -577,9 +606,9 @@ func (p *Parser) parseStmtList() (list []Stmt) {
 		defer untracep(tracep(p, "StatementList"))
 	}
 	for p.token != token.RBrace && p.token != token.EOF {
-		return []Stmt{p.parseStmt()}
+		list = append(list, p.parseStmt())
 	}
-	return nil
+	return list
 }
 
 func (p *Parser) parseIdent() *Ident {
@@ -868,15 +897,19 @@ func (p *Parser) parseReturnStmt() Stmt {
 	pos := p.pos
 	p.expect(token.Return)
 
-	var x Expr
-	if p.token != token.Semicolon && p.token != token.RBrace {
-		x = p.parseExpr()
+	var results []Expr
+	for p.token != token.Semicolon && p.token != token.RBrace {
+		results = append(results, p.parseExpr())
+		if !p.expectComma("return element", token.Semicolon, token.RBrace) {
+			break
+		}
 	}
+
 	p.expectSemi()
 
 	return &ReturnStmt{
 		ReturnPos: pos,
-		Result:    x,
+		Results:   results,
 	}
 }
 
@@ -916,13 +949,13 @@ func (p *Parser) parseSimpleStmt(forIn bool) Stmt {
 		if forIn {
 			p.next()
 			y := p.parseExpr()
-
-			var key, value *Ident
-			var ok bool
+			var (
+				key, value *Ident
+				ok         bool
+			)
 			switch len(x) {
 			case 1:
 				key = &Ident{Name: "_", NamePos: x[0].Pos()}
-
 				value, ok = x[0].(*Ident)
 				if !ok {
 					p.errorExpected(x[0].Pos(), "identifier")
@@ -1025,7 +1058,7 @@ func (p *Parser) parseMapLit() *MapLit {
 	var elements []*MapElementLit
 	for p.token != token.RBrace && p.token != token.EOF {
 		elements = append(elements, p.parseMapElementLit())
-		if !p.expectComma(token.RBrace, "map element") {
+		if !p.expectComma("map element", token.RBrace) {
 			break
 		}
 	}
@@ -1131,15 +1164,14 @@ func (p *Parser) printTrace(a ...interface{}) {
 		n    = len(dots)
 	)
 	filePos := p.file.Position(p.pos)
-	_, _ = fmt.Fprintf(p.traceOut, "%5d: %5d:%3d: ", p.pos, filePos.Line,
-		filePos.Column)
+	fmt.Fprintf(p.traceOut, "%5d: %5d:%3d: ", p.pos, filePos.Line, filePos.Column)
 	i := 2 * p.indent
 	for i > n {
-		_, _ = fmt.Fprint(p.traceOut, dots)
+		fmt.Fprint(p.traceOut, dots)
 		i -= n
 	}
-	_, _ = fmt.Fprint(p.traceOut, dots[0:i])
-	_, _ = fmt.Fprintln(p.traceOut, a...)
+	fmt.Fprint(p.traceOut, dots[0:i])
+	fmt.Fprintln(p.traceOut, a...)
 }
 
 func (p *Parser) safePos(pos Pos) Pos {

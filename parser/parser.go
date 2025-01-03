@@ -996,13 +996,33 @@ func (p *Parser) parseMapElementLit() *MapElementLit {
 	if p.trace {
 		defer untracep(tracep(p, "MapElementLit"))
 	}
-	key := p.parseExpr()
+	var (
+		key    Expr
+		lbrack Pos
+	)
+	switch p.token {
+	case token.Ident:
+		key = &StringLit{
+			Value:    p.tokenLit,
+			ValuePos: p.pos,
+			Literal:  p.tokenLit,
+		}
+		p.next()
+	case token.LBrack:
+		lbrack = p.pos
+		p.next()
+		key = p.parseExpr()
+		p.expect(token.RBrack)
+	default:
+		p.errorExpected(p.pos, "map key")
+	}
 	colonPos := p.expect(token.Colon)
 	valueExpr := p.parseExpr()
 	return &MapElementLit{
 		Key:      key,
 		ColonPos: colonPos,
 		Value:    valueExpr,
+		LBrack:   lbrack,
 	}
 }
 

@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/d5/tengo/v2/token"
@@ -408,6 +409,7 @@ func (e *IntLit) String() string {
 
 // MapElementLit represents a map element.
 type MapElementLit struct {
+	LBrack   Pos
 	Key      Expr
 	ColonPos Pos
 	Value    Expr
@@ -417,6 +419,9 @@ func (e *MapElementLit) exprNode() {}
 
 // Pos returns the position of first character belonging to the node.
 func (e *MapElementLit) Pos() Pos {
+	if e.LBrack.IsValid() {
+		return e.LBrack
+	}
 	return e.Key.Pos()
 }
 
@@ -426,7 +431,18 @@ func (e *MapElementLit) End() Pos {
 }
 
 func (e *MapElementLit) String() string {
-	return e.Key.String() + ": " + e.Value.String()
+	var b strings.Builder
+	if e.LBrack.IsValid() {
+		b.WriteByte('[')
+		b.WriteString(e.Key.String())
+		b.WriteByte(']')
+	} else {
+		key, _ := strconv.Unquote(e.Key.String())
+		b.WriteString(key)
+	}
+	b.WriteString(": ")
+	b.WriteString(e.Value.String())
+	return b.String()
 }
 
 // MapLit represents a map literal.

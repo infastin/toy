@@ -9,10 +9,6 @@ var (
 	// ErrStackOverflow is a stack overflow error.
 	ErrStackOverflow = errors.New("stack overflow")
 
-	// ErrIndexOutOfBounds is an error where a given index is out of the
-	// bounds.
-	ErrIndexOutOfBounds = errors.New("index out of bounds")
-
 	// ErrInvalidIndexType represents an invalid index type.
 	ErrInvalidIndexType = errors.New("invalid index type")
 

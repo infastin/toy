@@ -299,17 +299,13 @@ func Slice(x Object, low, high int) (Object, error) {
 	}
 	n := xs.Len()
 	if low > high {
-		return nil, fmt.Errorf("invalid slice index: %d > %d", low, high)
+		return nil, fmt.Errorf("invalid slice indices: %d > %d", low, high)
 	}
-	if low < 0 {
-		low = 0
-	} else if low > n {
-		low = n
+	if low < 0 || low > n {
+		return nil, fmt.Errorf("slice bounds out of range [%d:%d]", low, n)
 	}
-	if high < 0 {
-		high = 0
-	} else if high > n {
-		high = n
+	if high < 0 || high > n {
+		return nil, fmt.Errorf("slice bounds out of range [%d:%d] with len %d", low, high, n)
 	}
 	return xs.Slice(low, high), nil
 }
@@ -1094,8 +1090,9 @@ func (o *Array) IndexSet(index, value Object) (err error) {
 	if !ok {
 		return ErrInvalidIndexType
 	}
-	if intIdx < 0 || int64(intIdx) >= int64(len(o.elems)) {
-		return ErrIndexOutOfBounds
+	n := len(o.elems)
+	if intIdx < 0 || int64(intIdx) >= int64(n) {
+		return fmt.Errorf("index %d out of range [:%d]", intIdx, n)
 	}
 	o.elems[intIdx] = value
 	return nil
@@ -1257,11 +1254,7 @@ func (o *Map) BinaryOp(op token.Token, rhs Object) (Object, error) {
 	}
 	switch op {
 	case token.Or:
-		z := new(Map)
-		z.ht.init(o.Len())
-		z.ht.addAll(&o.ht)
-		z.ht.addAll(&y.ht)
-		return z, nil
+		return o.Union(y), nil
 	}
 	return nil, ErrInvalidOperator
 }
@@ -1272,11 +1265,19 @@ func (o *Map) Iterate() Iterator                             { return o.ht.itera
 func (o *Map) Elements() iter.Seq[Object]                    { return o.ht.elements() }
 func (o *Map) Entries() iter.Seq2[Object, Object]            { return o.ht.entries() }
 
-func (o *Map) Insert(key, value Object) error    { return o.ht.insert(key, value) }
 func (o *Map) Delete(key Object) (Object, error) { return o.ht.delete(key) }
+func (o *Map) Clear() error                      { return o.ht.clear() }
 func (o *Map) Keys() []Object                    { return o.ht.keys() }
 func (o *Map) Values() []Object                  { return o.ht.values() }
 func (o *Map) Items() []Tuple                    { return o.ht.items() }
+
+func (o *Map) Union(y *Map) *Map {
+	z := new(Map)
+	z.ht.init(o.Len())
+	z.ht.addAll(&o.ht)
+	z.ht.addAll(&y.ht)
+	return z
+}
 
 type Tuple []Object
 
@@ -1462,10 +1463,6 @@ func (e *Error) FieldGet(name string) (res Object, err error) {
 			return e.cause, nil
 		}
 		return Undefined, nil
-	}
-	method, ok := ErrorMethods[name]
-	if ok {
-		return method.WithReceiver(e), nil
 	}
 	return nil, ErrNoSuchField
 }

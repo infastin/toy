@@ -359,24 +359,23 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 		c.emit(node, parser.OpIndex)
 	case *parser.SliceExpr:
-		if err := c.Compile(node.Expr); err != nil {
-			return err
+		var sliceOpOperand int
+		if node.High != nil {
+			if err := c.Compile(node.High); err != nil {
+				return err
+			}
+			sliceOpOperand |= 0x2
 		}
 		if node.Low != nil {
 			if err := c.Compile(node.Low); err != nil {
 				return err
 			}
-		} else {
-			c.emit(node, parser.OpNull)
+			sliceOpOperand |= 0x1
 		}
-		if node.High != nil {
-			if err := c.Compile(node.High); err != nil {
-				return err
-			}
-		} else {
-			c.emit(node, parser.OpNull)
+		if err := c.Compile(node.Expr); err != nil {
+			return err
 		}
-		c.emit(node, parser.OpSliceIndex)
+		c.emit(node, parser.OpSliceIndex, sliceOpOperand)
 	case *parser.FuncLit:
 		c.enterScope()
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -23,8 +24,8 @@ func UnpackArgs(args []Object, pairs ...any) error {
 		}
 		return name
 	}
-	if len(args) > nparams {
-		return fmt.Errorf("got %d arguments, want at most %d", len(args), nparams)
+	if !slices.Contains(pairs, "...") && len(args) > nparams {
+		return fmt.Errorf("want at most %d arguments, got %d", nparams, len(args))
 	}
 	for i, arg := range args {
 		defined.SetBit(&defined, i, 1)
@@ -47,7 +48,7 @@ func UnpackArgs(args []Object, pairs ...any) error {
 	}
 	for i := 0; i < nparams; i++ {
 		name := pairs[2*i].(string)
-		if strings.HasSuffix(name, "?") {
+		if name == "..." || strings.HasSuffix(name, "?") {
 			break // optional
 		}
 		// We needn't check the first len(args).
@@ -145,37 +146,37 @@ func unpackArg(ptr any, o Object) error {
 		}
 		*p = f
 	default:
-		// ptr must have type *T, where T is some subtype of Object or Unpacker.
+		// ptr must be a pointer.
 		ptrv := reflect.ValueOf(ptr)
 		if ptrv.Kind() != reflect.Ptr {
 			panic(fmt.Sprintf("not a pointer: %T", ptr))
 		}
 		paramVar := ptrv.Elem()
-		if !reflect.TypeOf(o).AssignableTo(paramVar.Type()) {
-			// The value is not assignable to the variable.
-			paramVarType := paramVar.Type()
-			// So we first check if T implements Unpacker.
-			if paramVarType.Kind() == reflect.Pointer && paramVarType.Implements(reflect.TypeFor[Unpacker]()) {
-				// If it does, create a new T (if necessary) and call Unpack.
-				if paramVar.IsNil() {
-					elem := reflect.New(paramVarType.Elem())
-					paramVar.Set(elem)
-				}
-				return paramVar.Interface().(Unpacker).Unpack(o)
-			}
-			// Otherwise we check if T implements Object.
-			if paramVarType.Implements(reflect.TypeFor[Object]()) {
-				// If it does, create a new T (if necessary) and return an error.
-				if paramVar.IsNil() {
-					elem := reflect.New(paramVarType.Elem())
-					paramVar.Set(elem)
-				}
-				return &ErrInvalidArgumentType{Expected: paramVar.Interface().(Object).TypeName()}
-			}
-			// If T doesn't implement Object or Unpacker then panic.
-			panic(fmt.Sprintf("pointer element type does not implement Object or Unpacker: %T", ptr))
+		// Check if *ptr = o is valid.
+		if reflect.TypeOf(o).AssignableTo(paramVar.Type()) {
+			// *ptr = o is valid here.
+			paramVar.Set(reflect.ValueOf(o))
+			break
 		}
-		paramVar.Set(reflect.ValueOf(o))
+		paramVarType := paramVar.Type()
+		// Maybe ptr is a pointer to a pointer.
+		if paramVarType.Kind() == reflect.Pointer {
+			// Unwrap ptr and call unpackArg recursively.
+			if paramVar.IsNil() {
+				elem := reflect.New(paramVarType.Elem())
+				paramVar.Set(elem)
+			}
+			return unpackArg(paramVar.Interface(), o)
+		}
+		// Nothing worked, so we need to return an error.
+		// For than we need to make sure that ptr points
+		// to a value of a type that implements Object.
+		if paramVarType.Implements(reflect.TypeFor[Object]()) {
+			// It should be safe to call TypeName on potentially nil object.
+			return &ErrInvalidArgumentType{Expected: paramVar.Interface().(Object).TypeName()}
+		}
+		// If *ptr doesn't implement Object then panic.
+		panic(fmt.Sprintf("pointer element type does not implement Object: %T", ptr))
 	}
 	return nil
 }

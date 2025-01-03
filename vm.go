@@ -190,9 +190,8 @@ func (v *VM) run() {
 			}
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
-			e := indexAssign(v.globals[globalIndex], val, selectors)
-			if e != nil {
-				v.err = e
+			if err := indexAssign(v.globals[globalIndex], val, selectors); err != nil {
+				v.err = err
 				return
 			}
 		case parser.OpGetGlobal:
@@ -221,7 +220,10 @@ func (v *VM) run() {
 			for i := v.sp - numElements; i < v.sp; i += 2 {
 				key := v.stack[i]
 				value := v.stack[i+1]
-				m.ht.insert(key, value)
+				if err := m.ht.insert(key, value); err != nil {
+					v.err = fmt.Errorf("map key %q: %w", key.String(), err)
+					return
+				}
 			}
 			v.sp -= numElements
 
@@ -273,13 +275,22 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 		case parser.OpSliceIndex:
-			high := v.stack[v.sp-1]
-			low := v.stack[v.sp-2]
-			left := v.stack[v.sp-3]
-			v.sp -= 3
+			v.ip++
+			left := v.stack[v.sp-1]
+			op := v.curInsts[v.ip]
+			v.sp--
 
-			var lowIdx int
-			if low != Undefined {
+			s, ok := left.(Sliceable)
+			if !ok {
+				v.err = fmt.Errorf("not sliceable: %s", left.TypeName())
+			}
+			n := s.Len()
+
+			lowIdx := 0
+			if op&0x1 != 0 {
+				low := v.stack[v.sp-1]
+				v.sp--
+
 				if lowInt, ok := low.(Int); ok {
 					lowIdx = int(lowInt)
 				} else {
@@ -288,36 +299,30 @@ func (v *VM) run() {
 				}
 			}
 
-			s, ok := left.(Sliceable)
-			if !ok {
-				v.err = fmt.Errorf("not sliceable: %s", left.TypeName())
-			}
-			n := s.Len()
+			highIdx := n
+			if op&0x2 != 0 {
+				high := v.stack[v.sp-1]
+				v.sp--
 
-			var highIdx int
-			if high == Undefined {
-				highIdx = n
-			} else if highInt, ok := high.(Int); ok {
-				highIdx = int(highInt)
-			} else {
-				v.err = fmt.Errorf("invalid slice index type: %s", high.TypeName())
-				return
+				if highInt, ok := high.(Int); ok {
+					highIdx = int(highInt)
+				} else {
+					v.err = fmt.Errorf("invalid slice index type: %s", high.TypeName())
+					return
+				}
 			}
 
 			if lowIdx > highIdx {
-				v.err = fmt.Errorf("invalid slice index: %d > %d", lowIdx, highIdx)
+				v.err = fmt.Errorf("invalid slice indices: %d > %d", lowIdx, highIdx)
 				return
 			}
-
-			if lowIdx < 0 {
-				lowIdx = 0
-			} else if lowIdx > n {
-				lowIdx = n
+			if lowIdx < 0 || lowIdx > n {
+				v.err = fmt.Errorf("slice bounds out of range [%d:%d]", lowIdx, n)
+				return
 			}
-			if highIdx < 0 {
-				highIdx = 0
-			} else if highIdx > n {
-				highIdx = n
+			if highIdx < 0 || highIdx > n {
+				v.err = fmt.Errorf("slice bounds out of range [%d:%d] with len %d", lowIdx, highIdx, n)
+				return
 			}
 
 			v.stack[v.sp] = s.Slice(lowIdx, highIdx)
@@ -499,8 +504,8 @@ func (v *VM) run() {
 			if obj, ok := dst.(*objectPtr); ok {
 				dst = *obj.p
 			}
-			if e := indexAssign(dst, val, selectors); e != nil {
-				v.err = e
+			if err := indexAssign(dst, val, selectors); err != nil {
+				v.err = err
 				return
 			}
 		case parser.OpGetLocal:
@@ -589,9 +594,8 @@ func (v *VM) run() {
 			}
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
-			e := indexAssign(*v.curFrame.freeVars[freeIndex].p, val, selectors)
-			if e != nil {
-				v.err = e
+			if err := indexAssign(*v.curFrame.freeVars[freeIndex].p, val, selectors); err != nil {
+				v.err = err
 				return
 			}
 		case parser.OpIteratorInit:

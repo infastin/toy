@@ -1025,23 +1025,11 @@ func (p *Parser) parseMapElementLit() *MapElementLit {
 	if p.trace {
 		defer untracep(tracep(p, "MapElementLit"))
 	}
-	pos := p.pos
-	name := "_"
-	switch p.token {
-	case token.Ident:
-		name = p.tokenLit
-	case token.String:
-		v, _ := strconv.Unquote(p.tokenLit)
-		name = v
-	default:
-		p.errorExpected(pos, "map key")
-	}
-	p.next()
+	key := p.parseExpr()
 	colonPos := p.expect(token.Colon)
 	valueExpr := p.parseExpr()
 	return &MapElementLit{
-		Key:      name,
-		KeyPos:   pos,
+		Key:      key,
 		ColonPos: colonPos,
 		Value:    valueExpr,
 	}

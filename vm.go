@@ -223,7 +223,7 @@ func (v *VM) run() {
 				value := v.stack[i+1]
 				m.ht.insert(key, value)
 			}
-			v.sp -= 2 * numElements
+			v.sp -= numElements
 
 			v.stack[v.sp] = m
 			v.sp++

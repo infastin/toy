@@ -334,11 +334,9 @@ func (c *Compiler) Compile(node parser.Node) error {
 		c.emit(node, parser.OpArray, len(node.Elements))
 	case *parser.MapLit:
 		for _, elt := range node.Elements {
-			// key
-			if len(elt.Key) > MaxStringLen {
-				return c.error(node, ErrStringLimit)
+			if err := c.Compile(elt.Key); err != nil {
+				return err
 			}
-			c.emit(node, parser.OpConstant, c.addConstant(String(elt.Key)))
 			// value
 			if err := c.Compile(elt.Value); err != nil {
 				return err

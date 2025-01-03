@@ -408,8 +408,7 @@ func (e *IntLit) String() string {
 
 // MapElementLit represents a map element.
 type MapElementLit struct {
-	Key      string
-	KeyPos   Pos
+	Key      Expr
 	ColonPos Pos
 	Value    Expr
 }
@@ -418,7 +417,7 @@ func (e *MapElementLit) exprNode() {}
 
 // Pos returns the position of first character belonging to the node.
 func (e *MapElementLit) Pos() Pos {
-	return e.KeyPos
+	return e.Key.Pos()
 }
 
 // End returns the position of first character immediately after the node.
@@ -427,7 +426,7 @@ func (e *MapElementLit) End() Pos {
 }
 
 func (e *MapElementLit) String() string {
-	return e.Key + ": " + e.Value.String()
+	return e.Key.String() + ": " + e.Value.String()
 }
 
 // MapLit represents a map literal.

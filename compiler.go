@@ -337,12 +337,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 			if err := c.Compile(elt.Key); err != nil {
 				return err
 			}
-			// value
 			if err := c.Compile(elt.Value); err != nil {
 				return err
 			}
 		}
-		c.emit(node, parser.OpMap, len(node.Elements)*2)
+		c.emit(node, parser.OpMap, len(node.Elements))
 	case *parser.TupleLit:
 		for _, elem := range node.Elements {
 			if err := c.Compile(elem); err != nil {

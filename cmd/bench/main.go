@@ -20,13 +20,12 @@ func runFib(n int) {
 	nativeTime := time.Since(start)
 
 	input := `
-fib := func(x) {
+fib := fn(x) {
 	if x == 0 {
 		return 0
 	} else if x == 1 {
 		return 1
 	}
-
 	return fib(x-1) + fib(x-2)
 }
 ` + fmt.Sprintf("out = fib(%d)", n)
@@ -36,9 +35,9 @@ fib := func(x) {
 		panic(err)
 	}
 
-	if nativeResult != int(result.(*tengo.Int).Value) {
+	if nativeResult != int(result.(tengo.Int)) {
 		panic(fmt.Errorf("wrong result: %d != %d", nativeResult,
-			int(result.(*tengo.Int).Value)))
+			int(result.(tengo.Int))))
 	}
 
 	fmt.Println("-------------------------------------")
@@ -57,13 +56,12 @@ func runFibTC1(n int) {
 	nativeTime := time.Since(start)
 
 	input := `
-fib := func(x, s) {
+fib := fn(x, s) {
 	if x == 0 {
 		return 0 + s
 	} else if x == 1 {
 		return 1 + s
 	}
-
 	return fib(x-1, fib(x-2, s))
 }
 ` + fmt.Sprintf("out = fib(%d, 0)", n)
@@ -73,9 +71,9 @@ fib := func(x, s) {
 		panic(err)
 	}
 
-	if nativeResult != int(result.(*tengo.Int).Value) {
+	if nativeResult != int(result.(tengo.Int)) {
 		panic(fmt.Errorf("wrong result: %d != %d", nativeResult,
-			int(result.(*tengo.Int).Value)))
+			int(result.(tengo.Int))))
 	}
 
 	fmt.Println("-------------------------------------")
@@ -94,13 +92,12 @@ func runFibTC2(n int) {
 	nativeTime := time.Since(start)
 
 	input := `
-fib := func(x, a, b) {
+fib := fn(x, a, b) {
 	if x == 0 {
 		return a
 	} else if x == 1 {
 		return b
 	}
-
 	return fib(x-1, b, a+b)
 }
 ` + fmt.Sprintf("out = fib(%d, 0, 1)", n)
@@ -110,9 +107,9 @@ fib := func(x, a, b) {
 		panic(err)
 	}
 
-	if nativeResult != int(result.(*tengo.Int).Value) {
+	if nativeResult != int(result.(tengo.Int)) {
 		panic(fmt.Errorf("wrong result: %d != %d", nativeResult,
-			int(result.(*tengo.Int).Value)))
+			int(result.(tengo.Int))))
 	}
 
 	fmt.Println("-------------------------------------")
@@ -219,7 +216,7 @@ func runVM(
 
 	start := time.Now()
 
-	v := tengo.NewVM(bytecode, globals, -1)
+	v := tengo.NewVM(bytecode, globals)
 	if err := v.Run(); err != nil {
 		return time.Since(start), nil, err
 	}

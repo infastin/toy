@@ -215,7 +215,7 @@ func (v *VM) run() {
 			v.sp++
 		case parser.OpMap:
 			v.ip += 2
-			numElements := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+			numElements := 2 * (int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8)
 
 			m := NewMap(numElements)
 			for i := v.sp - numElements; i < v.sp; i += 2 {

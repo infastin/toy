@@ -229,6 +229,18 @@ func (v *VM) run() {
 
 			v.stack[v.sp] = m
 			v.sp++
+		case parser.OpTuple:
+			v.ip += 2
+			numElements := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+
+			var tup Tuple
+			for i := v.sp - numElements; i < v.sp; i++ {
+				tup = append(tup, v.stack[i])
+			}
+			v.sp -= numElements
+
+			v.stack[v.sp] = tup
+			v.sp++
 		case parser.OpImmutable:
 			value := v.stack[v.sp-1]
 			v.stack[v.sp-1] = AsImmutable(value)
@@ -360,6 +372,7 @@ func (v *VM) run() {
 						v.sp = spStart + 1
 					}
 				}
+
 				if numArgs != callee.numParameters {
 					if callee.varArgs {
 						v.err = fmt.Errorf(
@@ -377,11 +390,9 @@ func (v *VM) run() {
 				if callee == v.curFrame.fn { // recursion
 					nextOp := v.curInsts[v.ip+1]
 					if nextOp == parser.OpReturn ||
-						(nextOp == parser.OpPop &&
-							parser.OpReturn == v.curInsts[v.ip+2]) {
+						(nextOp == parser.OpPop && parser.OpReturn == v.curInsts[v.ip+2]) {
 						for p := 0; p < numArgs; p++ {
-							v.stack[v.curFrame.basePointer+p] =
-								v.stack[v.sp-numArgs+p]
+							v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
 						}
 						v.sp -= numArgs + 1
 						v.ip = -1 // reset IP to beginning of the frame
@@ -424,23 +435,13 @@ func (v *VM) run() {
 				v.sp++
 			}
 		case parser.OpReturn:
-			v.ip += 2
-			numResults := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-
+			v.ip++
 			var retVal Object
-			switch numResults {
-			case 0:
-				retVal = Undefined
-			case 1:
+			if int(v.curInsts[v.ip]) == 1 {
 				retVal = v.stack[v.sp-1]
-			default:
-				var tuple Tuple
-				for i := v.sp - numResults; i < v.sp; i++ {
-					tuple = append(tuple, v.stack[i])
-				}
-				retVal = tuple
+			} else {
+				retVal = Undefined
 			}
-
 			// v.sp--
 			v.framesIndex--
 			v.curFrame = &v.frames[v.framesIndex-1]

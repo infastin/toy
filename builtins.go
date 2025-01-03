@@ -40,6 +40,7 @@ var (
 		{Name: "range", Func: builtinRange},
 		{Name: "error", Func: builtinError},
 		{Name: "tuple", Func: builtinTuple},
+		{Name: "unpack", Func: builtinUnpack},
 	}
 )
 
@@ -399,4 +400,19 @@ func builtinError(args ...Object) (ret Object, err error) {
 
 func builtinTuple(args ...Object) (ret Object, err error) {
 	return Tuple(args), nil
+}
+
+func builtinUnpack(args ...Object) (ret Object, err error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("want 1 argument, got %d", len(args))
+	}
+	t, ok := args[0].(Tuple)
+	if !ok {
+		return nil, &ErrInvalidArgumentType{
+			Name:     "value",
+			Expected: "tuple",
+			Found:    args[0].TypeName(),
+		}
+	}
+	return t, nil
 }

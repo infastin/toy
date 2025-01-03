@@ -310,17 +310,17 @@ func (e *Ident) String() string {
 
 // ImmutableExpr represents an immutable expression
 type ImmutableExpr struct {
-	Expr     Expr
-	ErrorPos Pos
-	LParen   Pos
-	RParen   Pos
+	Expr         Expr
+	ImmutablePos Pos
+	LParen       Pos
+	RParen       Pos
 }
 
 func (e *ImmutableExpr) exprNode() {}
 
 // Pos returns the position of first character belonging to the node.
 func (e *ImmutableExpr) Pos() Pos {
-	return e.ErrorPos
+	return e.ImmutablePos
 }
 
 // End returns the position of first character immediately after the node.

@@ -473,7 +473,12 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return err
 			}
 		}
-		c.emit(node, parser.OpReturn, len(node.Results))
+		var opReturnOperand int
+		if len(node.Results) >= 1 {
+			c.emit(node, parser.OpTuple, len(node.Results))
+			opReturnOperand = 1
+		}
+		c.emit(node, parser.OpReturn, opReturnOperand)
 	case *parser.CallExpr:
 		if err := c.Compile(node.Func); err != nil {
 			return err
@@ -726,35 +731,30 @@ func (c *Compiler) compileAssign(
 	return nil
 }
 
+// compileAssignDefine only handles = and := operations.
 func (c *Compiler) compileAssignDefine(
 	node parser.Node,
 	lhs, rhs []parser.Expr,
 	op token.Token,
 ) error {
 	var isCall bool
-	if len(rhs) == len(lhs) {
-		for j := len(rhs) - 1; j >= 0; j-- {
-			// compile RHSs
-			if err := c.Compile(rhs[j]); err != nil {
-				return err
-			}
-		}
-	} else {
+	if len(rhs) != len(lhs) {
 		_, isCall = rhs[0].(*parser.CallExpr)
 		if !isCall || len(rhs) != 1 {
 			return c.errorf(node, "trying to assign %d values to %d variables", len(rhs), len(lhs))
 		}
-		// if call completes successfully, the tuple
-		// with the results will be at the top of the stack
-		if err := c.Compile(rhs[0]); err != nil {
-			return err
-		}
-		// since we can't check how many values a function returns at compile time
-		// we have to check it at the runtime
-		c.emit(node, parser.OpResultGuard, len(lhs))
+	}
+
+	type lhsResolved struct {
+		ident     string
+		selectors []parser.Expr
+		symbol    *Symbol
 	}
 
 	var redecl int
+	resolved := make([]*lhsResolved, 0, len(lhs))
+
+	// we have to resolve everything first
 	for j := range lhs {
 		ident, selectors := resolveAssignLHS(lhs[j])
 		numSel := len(selectors)
@@ -792,9 +792,37 @@ func (c *Compiler) compileAssignDefine(
 			symbol = c.symbolTable.Define(ident)
 		}
 
+		resolved = append(resolved, &lhsResolved{
+			ident:     ident,
+			selectors: selectors,
+			symbol:    symbol,
+		})
+	}
+
+	if !isCall {
+		for j := len(rhs) - 1; j >= 0; j-- {
+			// compile RHSs
+			if err := c.Compile(rhs[j]); err != nil {
+				return err
+			}
+		}
+	} else {
+		// if call completes successfully, the tuple
+		// with the results will be at the top of the stack
+		if err := c.Compile(rhs[0]); err != nil {
+			return err
+		}
+		// since we can't check how many values a function returns at compile time
+		// we have to check it at the runtime
+		c.emit(node, parser.OpResultGuard, len(lhs))
+	}
+
+	for j, lr := range resolved {
+		numSel := len(lr.selectors)
+
 		// compile selector expressions (right to left)
 		for i := numSel - 1; i >= 0; i-- {
-			if err := c.Compile(selectors[i]); err != nil {
+			if err := c.Compile(lr.selectors[i]); err != nil {
 				return err
 			}
 		}
@@ -804,33 +832,33 @@ func (c *Compiler) compileAssignDefine(
 			c.emit(node, parser.OpResultElem, j)
 		}
 
-		switch symbol.Scope {
+		switch lr.symbol.Scope {
 		case ScopeGlobal:
 			if numSel > 0 {
-				c.emit(node, parser.OpSetSelGlobal, symbol.Index, numSel)
+				c.emit(node, parser.OpSetSelGlobal, lr.symbol.Index, numSel)
 			} else {
-				c.emit(node, parser.OpSetGlobal, symbol.Index)
+				c.emit(node, parser.OpSetGlobal, lr.symbol.Index)
 			}
 		case ScopeLocal:
 			if numSel > 0 {
-				c.emit(node, parser.OpSetSelLocal, symbol.Index, numSel)
+				c.emit(node, parser.OpSetSelLocal, lr.symbol.Index, numSel)
 			} else {
-				if op == token.Define && !symbol.LocalAssigned {
-					c.emit(node, parser.OpDefineLocal, symbol.Index)
+				if op == token.Define && !lr.symbol.LocalAssigned {
+					c.emit(node, parser.OpDefineLocal, lr.symbol.Index)
 				} else {
-					c.emit(node, parser.OpSetLocal, symbol.Index)
+					c.emit(node, parser.OpSetLocal, lr.symbol.Index)
 				}
 			}
 			// mark the symbol as local-assigned
-			symbol.LocalAssigned = true
+			lr.symbol.LocalAssigned = true
 		case ScopeFree:
 			if numSel > 0 {
-				c.emit(node, parser.OpSetSelFree, symbol.Index, numSel)
+				c.emit(node, parser.OpSetSelFree, lr.symbol.Index, numSel)
 			} else {
-				c.emit(node, parser.OpSetFree, symbol.Index)
+				c.emit(node, parser.OpSetFree, lr.symbol.Index)
 			}
 		default:
-			panic(fmt.Errorf("invalid assignment variable scope: %s", symbol.Scope))
+			panic(fmt.Errorf("invalid assignment variable scope: %s", lr.symbol.Scope))
 		}
 	}
 

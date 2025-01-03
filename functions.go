@@ -50,14 +50,12 @@ type CompiledFunction struct {
 	numLocals     int // number of local variables (including function parameters)
 	numParameters int
 	varArgs       bool
-	numResults    int
 	sourceMap     map[int]parser.Pos
 	free          []*objectPtr
 }
 
 func (o *CompiledFunction) Instructions() []byte { return o.instructions }
 func (o *CompiledFunction) NumParameters() int   { return o.numParameters }
-func (o *CompiledFunction) NumResults() int      { return o.numResults }
 
 // SourcePos returns the source position of the instruction at ip.
 func (o *CompiledFunction) SourcePos(ip int) parser.Pos {

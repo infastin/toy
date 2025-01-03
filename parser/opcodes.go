@@ -16,6 +16,7 @@ const (
 	OpNull                        // Push null
 	OpArray                       // Array object
 	OpMap                         // Map object
+	OpTuple                       // Tuple object
 	OpImmutable                   // Immutable object
 	OpIndex                       // Index operation
 	OpField                       // Field operation
@@ -63,6 +64,7 @@ var OpcodeNames = [...]string{
 	OpSetSelGlobal:  "SETSG",
 	OpArray:         "ARR",
 	OpMap:           "MAP",
+	OpTuple:         "TUPLE",
 	OpImmutable:     "IMMUT",
 	OpIndex:         "INDEX",
 	OpField:         "FIELD",
@@ -107,12 +109,13 @@ var OpcodeOperands = [...][]int{
 	OpSetSelGlobal:  {2, 1},
 	OpArray:         {2},
 	OpMap:           {2},
+	OpTuple:         {2},
 	OpImmutable:     {},
 	OpIndex:         {},
 	OpField:         {},
 	OpSliceIndex:    {1},
 	OpCall:          {1, 1},
-	OpReturn:        {2},
+	OpReturn:        {1},
 	OpGetLocal:      {1},
 	OpSetLocal:      {1},
 	OpDefineLocal:   {1},

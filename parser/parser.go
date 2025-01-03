@@ -533,16 +533,18 @@ func (p *Parser) parseArrayLit() Expr {
 }
 
 func (p *Parser) parseImmutableExpr() Expr {
-	pos := p.pos
-	p.next()
+	if p.trace {
+		defer untracep(tracep(p, "ImmutableExpr"))
+	}
+	immutable := p.expect(token.Immutable)
 	lparen := p.expect(token.LParen)
 	value := p.parseExpr()
 	rparen := p.expect(token.RParen)
 	return &ImmutableExpr{
-		ErrorPos: pos,
-		Expr:     value,
-		LParen:   lparen,
-		RParen:   rparen,
+		ImmutablePos: immutable,
+		Expr:         value,
+		LParen:       lparen,
+		RParen:       rparen,
 	}
 }
 

@@ -437,8 +437,6 @@ func (p *Parser) parseOperand() Expr {
 		return p.parseArrayLit()
 	case token.LBrace: // map literal
 		return p.parseMapLit()
-	case token.Hash: // tuple literal
-		return p.parseTupleLit()
 	case token.Func: // function literal
 		return p.parseFuncLit()
 	case token.Immutable: // immutable expression
@@ -531,33 +529,6 @@ func (p *Parser) parseArrayLit() Expr {
 		Elements: elements,
 		LBrack:   lbrack,
 		RBrack:   rbrack,
-	}
-}
-
-func (p *Parser) parseTupleLit() Expr {
-	if p.trace {
-		defer untracep(tracep(p, "TupleLit"))
-	}
-
-	hash := p.expect(token.Hash)
-	p.expect(token.LParen)
-	p.exprLevel++
-
-	var elements []Expr
-	for p.token != token.RParen && p.token != token.EOF {
-		elements = append(elements, p.parseExpr())
-		if !p.expectComma("tuple element", token.RParen) {
-			break
-		}
-	}
-
-	p.exprLevel--
-	rparen := p.expect(token.RParen)
-
-	return &TupleLit{
-		Elements: elements,
-		Hash:     hash,
-		RParen:   rparen,
 	}
 }
 

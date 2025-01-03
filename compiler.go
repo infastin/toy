@@ -342,13 +342,6 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 		}
 		c.emit(node, parser.OpMap, len(node.Elements))
-	case *parser.TupleLit:
-		for _, elem := range node.Elements {
-			if err := c.Compile(elem); err != nil {
-				return err
-			}
-		}
-		c.emit(node, parser.OpTuple, len(node.Elements))
 	case *parser.SelectorExpr: // selector on RHS side
 		if err := c.Compile(node.Expr); err != nil {
 			return err

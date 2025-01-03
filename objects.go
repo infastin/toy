@@ -118,7 +118,7 @@ type HasFieldSet interface {
 // HasLen represents an object that can report its length or size.
 type HasLen interface {
 	Object
-	// Len should return the number of elements inside the collection.
+	// Len should return object's length or size.
 	Len() int
 }
 
@@ -158,6 +158,21 @@ type Iterable interface {
 	Object
 	// Iterate should return an Iterator for the type.
 	Iterate() Iterator
+}
+
+// Sequence represents an iterable sequence of objects of known length.
+type Sequence interface {
+	Iterable
+	HasLen
+	// Items should return a slice containing all the elements in the Sequence.
+	Items() []Object
+}
+
+// Mapping represents an iterable object that maps one Object to another.
+type Mapping interface {
+	Iterable
+	// Items should return a slice containing all the entries in the Mapping.
+	Items() []Tuple
 }
 
 // Iterator represents an iterator for underlying data type.
@@ -983,9 +998,9 @@ func (o *Array) AsImmutable() Object {
 	return &Array{elems: elems, immutable: true}
 }
 
-func (o *Array) Len() int         { return len(o.elems) }
-func (o *Array) At(i int) Object  { return o.elems[i] }
-func (o *Array) Values() []Object { return o.elems }
+func (o *Array) Len() int        { return len(o.elems) }
+func (o *Array) At(i int) Object { return o.elems[i] }
+func (o *Array) Items() []Object { return o.elems }
 
 func (o *Array) Slice(low, high int) Object {
 	return &Array{
@@ -1269,14 +1284,12 @@ func (o Tuple) TypeName() string { return "tuple" }
 
 func (o Tuple) String() string {
 	var b strings.Builder
-	b.WriteString("#(")
 	for i, v := range o {
 		if i != 0 {
 			b.WriteString(", ")
 		}
 		b.WriteString(v.String())
 	}
-	b.WriteByte(')')
 	return b.String()
 }
 
@@ -1293,6 +1306,7 @@ func (o Tuple) Copy() Object {
 func (o Tuple) Len() int                   { return len(o) }
 func (o Tuple) At(i int) Object            { return o[i] }
 func (o Tuple) Slice(low, high int) Object { return o[low:high] }
+func (o Tuple) Items() []Object            { return o }
 
 func (o Tuple) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(Tuple)

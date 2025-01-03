@@ -337,15 +337,15 @@ func (v *VM) run() {
 
 			if spread == 1 {
 				v.sp--
-				switch arr := v.stack[v.sp].(type) {
-				case *Array:
-					for _, item := range arr.elems {
-						v.stack[v.sp] = item
+				switch seq := v.stack[v.sp].(type) {
+				case Sequence:
+					for elem := range Elements(seq) {
+						v.stack[v.sp] = elem
 						v.sp++
 					}
-					numArgs += len(arr.elems) - 1
+					numArgs += seq.Len() - 1
 				default:
-					v.err = fmt.Errorf("not an array: %s", arr.TypeName())
+					v.err = fmt.Errorf("not sequence: %s", seq.TypeName())
 					return
 				}
 			}

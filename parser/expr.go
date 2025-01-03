@@ -461,36 +461,6 @@ func (e *MapLit) String() string {
 	return b.String()
 }
 
-// TupleLit represents a tuple literal.
-type TupleLit struct {
-	Elements []Expr
-	Hash     Pos
-	RParen   Pos
-}
-
-func (e *TupleLit) exprNode() {}
-
-func (e *TupleLit) Pos() Pos {
-	return e.Hash
-}
-
-func (e *TupleLit) End() Pos {
-	return e.RParen
-}
-
-func (e *TupleLit) String() string {
-	var b strings.Builder
-	b.WriteString("#(")
-	for i, elem := range e.Elements {
-		if i != 0 {
-			b.WriteString(", ")
-		}
-		b.WriteString(elem.String())
-	}
-	b.WriteByte(')')
-	return b.String()
-}
-
 // ParenExpr represents a parenthesis wrapped expression.
 type ParenExpr struct {
 	Expr   Expr

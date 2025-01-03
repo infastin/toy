@@ -58,6 +58,6 @@ type ErrInvalidArgumentType struct {
 }
 
 func (e *ErrInvalidArgumentType) Error() string {
-	return fmt.Sprintf("invalid type for argument %q: want %q, got %q",
+	return fmt.Sprintf("invalid type for argument '%s': want '%s', got '%s'",
 		e.Name, e.Expected, e.Found)
 }

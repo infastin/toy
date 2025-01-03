@@ -16,16 +16,16 @@ import (
 // compilationScope represents a compiled instructions and the last two
 // instructions that were emitted.
 type compilationScope struct {
-	Instructions []byte
-	SymbolInit   map[string]bool
-	SourceMap    map[int]parser.Pos
+	instructions []byte
+	symbolInit   map[string]bool
+	sourceMap    map[int]parser.Pos
 }
 
 // loop represents a loop construct that the compiler uses to track the current
 // loop.
 type loop struct {
-	Continues []int
-	Breaks    []int
+	continues []int
+	breaks    []int
 }
 
 // CompilerError represents a compiler error.
@@ -69,8 +69,8 @@ func NewCompiler(
 	trace io.Writer,
 ) *Compiler {
 	mainScope := compilationScope{
-		SymbolInit: make(map[string]bool),
-		SourceMap:  make(map[int]parser.Pos),
+		symbolInit: make(map[string]bool),
+		sourceMap:  make(map[int]parser.Pos),
 	}
 
 	// symbol table
@@ -278,14 +278,14 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return c.errorf(node, "break not allowed outside loop")
 			}
 			pos := c.emit(node, parser.OpJump, 0)
-			curLoop.Breaks = append(curLoop.Breaks, pos)
+			curLoop.breaks = append(curLoop.breaks, pos)
 		case token.Continue:
 			curLoop := c.currentLoop()
 			if curLoop == nil {
 				return c.errorf(node, "continue not allowed outside loop")
 			}
 			pos := c.emit(node, parser.OpJump, 0)
-			curLoop.Continues = append(curLoop.Continues, pos)
+			curLoop.continues = append(curLoop.continues, pos)
 		default:
 			panic(fmt.Errorf("invalid branch statement: %s", node.Token.String()))
 		}
@@ -394,7 +394,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 
 		freeSymbols := c.symbolTable.FreeSymbols()
 		numLocals := c.symbolTable.MaxSymbols()
-		instructions, sourceMap := c.leaveScope()
+		scope := c.leaveScope()
 
 		for _, s := range freeSymbols {
 			switch s.Scope {
@@ -450,11 +450,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 
 		compiledFunction := &CompiledFunction{
-			instructions:  instructions,
+			instructions:  scope.instructions,
 			numLocals:     numLocals,
 			numParameters: len(node.Type.Params.List),
 			varArgs:       node.Type.Params.VarArgs,
-			sourceMap:     sourceMap,
+			sourceMap:     scope.sourceMap,
 		}
 
 		if len(freeSymbols) > 0 {
@@ -640,51 +640,26 @@ func (c *Compiler) compileAssign(
 	lhs, rhs []parser.Expr,
 	op token.Token,
 ) error {
-	numLHS, numRHS := len(lhs), len(rhs)
-	if numLHS > 1 || numRHS > 1 {
-		return c.errorf(node, "tuple assignment not allowed")
+	if op == token.Assign || op == token.Define {
+		return c.compileAssignDefine(node, lhs, rhs, op)
 	}
 
-	// resolve and compile left-hand side
 	ident, selectors := resolveAssignLHS(lhs[0])
 	numSel := len(selectors)
 
-	if op == token.Define && numSel > 0 {
-		// using selector on new variable does not make sense
-		return c.errorf(node, "operator ':=' not allowed with selector")
-	}
-
-	_, isFunc := rhs[0].(*parser.FuncLit)
-	symbol, depth, exists := c.symbolTable.Resolve(ident, false)
-	if op == token.Define {
-		if depth == 0 && exists {
-			return c.errorf(node, "'%s' redeclared in this block", ident)
-		}
-		if isFunc {
-			symbol = c.symbolTable.Define(ident)
-		}
-	} else {
-		if !exists {
-			return c.errorf(node, "unresolved reference '%s'", ident)
-		}
+	symbol, _, exists := c.symbolTable.Resolve(ident, false)
+	if !exists {
+		return c.errorf(node, "unresolved reference '%s'", ident)
 	}
 
 	// +=, -=, *=, /=
-	if op != token.Assign && op != token.Define {
-		if err := c.Compile(lhs[0]); err != nil {
-			return err
-		}
+	if err := c.Compile(lhs[0]); err != nil {
+		return err
 	}
 
 	// compile RHSs
-	for _, expr := range rhs {
-		if err := c.Compile(expr); err != nil {
-			return err
-		}
-	}
-
-	if op == token.Define && !isFunc {
-		symbol = c.symbolTable.Define(ident)
+	if err := c.Compile(rhs[0]); err != nil {
+		return err
 	}
 
 	switch op {
@@ -746,6 +721,122 @@ func (c *Compiler) compileAssign(
 		}
 	default:
 		panic(fmt.Errorf("invalid assignment variable scope: %s", symbol.Scope))
+	}
+
+	return nil
+}
+
+func (c *Compiler) compileAssignDefine(
+	node parser.Node,
+	lhs, rhs []parser.Expr,
+	op token.Token,
+) error {
+	var isCall bool
+	if len(rhs) == len(lhs) {
+		for j := len(rhs) - 1; j >= 0; j-- {
+			// compile RHSs
+			if err := c.Compile(rhs[j]); err != nil {
+				return err
+			}
+		}
+	} else {
+		_, isCall = rhs[0].(*parser.CallExpr)
+		if !isCall || len(rhs) != 1 {
+			return c.errorf(node, "trying to assign %d values to %d variables", len(rhs), len(lhs))
+		}
+		// if call completes successfully, the tuple
+		// with the results will be at the top of the stack
+		if err := c.Compile(rhs[0]); err != nil {
+			return err
+		}
+		// since we can't check how many values a function returns at compile time
+		// we have to check it at the runtime
+		c.emit(node, parser.OpResultGuard, len(lhs))
+	}
+
+	var redecl int
+	for j := range lhs {
+		ident, selectors := resolveAssignLHS(lhs[j])
+		numSel := len(selectors)
+
+		if op == token.Define && numSel > 0 {
+			// using selector on new variable does not make sense
+			return c.errorf(node, "operator := not allowed with selector")
+		}
+
+		var isFunc bool
+		if !isCall {
+			_, isFunc = rhs[j].(*parser.FuncLit)
+		}
+
+		symbol, depth, exists := c.symbolTable.Resolve(ident, false)
+		if op == token.Define {
+			if depth == 0 && exists {
+				redecl += 1 // increment the number of variable redeclarations
+			}
+			if isFunc {
+				symbol = c.symbolTable.Define(ident)
+			}
+		} else if !exists {
+			return c.errorf(node, "unresolved reference '%s'", ident)
+		}
+		if redecl == len(lhs) {
+			// if all variables have been redeclared, return an error
+			if redecl == 1 {
+				return c.errorf(node, "'%s' redeclared in this block", ident)
+			}
+			return c.errorf(node, "no new variables on the left side of :=")
+		}
+
+		if op == token.Define && !exists && !isFunc {
+			symbol = c.symbolTable.Define(ident)
+		}
+
+		// compile selector expressions (right to left)
+		for i := numSel - 1; i >= 0; i-- {
+			if err := c.Compile(selectors[i]); err != nil {
+				return err
+			}
+		}
+
+		if isCall {
+			// push value from the tuple with results onto the top of the stack
+			c.emit(node, parser.OpResultElem, j)
+		}
+
+		switch symbol.Scope {
+		case ScopeGlobal:
+			if numSel > 0 {
+				c.emit(node, parser.OpSetSelGlobal, symbol.Index, numSel)
+			} else {
+				c.emit(node, parser.OpSetGlobal, symbol.Index)
+			}
+		case ScopeLocal:
+			if numSel > 0 {
+				c.emit(node, parser.OpSetSelLocal, symbol.Index, numSel)
+			} else {
+				if op == token.Define && !symbol.LocalAssigned {
+					c.emit(node, parser.OpDefineLocal, symbol.Index)
+				} else {
+					c.emit(node, parser.OpSetLocal, symbol.Index)
+				}
+			}
+			// mark the symbol as local-assigned
+			symbol.LocalAssigned = true
+		case ScopeFree:
+			if numSel > 0 {
+				c.emit(node, parser.OpSetSelFree, symbol.Index, numSel)
+			} else {
+				c.emit(node, parser.OpSetFree, symbol.Index)
+			}
+		default:
+			panic(fmt.Errorf("invalid assignment variable scope: %s", symbol.Scope))
+		}
+	}
+
+	if isCall {
+		// there will be tuple left, so we pop it
+		c.emit(node, parser.OpPop)
 	}
 
 	return nil
@@ -831,10 +922,10 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) error {
 	}
 
 	// update all break/continue jump positions
-	for _, pos := range loop.Breaks {
+	for _, pos := range loop.breaks {
 		c.changeOperand(pos, postStmtPos)
 	}
-	for _, pos := range loop.Continues {
+	for _, pos := range loop.continues {
 		c.changeOperand(pos, postBodyPos)
 	}
 
@@ -948,10 +1039,10 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	c.changeOperand(postCondPos, postStmtPos)
 
 	// update all break/continue jump positions
-	for _, pos := range loop.Breaks {
+	for _, pos := range loop.breaks {
 		c.changeOperand(pos, postStmtPos)
 	}
-	for _, pos := range loop.Continues {
+	for _, pos := range loop.continues {
 		c.changeOperand(pos, postBodyPos)
 	}
 
@@ -1068,17 +1159,17 @@ func (c *Compiler) currentLoop() *loop {
 }
 
 func (c *Compiler) currentInstructions() []byte {
-	return c.scopes[c.scopeIndex].Instructions
+	return c.scopes[c.scopeIndex].instructions
 }
 
 func (c *Compiler) currentSourceMap() map[int]parser.Pos {
-	return c.scopes[c.scopeIndex].SourceMap
+	return c.scopes[c.scopeIndex].sourceMap
 }
 
 func (c *Compiler) enterScope() {
 	scope := compilationScope{
-		SymbolInit: make(map[string]bool),
-		SourceMap:  make(map[int]parser.Pos),
+		symbolInit: make(map[string]bool),
+		sourceMap:  make(map[int]parser.Pos),
 	}
 	c.scopes = append(c.scopes, scope)
 	c.scopeIndex++
@@ -1088,16 +1179,15 @@ func (c *Compiler) enterScope() {
 	}
 }
 
-func (c *Compiler) leaveScope() (instructions []byte, sourceMap map[int]parser.Pos) {
-	instructions = c.currentInstructions()
-	sourceMap = c.currentSourceMap()
+func (c *Compiler) leaveScope() compilationScope {
+	scope := c.scopes[c.scopeIndex]
 	c.scopes = c.scopes[:len(c.scopes)-1]
 	c.scopeIndex--
 	c.symbolTable = c.symbolTable.Parent(true)
 	if c.trace != nil {
 		c.printTrace("SCOPL", c.scopeIndex)
 	}
-	return instructions, sourceMap
+	return scope
 }
 
 func (c *Compiler) fork(
@@ -1148,7 +1238,7 @@ func (c *Compiler) addConstant(o Object) int {
 
 func (c *Compiler) addInstruction(b []byte) int {
 	posNewIns := len(c.currentInstructions())
-	c.scopes[c.scopeIndex].Instructions = append(
+	c.scopes[c.scopeIndex].instructions = append(
 		c.currentInstructions(), b...)
 	return posNewIns
 }
@@ -1158,7 +1248,7 @@ func (c *Compiler) replaceInstruction(pos int, inst []byte) {
 	if c.trace != nil {
 		c.printTrace(fmt.Sprintf("REPLC %s",
 			FormatInstructions(
-				c.scopes[c.scopeIndex].Instructions[pos:], pos)[0]))
+				c.scopes[c.scopeIndex].instructions[pos:], pos)[0]))
 	}
 }
 
@@ -1178,7 +1268,7 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 
 	// pass 1. identify all jump destinations
 	dsts := make(map[int]bool)
-	iterateInstructions(c.scopes[c.scopeIndex].Instructions,
+	iterateInstructions(c.scopes[c.scopeIndex].instructions,
 		func(pos int, opcode parser.Opcode, operands []int) bool {
 			switch opcode {
 			case parser.OpJump, parser.OpJumpFalsy,
@@ -1193,7 +1283,7 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 	posMap := make(map[int]int) // old position to new position
 	var dstIdx int
 	var deadCode bool
-	iterateInstructions(c.scopes[c.scopeIndex].Instructions,
+	iterateInstructions(c.scopes[c.scopeIndex].instructions,
 		func(pos int, opcode parser.Opcode, operands []int) bool {
 			switch {
 			case dsts[pos]:
@@ -1216,7 +1306,7 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 	// pass 3. update jump positions
 	var lastOp parser.Opcode
 	var appendReturn bool
-	endPos := len(c.scopes[c.scopeIndex].Instructions)
+	endPos := len(c.scopes[c.scopeIndex].instructions)
 	newEndPost := len(newInsts)
 	iterateInstructions(newInsts,
 		func(pos int, opcode parser.Opcode, operands []int) bool {
@@ -1246,14 +1336,14 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 
 	// pass 4. update source map
 	newSourceMap := make(map[int]parser.Pos)
-	for pos, srcPos := range c.scopes[c.scopeIndex].SourceMap {
+	for pos, srcPos := range c.scopes[c.scopeIndex].sourceMap {
 		newPos, ok := posMap[pos]
 		if ok {
 			newSourceMap[newPos] = srcPos
 		}
 	}
-	c.scopes[c.scopeIndex].Instructions = newInsts
-	c.scopes[c.scopeIndex].SourceMap = newSourceMap
+	c.scopes[c.scopeIndex].instructions = newInsts
+	c.scopes[c.scopeIndex].sourceMap = newSourceMap
 
 	// append "return"
 	if appendReturn {
@@ -1272,10 +1362,10 @@ func (c *Compiler) emit(
 	}
 	inst := MakeInstruction(opcode, operands...)
 	pos := c.addInstruction(inst)
-	c.scopes[c.scopeIndex].SourceMap[pos] = filePos
+	c.scopes[c.scopeIndex].sourceMap[pos] = filePos
 	if c.trace != nil {
 		c.printTrace(fmt.Sprintf("EMIT  %s",
-			FormatInstructions(c.scopes[c.scopeIndex].Instructions[pos:], pos)[0]))
+			FormatInstructions(c.scopes[c.scopeIndex].instructions[pos:], pos)[0]))
 	}
 	return pos
 }

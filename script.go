@@ -306,7 +306,7 @@ func (c *Compiled) Set(name string, value Object) error {
 
 	idx, ok := c.globalIndexes[name]
 	if !ok {
-		return fmt.Errorf("%q is not defined", name)
+		return fmt.Errorf("'%s' is not defined", name)
 	}
 	c.globals[idx] = value
 

@@ -16,7 +16,6 @@ const (
 	OpNull                        // Push null
 	OpArray                       // Array object
 	OpMap                         // Map object
-	OpTuple                       // Tuple object
 	OpImmutable                   // Immutable object
 	OpIndex                       // Index operation
 	OpField                       // Field operation
@@ -36,6 +35,8 @@ const (
 	OpGetLocalPtr                 // Get local variable as a pointer
 	OpSetSelFree                  // Set free variables using selectors
 	OpGetBuiltin                  // Get builtin function
+	OpResultGuard                 // Check tuple with results
+	OpResultElem                  // Push element from tuple with results
 	OpClosure                     // Push closure
 	OpIteratorInit                // Iterator init
 	OpIteratorNext                // Iterator next
@@ -62,7 +63,6 @@ var OpcodeNames = [...]string{
 	OpSetSelGlobal:  "SETSG",
 	OpArray:         "ARR",
 	OpMap:           "MAP",
-	OpTuple:         "TUPLE",
 	OpImmutable:     "IMMUT",
 	OpIndex:         "INDEX",
 	OpField:         "FIELD",
@@ -73,13 +73,15 @@ var OpcodeNames = [...]string{
 	OpSetLocal:      "SETL",
 	OpDefineLocal:   "DEFL",
 	OpSetSelLocal:   "SETSL",
-	OpGetBuiltin:    "BUILTIN",
-	OpClosure:       "CLOSURE",
 	OpGetFreePtr:    "GETFP",
 	OpGetFree:       "GETF",
-	OpSetFree:       "SETF",
 	OpGetLocalPtr:   "GETLP",
 	OpSetSelFree:    "SETSF",
+	OpSetFree:       "SETF",
+	OpGetBuiltin:    "BUILTIN",
+	OpResultGuard:   "RESGRD",
+	OpResultElem:    "RESELEM",
+	OpClosure:       "CLOSURE",
 	OpIteratorInit:  "ITER",
 	OpIteratorNext:  "ITNEXT",
 	OpIteratorClose: "ITCLOSE",
@@ -105,7 +107,6 @@ var OpcodeOperands = [...][]int{
 	OpSetSelGlobal:  {2, 1},
 	OpArray:         {2},
 	OpMap:           {2},
-	OpTuple:         {2},
 	OpImmutable:     {},
 	OpIndex:         {},
 	OpField:         {},
@@ -116,13 +117,15 @@ var OpcodeOperands = [...][]int{
 	OpSetLocal:      {1},
 	OpDefineLocal:   {1},
 	OpSetSelLocal:   {1, 1},
-	OpGetBuiltin:    {1},
-	OpClosure:       {2, 1},
 	OpGetFreePtr:    {1},
 	OpGetFree:       {1},
 	OpSetFree:       {1},
 	OpGetLocalPtr:   {1},
 	OpSetSelFree:    {1, 1},
+	OpGetBuiltin:    {1},
+	OpResultGuard:   {2},
+	OpResultElem:    {2},
+	OpClosure:       {2, 1},
 	OpIteratorInit:  {},
 	OpIteratorNext:  {1},
 	OpIteratorClose: {},

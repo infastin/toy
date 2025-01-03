@@ -221,25 +221,13 @@ func (v *VM) run() {
 				key := v.stack[i]
 				value := v.stack[i+1]
 				if err := m.ht.insert(key, value); err != nil {
-					v.err = fmt.Errorf("map key %q: %w", key.String(), err)
+					v.err = fmt.Errorf("map key '%s': %w", key.String(), err)
 					return
 				}
 			}
 			v.sp -= numElements
 
 			v.stack[v.sp] = m
-			v.sp++
-		case parser.OpTuple:
-			v.ip += 2
-			numElements := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-
-			var tuple Tuple
-			for i := v.sp - numElements; i < v.sp; i++ {
-				tuple = append(tuple, v.stack[i])
-			}
-			v.sp -= numElements
-
-			v.stack[v.sp] = tuple
 			v.sp++
 		case parser.OpImmutable:
 			value := v.stack[v.sp-1]
@@ -423,7 +411,7 @@ func (v *VM) run() {
 
 				// runtime error
 				if err != nil {
-					v.err = fmt.Errorf("error during call to %q: %w",
+					v.err = fmt.Errorf("error during call to '%s': %w",
 						callable.TypeName(), err)
 					return
 				}
@@ -521,6 +509,20 @@ func (v *VM) run() {
 			v.ip++
 			builtinIndex := int(v.curInsts[v.ip])
 			v.stack[v.sp] = BuiltinFuncs[builtinIndex]
+			v.sp++
+		case parser.OpResultGuard:
+			v.ip += 2
+			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+			tup := v.stack[v.sp-1].(Tuple)
+			if n != len(tup) {
+				v.err = fmt.Errorf("trying to assign %d values to %d variables", len(tup), n)
+				return
+			}
+		case parser.OpResultElem:
+			v.ip += 2
+			eidx := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+			tup := v.stack[v.sp-1].(Tuple)
+			v.stack[v.sp] = tup[eidx]
 			v.sp++
 		case parser.OpClosure:
 			v.ip += 3

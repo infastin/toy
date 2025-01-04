@@ -1,4 +1,4 @@
-package tengo
+package toy
 
 import (
 	"errors"
@@ -25,7 +25,7 @@ func UnpackArgs(args []Object, pairs ...any) error {
 		return name
 	}
 	if !slices.Contains(pairs, "...") && len(args) > nparams {
-		return fmt.Errorf("want at most %d arguments, got %d", nparams, len(args))
+		return fmt.Errorf("want at most %d argument(s), got %d", nparams, len(args))
 	}
 	for i, arg := range args {
 		defined.SetBit(&defined, i, 1)
@@ -56,7 +56,7 @@ func UnpackArgs(args []Object, pairs ...any) error {
 			continue
 		}
 		if defined.Bit(i) == 0 {
-			return fmt.Errorf("missing argument for %s", name)
+			return fmt.Errorf("missing argument for '%s'", name)
 		}
 	}
 	return nil

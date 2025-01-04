@@ -1,4 +1,4 @@
-package tengo
+package toy
 
 import (
 	"fmt"
@@ -7,39 +7,24 @@ import (
 
 var (
 	BuiltinFuncs = []*BuiltinFunction{
+		{Name: "typename", Func: builtinTypeName},
 		{Name: "copy", Func: builtinCopy},
 		{Name: "len", Func: builtinLen},
 		{Name: "append", Func: builtinAppend},
+		{Name: "delete", Func: builtinDelete},
 		{Name: "splice", Func: builtinSplice},
 		{Name: "insert", Func: builtinInsert},
 		{Name: "clear", Func: builtinClear},
-		{Name: "delete", Func: builtinDelete},
+		{Name: "format", Func: builtinFormat},
+		{Name: "range", Func: builtinRange},
+		{Name: "error", Func: builtinError},
+		{Name: "tuple", Func: builtinTuple},
 		{Name: "string", Func: builtinConvert[String]},
 		{Name: "int", Func: builtinConvert[Int]},
 		{Name: "bool", Func: builtinConvert[Bool]},
 		{Name: "float", Func: builtinConvert[Float]},
 		{Name: "char", Func: builtinConvert[Char]},
 		{Name: "bytes", Func: builtinConvert[Bytes]},
-		{Name: "isInt", Func: builtinIs[Int]},
-		{Name: "isFloat", Func: builtinIs[Float]},
-		{Name: "isString", Func: builtinIs[String]},
-		{Name: "isBool", Func: builtinIs[Bool]},
-		{Name: "isChar", Func: builtinIs[Char]},
-		{Name: "isBytes", Func: builtinIs[Bytes]},
-		{Name: "isArray", Func: builtinIs[*Array]},
-		{Name: "isImmutableArray", Func: builtinIsImmutableArray},
-		{Name: "isMap", Func: builtinIs[*Map]},
-		{Name: "isImmutableMap", Func: builtinIsImmutableMap},
-		{Name: "isIterable", Func: builtinIs[Iterable]},
-		{Name: "isError", Func: builtinIs[*Error]},
-		{Name: "isUndefined", Func: builtinIs[UndefinedType]},
-		{Name: "isFunction", Func: builtinIs[*CompiledFunction]},
-		{Name: "isCallable", Func: builtinIs[Callable]},
-		{Name: "typename", Func: builtinTypeName},
-		{Name: "format", Func: builtinFormat},
-		{Name: "range", Func: builtinRange},
-		{Name: "error", Func: builtinError},
-		{Name: "tuple", Func: builtinTuple},
 	}
 )
 
@@ -50,49 +35,19 @@ func builtinTypeName(args ...Object) (Object, error) {
 	return String(args[0].TypeName()), nil
 }
 
-func builtinIs[T Object](args ...Object) (Object, error) {
+func builtinCopy(args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("want 1 argument, got %d", len(args))
 	}
-	_, ok := args[0].(T)
-	return Bool(ok), nil
-}
-
-func builtinIsImmutableArray(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("want 1 argument, got %d", len(args))
-	}
-	a, ok := args[0].(*Array)
-	if !ok {
-		return False, nil
-	}
-	return Bool(a.immutable), nil
-}
-
-func builtinIsImmutableMap(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("want 1 argument, got %d", len(args))
-	}
-	m, ok := args[0].(*Map)
-	if !ok {
-		return False, nil
-	}
-	return Bool(m.ht.immutable), nil
+	return args[0].Copy(), nil
 }
 
 func builtinLen(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("want 1 argument, got %d", len(args))
+	var value Sized
+	if err := UnpackArgs(args, "value", &value); err != nil {
+		return nil, err
 	}
-	l, ok := args[0].(Sized)
-	if !ok {
-		return nil, &ErrInvalidArgumentType{
-			Name:     "value",
-			Expected: "sized",
-			Found:    args[0].TypeName(),
-		}
-	}
-	return Int(l.Len()), nil
+	return Int(value.Len()), nil
 }
 
 func builtinAppend(args ...Object) (Object, error) {
@@ -100,7 +55,7 @@ func builtinAppend(args ...Object) (Object, error) {
 		arr  *Array
 		rest []Object
 	)
-	if err := UnpackArgs(args, "array", &arr, "...", &rest); err != nil {
+	if err := UnpackArgs(args, "arr", &arr, "...", &rest); err != nil {
 		return nil, err
 	}
 	return &Array{
@@ -108,6 +63,64 @@ func builtinAppend(args ...Object) (Object, error) {
 		immutable: arr.immutable,
 		itercount: 0,
 	}, nil
+}
+
+func builtinDelete(args ...Object) (Object, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("want at least 2 arguments, got %d", len(args))
+	}
+	switch x := args[0].(type) {
+	case *Array:
+		if len(args) > 3 {
+			return nil, fmt.Errorf("want at most 3 arguments, got %d", len(args))
+		}
+		var (
+			start, stop int
+			stopPtr     *int
+		)
+		if err := UnpackArgs(args[1:], "start", &start, "stop?", &stopPtr); err != nil {
+			return nil, err
+		}
+		if stopPtr != nil {
+			stop = *stopPtr
+		} else {
+			stop = start + 1
+		}
+		if err := x.checkMutable("delete from"); err != nil {
+			return nil, err
+		}
+		n := len(x.elems)
+		if start > stop {
+			return nil, fmt.Errorf("invalid delete indices: %d > %d", start, stop)
+		}
+		if start < 0 || start > n {
+			return nil, fmt.Errorf("delete bounds out of range [%d:%d]", start, n)
+		}
+		if stop < 0 || stop > n {
+			return nil, fmt.Errorf("delete bounds out of range [%d:%d] with len %d", start, stop, n)
+		}
+		if start == stop {
+			return NewArray(nil), nil
+		}
+		deleted := slices.Clone(x.elems[start:stop])
+		x.elems = slices.Delete(x.elems, start, stop)
+		return NewArray(deleted), nil
+	case *Map:
+		if len(args) > 2 {
+			return nil, fmt.Errorf("want at most 2 arguments, got %d", len(args))
+		}
+		value, err := x.Delete(args[1])
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete '%s' from map: %w", args[1].TypeName(), err)
+		}
+		return value, nil
+	default:
+		return nil, &ErrInvalidArgumentType{
+			Name:     "collection",
+			Expected: "array or map",
+			Found:    x.TypeName(),
+		}
+	}
 }
 
 func builtinSplice(args ...Object) (Object, error) {
@@ -118,7 +131,7 @@ func builtinSplice(args ...Object) (Object, error) {
 		rest        []Object
 	)
 	if err := UnpackArgs(args,
-		"array", &arr,
+		"arr", &arr,
 		"start?", &start,
 		"stop?", &stopPtr,
 		"...", &rest,
@@ -187,37 +200,16 @@ func builtinInsert(args ...Object) (Object, error) {
 			return nil, err
 		}
 		if err := x.IndexSet(index, value); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to insert '%s' into map: %w", index.TypeName(), err)
 		}
 		return Undefined, nil
 	default:
 		return nil, &ErrInvalidArgumentType{
 			Name:     "collection",
-			Expected: "array or dict",
+			Expected: "array or map",
 			Found:    x.TypeName(),
 		}
 	}
-}
-
-func builtinErrorWrap(args ...Object) (ret Object, err error) {
-	var (
-		recv   = args[0].(*Error)
-		format string
-		rest   []Object
-	)
-	if err := UnpackArgs(args[1:], "error", &format, "...", &rest); err != nil {
-		return nil, err
-	}
-	var s string
-	if len(rest) != 0 {
-		s, err = Format(format, rest...)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		s = format
-	}
-	return &Error{message: s, cause: recv}, nil
 }
 
 func builtinClear(args ...Object) (Object, error) {
@@ -236,72 +228,35 @@ func builtinClear(args ...Object) (Object, error) {
 	default:
 		return nil, &ErrInvalidArgumentType{
 			Name:     "collection",
-			Expected: "array or dict",
+			Expected: "array or map",
 			Found:    x.TypeName(),
 		}
 	}
 	return Undefined, nil
 }
 
-func builtinDelete(args ...Object) (Object, error) {
-	if len(args) < 2 {
-		return nil, fmt.Errorf("want at least 2 arguments, got %d", len(args))
+func builtinFormat(args ...Object) (Object, error) {
+	var (
+		format string
+		rest   []Object
+	)
+	if err := UnpackArgs(args, "format", &format, "...", &rest); err != nil {
+		return nil, err
 	}
-	switch x := args[0].(type) {
-	case *Array:
-		if len(args) > 3 {
-			return nil, fmt.Errorf("want at most 3 arguments, got %d", len(args))
-		}
-		var (
-			start, stop int
-			stopPtr     *int
-		)
-		if err := UnpackArgs(args[1:], "start", &start, "stop?", &stopPtr); err != nil {
-			return nil, err
-		}
-		if stopPtr != nil {
-			stop = *stopPtr
-		} else {
-			stop = start + 1
-		}
-		if err := x.checkMutable("remove from"); err != nil {
-			return nil, err
-		}
-		n := len(x.elems)
-		if start > stop {
-			return nil, fmt.Errorf("invalid delete indices: %d > %d", start, stop)
-		}
-		if start < 0 || start > n {
-			return nil, fmt.Errorf("delete bounds out of range [%d:%d]", start, n)
-		}
-		if stop < 0 || stop > n {
-			return nil, fmt.Errorf("delete bounds out of range [%d:%d] with len %d", start, stop, n)
-		}
-		if start == stop {
-			return NewArray(nil), nil
-		}
-		deleted := slices.Clone(x.elems[start:stop])
-		x.elems = slices.Delete(x.elems, start, stop)
-		return NewArray(deleted), nil
-	case *Map:
-		value, err := x.Delete(args[1])
-		if err != nil {
-			return nil, err
-		}
-		return value, nil
-	default:
-		return nil, &ErrInvalidArgumentType{
-			Name:     "collection",
-			Expected: "array or dict",
-			Found:    x.TypeName(),
-		}
+	if len(rest) == 0 {
+		return String(format), nil
 	}
+	s, err := Format(string(format), rest...)
+	if err != nil {
+		return nil, err
+	}
+	return String(s), nil
 }
 
 func builtinRange(args ...Object) (Object, error) {
 	var (
-		start, stop int64
-		step        int64 = 1
+		start, stop int
+		step        = 1
 	)
 	if err := UnpackArgs(args,
 		"start", &start,
@@ -324,46 +279,6 @@ func builtinRange(args ...Object) (Object, error) {
 		}
 	}
 	return NewArray(elems), nil
-}
-
-func builtinFormat(args ...Object) (Object, error) {
-	var (
-		format string
-		rest   []Object
-	)
-	if err := UnpackArgs(args, "format", &format, "...", &rest); err != nil {
-		return nil, err
-	}
-	if len(rest) == 0 {
-		return String(format), nil
-	}
-	s, err := Format(string(format), rest...)
-	if err != nil {
-		return nil, err
-	}
-	return String(s), nil
-}
-
-func builtinCopy(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("want 1 argument, got %d", len(args))
-	}
-	return args[0].Copy(), nil
-}
-
-func builtinConvert[T Object](args ...Object) (Object, error) {
-	argsLen := len(args)
-	if argsLen == 0 || argsLen > 2 {
-		return nil, fmt.Errorf("want 1 or 2 arguments, got %d", len(args))
-	}
-	var v T
-	if err := Convert(&v, args[0]); err == nil {
-		return v, nil
-	}
-	if argsLen == 2 {
-		return args[1], nil
-	}
-	return Undefined, nil
 }
 
 func builtinError(args ...Object) (ret Object, err error) {
@@ -399,4 +314,19 @@ func builtinError(args ...Object) (ret Object, err error) {
 
 func builtinTuple(args ...Object) (ret Object, err error) {
 	return Tuple(args), nil
+}
+
+func builtinConvert[T Object](args ...Object) (Object, error) {
+	argsLen := len(args)
+	if argsLen == 0 || argsLen > 2 {
+		return nil, fmt.Errorf("want 1 or 2 arguments, got %d", len(args))
+	}
+	var v T
+	if err := Convert(&v, args[0]); err == nil {
+		return v, nil
+	}
+	if argsLen == 2 {
+		return args[1], nil
+	}
+	return Undefined, nil
 }

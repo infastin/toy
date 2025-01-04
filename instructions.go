@@ -1,9 +1,9 @@
-package tengo
+package toy
 
 import (
 	"fmt"
 
-	"github.com/d5/tengo/v2/parser"
+	"github.com/infastin/toy/parser"
 )
 
 // MakeInstruction returns a bytecode for an opcode and the operands.

@@ -1,32 +1,29 @@
-package tengo
+package toy
 
 import (
 	"fmt"
 	"reflect"
 
-	"github.com/d5/tengo/v2/parser"
+	"github.com/infastin/toy/parser"
 )
 
 // Bytecode is a compiled instructions and constants.
 type Bytecode struct {
-	fileSet      *parser.SourceFileSet
-	mainFunction *CompiledFunction
-	constants    []Object
+	FileSet      *parser.SourceFileSet
+	MainFunction *CompiledFunction
+	Constants    []Object
 }
-
-func (b *Bytecode) MainFunction() *CompiledFunction { return b.mainFunction }
-func (b *Bytecode) Constants() []Object             { return b.constants }
 
 // FormatInstructions returns human readable string representations of
 // compiled instructions.
 func (b *Bytecode) FormatInstructions() []string {
-	return FormatInstructions(b.mainFunction.instructions, 0)
+	return FormatInstructions(b.MainFunction.instructions, 0)
 }
 
 // FormatConstants returns human readable string representations of
 // compiled constants.
 func (b *Bytecode) FormatConstants() (output []string) {
-	for cidx, cn := range b.constants {
+	for cidx, cn := range b.Constants {
 		switch cn := cn.(type) {
 		case *CompiledFunction:
 			output = append(output, fmt.Sprintf(
@@ -55,7 +52,7 @@ func (b *Bytecode) RemoveDuplicates() {
 	chars := make(map[Char]int)
 	modules := make(map[string]int)
 
-	for curIdx, c := range b.constants {
+	for curIdx, c := range b.Constants {
 		switch c := c.(type) {
 		case *CompiledFunction:
 			if newIdx, ok := fns[c]; ok {
@@ -118,13 +115,13 @@ func (b *Bytecode) RemoveDuplicates() {
 	}
 
 	// replace with de-duplicated constants
-	b.constants = deduped
+	b.Constants = deduped
 
 	// update CONST instructions with new indexes
 	// main function
-	updateConstIndexes(b.mainFunction.instructions, indexMap)
+	updateConstIndexes(b.MainFunction.instructions, indexMap)
 	// other compiled functions in constants
-	for _, c := range b.constants {
+	for _, c := range b.Constants {
 		switch c := c.(type) {
 		case *CompiledFunction:
 			updateConstIndexes(c.instructions, indexMap)

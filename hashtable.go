@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package tengo
+package toy
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"math/big"
 )
 
-// hashtable is used to represent Tengo map entries.
+// hashtable is used to represent Toy map entries.
 // It is a hash table whose key/value entries form a doubly-linked list
 // in the order the entries were inserted.
 //
@@ -18,8 +18,8 @@ import (
 type hashtable struct {
 	table     []bucket  // len is zero or a power of two
 	bucket0   [1]bucket // inline allocation for small maps.
-	len       uint32
-	itercount uint32  // number of active iterators (ignored if frozen)
+	len       uint64
+	itercount uint64  // number of active iterators (ignored if frozen)
 	head      *entry  // insertion order doubly-linked list; may be nil
 	tailLink  **entry // address of nil link at end of list (perhaps &head)
 	immutable bool
@@ -42,7 +42,7 @@ type bucket struct {
 }
 
 type entry struct {
-	hash       uint32 // nonzero => in use
+	hash       uint64 // nonzero => in use
 	key, value Object
 	next       *entry  // insertion order doubly-linked list; may be nil
 	prevLink   **entry // address of link to this entry (perhaps &head)
@@ -83,7 +83,7 @@ retry:
 	var insert *entry
 
 	// Inspect each bucket in the bucket list.
-	p := &ht.table[h&(uint32(len(ht.table)-1))]
+	p := &ht.table[h&(uint64(len(ht.table)-1))]
 	for {
 		for i := range p.entries {
 			e := &p.entries[i]
@@ -173,7 +173,7 @@ func (ht *hashtable) lookup(k Object) (v Object, err error) {
 		return Undefined, nil // empty
 	}
 	// Inspect each bucket in the bucket list.
-	for p := &ht.table[h&(uint32(len(ht.table)-1))]; p != nil; p = p.next {
+	for p := &ht.table[h&(uint64(len(ht.table)-1))]; p != nil; p = p.next {
 		for i := range p.entries {
 			e := &p.entries[i]
 			if e.hash != h {
@@ -215,7 +215,7 @@ func (ht *hashtable) count(iter Iterator) (int, error) {
 			h = 1 // zero is reserved
 		}
 		// Inspect each bucket in the bucket list.
-		bucketId := h & (uint32(len(ht.table) - 1))
+		bucketId := h & (uint64(len(ht.table) - 1))
 		i := 0
 		for p := &ht.table[bucketId]; p != nil; p = p.next {
 			for j := range p.entries {
@@ -279,7 +279,7 @@ func (ht *hashtable) delete(k Object) (v Object, err error) {
 	}
 
 	// Inspect each bucket in the bucket list.
-	for p := &ht.table[h&(uint32(len(ht.table)-1))]; p != nil; p = p.next {
+	for p := &ht.table[h&(uint64(len(ht.table)-1))]; p != nil; p = p.next {
 		for i := range p.entries {
 			e := &p.entries[i]
 			if e.hash != h {
@@ -308,7 +308,7 @@ func (ht *hashtable) delete(k Object) (v Object, err error) {
 }
 
 // checkMutable reports an error if the hash table should not be mutated.
-// verb+" dict" should describe the operation.
+// verb+" immutable hash table" should describe the operation.
 func (ht *hashtable) checkMutable(verb string) error {
 	if ht.immutable {
 		return fmt.Errorf("cannot %s immutable hash table", verb)

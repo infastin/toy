@@ -1,4 +1,4 @@
-package tengo
+package toy
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 // evaluated value. expr must be an expression. Otherwise it will fail to
 // compile. Expression must not use or define variable "__res__" as it's
 // reserved for the internal usage.
-func Eval(ctx context.Context, expr string, params map[string]Object) (any, error) {
+func Eval(ctx context.Context, expr string, params map[string]Object) (Object, error) {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
 		return nil, fmt.Errorf("empty expression")

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/d5/tengo/v2/token"
+	"github.com/infastin/toy/token"
 )
 
 type bailout struct{}
@@ -89,8 +89,8 @@ func (p ErrorList) Err() error {
 	return p
 }
 
-// Parser parses the Tengo source files. It's based on Go's parser
-// implementation.
+// Parser parses the Toy source files.
+// It's based on Go's parser implementation.
 type Parser struct {
 	file      *SourceFile
 	errors    ErrorList

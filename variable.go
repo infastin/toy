@@ -1,4 +1,4 @@
-package tengo
+package toy
 
 // Variable is a user-defined variable for the script.
 type Variable struct {

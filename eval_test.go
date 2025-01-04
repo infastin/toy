@@ -1,59 +1,55 @@
-package tengo_test
+package toy
 
 import (
 	"context"
 	"testing"
-
-	"github.com/d5/tengo/v2"
-	"github.com/d5/tengo/v2/require"
 )
 
 func TestEval(t *testing.T) {
 	eval := func(
 		expr string,
-		params map[string]interface{},
-		expected interface{},
+		params map[string]Object,
+		expected Object,
 	) {
 		ctx := context.Background()
-		actual, err := tengo.Eval(ctx, expr, params)
-		require.NoError(t, err)
-		require.Equal(t, expected, actual)
+		actual, err := Eval(ctx, expr, params)
+		expectNoError(t, err)
+		expectEqual(t, expected, actual)
 	}
 
 	eval(`undefined`, nil, nil)
-	eval(`1`, nil, int64(1))
-	eval(`19 + 23`, nil, int64(42))
-	eval(`"foo bar"`, nil, "foo bar")
-	eval(`[1, 2, 3][1]`, nil, int64(2))
+	eval(`1`, nil, Int(1))
+	eval(`19 + 23`, nil, Int(42))
+	eval(`"foo bar"`, nil, String("foo bar"))
+	eval(`[1, 2, 3][1]`, nil, Int(2))
 
 	eval(
 		`5 + p`,
-		map[string]interface{}{
-			"p": 7,
+		map[string]Object{
+			"p": Int(7),
 		},
-		int64(12),
+		Int(12),
 	)
 	eval(
 		`"seven is " + p`,
-		map[string]interface{}{
-			"p": 7,
+		map[string]Object{
+			"p": Int(7),
 		},
-		"seven is 7",
+		String("seven is 7"),
 	)
 	eval(
 		`"" + a + b`,
-		map[string]interface{}{
-			"a": 7,
-			"b": " is seven",
+		map[string]Object{
+			"a": Int(7),
+			"b": String(" is seven"),
 		},
-		"7 is seven",
+		String("7 is seven"),
 	)
-
 	eval(
 		`a ? "success" : "fail"`,
-		map[string]interface{}{
-			"a": 1,
+		map[string]Object{
+			"a": Int(1),
 		},
-		"success",
+		String("success"),
 	)
 }

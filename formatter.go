@@ -1,4 +1,4 @@
-package tengo
+package toy
 
 import (
 	"strconv"

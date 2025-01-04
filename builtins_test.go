@@ -1,506 +1,610 @@
-package tengo_test
+package toy
 
 import (
 	"errors"
-	"reflect"
 	"testing"
-
-	"github.com/d5/tengo/v2"
 )
 
-func Test_builtinDelete(t *testing.T) {
-	var builtinDelete func(args ...tengo.Object) (tengo.Object, error)
-	for _, f := range tengo.GetAllBuiltinFunctions() {
-		if f.Name == "delete" {
-			builtinDelete = f.Func
-			break
-		}
-	}
-	if builtinDelete == nil {
-		t.Fatal("builtin delete not found")
-	}
-	type args struct {
-		args []tengo.Object
-	}
+func Test_builtinLen(t *testing.T) {
 	tests := []struct {
-		name      string
-		args      args
-		want      tengo.Object
-		wantErr   bool
-		wantedErr error
-		target    interface{}
+		name    string
+		args    []Object
+		want    Object
+		wantErr error
 	}{
-		{name: "invalid-arg", args: args{[]tengo.Object{&tengo.String{},
-			&tengo.String{}}}, wantErr: true,
-			wantedErr: tengo.ErrInvalidArgumentType{
-				Name:     "first",
-				Expected: "map",
-				Found:    "string"},
+		{
+			name: "zero-array",
+			args: []Object{makeArray()},
+			want: Int(0),
 		},
-		{name: "no-args",
-			wantErr: true, wantedErr: tengo.ErrWrongNumArguments},
-		{name: "empty-args", args: args{[]tengo.Object{}}, wantErr: true,
-			wantedErr: tengo.ErrWrongNumArguments,
+		{
+			name: "some-array",
+			args: []Object{makeArray(1, 2, 3)},
+			want: Int(3),
 		},
-		{name: "3-args", args: args{[]tengo.Object{
-			(*tengo.Map)(nil), (*tengo.String)(nil), (*tengo.String)(nil)}},
-			wantErr: true, wantedErr: tengo.ErrWrongNumArguments,
+		{
+			name: "zero-map",
+			args: []Object{makeMap()},
+			want: Int(0),
 		},
-		{name: "nil-map-empty-key",
-			args: args{[]tengo.Object{&tengo.Map{}, &tengo.String{}}},
-			want: tengo.Undefined,
+		{
+			name: "some-map",
+			args: []Object{makeMap("a", 1, "b", 2)},
+			want: Int(2),
 		},
-		{name: "nil-map-nonstr-key",
-			args: args{[]tengo.Object{
-				&tengo.Map{}, &tengo.Int{}}}, wantErr: true,
-			wantedErr: tengo.ErrInvalidArgumentType{
-				Name: "second", Expected: "string", Found: "int"},
+		{
+			name: "zero-string",
+			args: []Object{String("")},
+			want: Int(0),
 		},
-		{name: "nil-map-no-key",
-			args: args{[]tengo.Object{&tengo.Map{}}}, wantErr: true,
-			wantedErr: tengo.ErrWrongNumArguments,
+		{
+			name: "unicode-string",
+			args: []Object{String("👾")},
+			want: Int(1),
 		},
-		{name: "map-missing-key",
-			args: args{
-				[]tengo.Object{
-					&tengo.Map{Value: map[string]tengo.Object{
-						"key": &tengo.String{Value: "value"},
-					}},
-					&tengo.String{Value: "key1"}}},
-			want: tengo.Undefined,
-			target: &tengo.Map{
-				Value: map[string]tengo.Object{
-					"key": &tengo.String{
-						Value: "value"}}},
+		{
+			name: "zero-tuple",
+			args: []Object{Tuple{}},
+			want: Int(0),
 		},
-		{name: "map-emptied",
-			args: args{
-				[]tengo.Object{
-					&tengo.Map{Value: map[string]tengo.Object{
-						"key": &tengo.String{Value: "value"},
-					}},
-					&tengo.String{Value: "key"}}},
-			want:   tengo.Undefined,
-			target: &tengo.Map{Value: map[string]tengo.Object{}},
+		{
+			name: "some-tuple",
+			args: []Object{makeTuple(1, "2")},
+			want: Int(2),
 		},
-		{name: "map-multi-keys",
-			args: args{
-				[]tengo.Object{
-					&tengo.Map{Value: map[string]tengo.Object{
-						"key1": &tengo.String{Value: "value1"},
-						"key2": &tengo.Int{Value: 10},
-					}},
-					&tengo.String{Value: "key1"}}},
-			want: tengo.Undefined,
-			target: &tengo.Map{Value: map[string]tengo.Object{
-				"key2": &tengo.Int{Value: 10}}},
+		{
+			name: "zero-bytes",
+			args: []Object{Bytes{}},
+			want: Int(0),
+		},
+		{
+			name: "some-bytes",
+			args: []Object{Bytes("hello")},
+			want: Int(5),
+		},
+		{
+			name:    "no-args",
+			wantErr: errors.New("missing argument for 'value'"),
+		},
+		{
+			name: "not-sized",
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "value",
+				Expected: "sized",
+				Found:    "int",
+			},
+		},
+		{
+			name:    "too-many-args",
+			args:    []Object{Tuple{}, Int(1), Int(2)},
+			wantErr: errors.New("want at most 1 argument(s), got %d"),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinDelete(tt.args.args...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("builtinDelete() error = %v, wantErr %v",
-					err, tt.wantErr)
-				return
+			got, err := builtinLen(tt.args...)
+			expectEqual(t, tt.wantErr, err, "builtinLen() error")
+			expectEqual(t, tt.want, got, "builtinLen() result")
+		})
+	}
+}
+
+func Test_builtinAppend(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []Object
+		want    Object
+		wantErr error
+		target  Object
+	}{
+		{
+			name:   "multiple",
+			args:   []Object{makeArray(), Int(1), Int(2)},
+			want:   makeArray(1, 2),
+			target: makeArray(),
+		},
+		{
+			name:   "zero-empty-array",
+			args:   []Object{makeArray()},
+			want:   makeArray(),
+			target: makeArray(),
+		},
+		{
+			name:   "zero-non-empty-array",
+			args:   []Object{makeArray("not empty")},
+			want:   makeArray(),
+			target: makeArray(),
+		},
+		{
+			name: "not array",
+			args: []Object{Int(1)},
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "arr",
+				Expected: "array",
+				Found:    "int",
+			},
+		},
+		{
+			name:    "no args",
+			wantErr: errors.New("missing argument for 'arr'"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := builtinAppend(tt.args...)
+			expectEqual(t, tt.wantErr, err, "builtinAppend() error")
+			expectEqual(t, tt.want, got, "builtinAppend() result")
+			if tt.target != nil {
+				expectEqual(t, tt.target, tt.args[0], "builtinAppend() target")
 			}
-			if tt.wantErr && !errors.Is(err, tt.wantedErr) {
-				if err.Error() != tt.wantedErr.Error() {
-					t.Errorf("builtinDelete() error = %v, wantedErr %v",
-						err, tt.wantedErr)
-					return
-				}
-			}
-			if got != tt.want {
-				t.Errorf("builtinDelete() = %v, want %v", got, tt.want)
-				return
-			}
-			if !tt.wantErr && tt.target != nil {
-				switch v := tt.args.args[0].(type) {
-				case *tengo.Map, *tengo.Array:
-					if !reflect.DeepEqual(tt.target, tt.args.args[0]) {
-						t.Errorf("builtinDelete() objects are not equal "+
-							"got: %+v, want: %+v", tt.args.args[0], tt.target)
-					}
-				default:
-					t.Errorf("builtinDelete() unsuporrted arg[0] type %s",
-						v.TypeName())
-					return
-				}
+		})
+	}
+}
+
+func Test_builtinDelete(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []Object
+		want    Object
+		wantErr error
+		target  Object
+	}{
+		{
+			name: "invalid-arg",
+			args: []Object{String(""), String("")},
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "collection",
+				Expected: "array or map",
+				Found:    "string",
+			},
+		},
+		{
+			name:    "no-args",
+			wantErr: errors.New("want at least 2 arguments, got 0"),
+		},
+		{
+			name:    "empty-args",
+			wantErr: errors.New("want at least 2 arguments, got 0"),
+		},
+		{
+			name:    "3-args",
+			args:    []Object{(*Map)(nil), String(""), String("")},
+			wantErr: errors.New("want at most 2 argument(s), got 3"),
+		},
+		{
+			name: "nil-map-empty-key",
+			args: []Object{makeMap(), String("")},
+			want: Undefined,
+		},
+		{
+			name:    "nil-map-no-key",
+			args:    []Object{makeMap()},
+			wantErr: errors.New("want at least 2 arguments, got 1"),
+		},
+		{
+			name:   "map-missing-key",
+			args:   []Object{makeMap("key", "value"), String("key1")},
+			want:   Undefined,
+			target: makeMap("key", "value"),
+		},
+		{
+			name:   "map-emptied",
+			args:   []Object{makeMap("key", "value"), String("key")},
+			want:   Undefined,
+			target: makeMap(),
+		},
+		{
+			name:   "map-multi-keys",
+			args:   []Object{makeMap("key1", 9, "key2", 10), String("key1")},
+			want:   Undefined,
+			target: makeMap("key2", 10),
+		},
+		{
+			name:    "array-4-args",
+			args:    []Object{(*Array)(nil), String(""), String(""), String("")},
+			wantErr: errors.New("want at most 3 argument(s), got 4"),
+		},
+		{
+			name:   "array-2-args",
+			args:   []Object{makeArray(1, 2), Int(0)},
+			want:   makeArray(1),
+			target: makeArray(2),
+		},
+		{
+			name:   "array-3-args",
+			args:   []Object{makeArray(1, 2, 3, 4), Int(1), Int(2)},
+			want:   makeArray(2, 3),
+			target: makeArray(1, 4),
+		},
+		{
+			name: "array-2-invalid-args",
+			args: []Object{makeArray(1, 2), String("")},
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "start",
+				Expected: "int",
+				Found:    "string",
+			},
+		},
+		{
+			name: "array-3-invalid-args",
+			args: []Object{makeArray(1, 2), Int(1), String("")},
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "stop",
+				Expected: "int",
+				Found:    "string",
+			},
+		},
+		{
+			name:    "array-invalid-indices",
+			args:    []Object{makeArray(1, 2), Int(2), Int(0)},
+			wantErr: errors.New("invalid delete indices: 2 > 0"),
+		},
+		{
+			name:    "array-out-of-bounds",
+			args:    []Object{makeArray(1, 2), Int(3)},
+			wantErr: errors.New("delete bounds out of range [3:2]"),
+		},
+		{
+			name:    "array-out-of-bounds-with-len",
+			args:    []Object{makeArray(1, 2), Int(1), Int(5)},
+			wantErr: errors.New("delete bounds out of range [1:5] with len 2"),
+		},
+		{
+			name:    "immutable-array",
+			args:    []Object{makeImmutableArray(1, 2, 3), Int(1)},
+			wantErr: errors.New("cannot delete from immutable array"),
+		},
+		{
+			name:    "immutable-map",
+			args:    []Object{makeImmutableMap("1", 1, "2", 2), String("1")},
+			wantErr: errors.New("failed to delete 'string' from map: cannot delete from immutable hash table"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := builtinDelete(tt.args...)
+			expectEqual(t, tt.wantErr, err, "builtinDelete() error")
+			expectEqual(t, tt.want, got, "builtinDelete() result")
+			if tt.target != nil {
+				expectEqual(t, tt.target, tt.args[0], "builtinDelete() target")
 			}
 		})
 	}
 }
 
 func Test_builtinSplice(t *testing.T) {
-	var builtinSplice func(args ...tengo.Object) (tengo.Object, error)
-	for _, f := range tengo.GetAllBuiltinFunctions() {
-		if f.Name == "splice" {
-			builtinSplice = f.Func
-			break
-		}
-	}
-	if builtinSplice == nil {
-		t.Fatal("builtin splice not found")
-	}
 	tests := []struct {
-		name      string
-		args      []tengo.Object
-		deleted   tengo.Object
-		Array     *tengo.Array
-		wantErr   bool
-		wantedErr error
+		name    string
+		args    []Object
+		want    Object
+		wantErr error
+		target  Object
 	}{
-		{name: "no args", args: []tengo.Object{}, wantErr: true,
-			wantedErr: tengo.ErrWrongNumArguments,
+		{
+			name:    "no-args",
+			wantErr: errors.New("missing argument for 'arr'"),
 		},
-		{name: "invalid args", args: []tengo.Object{&tengo.Map{}},
-			wantErr: true,
-			wantedErr: tengo.ErrInvalidArgumentType{
-				Name: "first", Expected: "array", Found: "map"},
+		{
+			name: "invalid-args",
+			args: []Object{(*Map)(nil)},
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "arr",
+				Expected: "array",
+				Found:    "map",
+			},
 		},
-		{name: "invalid args",
-			args:    []tengo.Object{&tengo.Array{}, &tengo.String{}},
-			wantErr: true,
-			wantedErr: tengo.ErrInvalidArgumentType{
-				Name: "second", Expected: "int", Found: "string"},
+		{
+			name: "invalid-args",
+			args: []Object{(*Array)(nil), String("")},
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "start",
+				Expected: "int",
+				Found:    "string",
+			},
 		},
-		{name: "negative index",
-			args:      []tengo.Object{&tengo.Array{}, &tengo.Int{Value: -1}},
-			wantErr:   true,
-			wantedErr: tengo.ErrIndexOutOfBounds},
-		{name: "non int count",
-			args: []tengo.Object{
-				&tengo.Array{}, &tengo.Int{Value: 0},
-				&tengo.String{Value: ""}},
-			wantErr: true,
-			wantedErr: tengo.ErrInvalidArgumentType{
-				Name: "third", Expected: "int", Found: "string"},
+		{
+			name:    "negative-index",
+			args:    []Object{(*Array)(nil), Int(-1)},
+			wantErr: errors.New("splice bounds out of range [-1:0]"),
 		},
-		{name: "negative count",
-			args: []tengo.Object{
-				&tengo.Array{Value: []tengo.Object{
-					&tengo.Int{Value: 0},
-					&tengo.Int{Value: 1},
-					&tengo.Int{Value: 2}}},
-				&tengo.Int{Value: 0},
-				&tengo.Int{Value: -1}},
-			wantErr:   true,
-			wantedErr: tengo.ErrIndexOutOfBounds,
+		{
+			name: "non-int-stop",
+			args: []Object{(*Array)(nil), Int(0), String("")},
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "stop",
+				Expected: "int",
+				Found:    "string",
+			},
 		},
-		{name: "insert with zero count",
-			args: []tengo.Object{
-				&tengo.Array{Value: []tengo.Object{
-					&tengo.Int{Value: 0},
-					&tengo.Int{Value: 1},
-					&tengo.Int{Value: 2}}},
-				&tengo.Int{Value: 0},
-				&tengo.Int{Value: 0},
-				&tengo.String{Value: "b"}},
-			deleted: &tengo.Array{Value: []tengo.Object{}},
-			Array: &tengo.Array{Value: []tengo.Object{
-				&tengo.String{Value: "b"},
-				&tengo.Int{Value: 0},
-				&tengo.Int{Value: 1},
-				&tengo.Int{Value: 2}}},
+		{
+			name:    "negative-count",
+			args:    []Object{makeArray(0, 1, 2), Int(0), Int(-1)},
+			wantErr: errors.New("splice bounds out of range [0:-1] with len 3"),
 		},
-		{name: "insert",
-			args: []tengo.Object{
-				&tengo.Array{Value: []tengo.Object{
-					&tengo.Int{Value: 0},
-					&tengo.Int{Value: 1},
-					&tengo.Int{Value: 2}}},
-				&tengo.Int{Value: 1},
-				&tengo.Int{Value: 0},
-				&tengo.String{Value: "c"},
-				&tengo.String{Value: "d"}},
-			deleted: &tengo.Array{Value: []tengo.Object{}},
-			Array: &tengo.Array{Value: []tengo.Object{
-				&tengo.Int{Value: 0},
-				&tengo.String{Value: "c"},
-				&tengo.String{Value: "d"},
-				&tengo.Int{Value: 1},
-				&tengo.Int{Value: 2}}},
+		{
+			name:   "append",
+			args:   []Object{makeArray(0, 1, 2), Int(3), Int(3), String("b")},
+			want:   makeArray(),
+			target: makeArray(makeArray(0, 1, 2, "b")),
 		},
-		{name: "insert with zero count",
-			args: []tengo.Object{
-				&tengo.Array{Value: []tengo.Object{
-					&tengo.Int{Value: 0},
-					&tengo.Int{Value: 1},
-					&tengo.Int{Value: 2}}},
-				&tengo.Int{Value: 1},
-				&tengo.Int{Value: 0},
-				&tengo.String{Value: "c"},
-				&tengo.String{Value: "d"}},
-			deleted: &tengo.Array{Value: []tengo.Object{}},
-			Array: &tengo.Array{Value: []tengo.Object{
-				&tengo.Int{Value: 0},
-				&tengo.String{Value: "c"},
-				&tengo.String{Value: "d"},
-				&tengo.Int{Value: 1},
-				&tengo.Int{Value: 2}}},
+		{
+			name:   "prepend",
+			args:   []Object{makeArray(0, 1, 2), Int(0), Int(0), String("b")},
+			want:   makeArray(),
+			target: makeArray(makeArray("b", 0, 1, 2)),
 		},
-		{name: "insert with delete",
-			args: []tengo.Object{
-				&tengo.Array{Value: []tengo.Object{
-					&tengo.Int{Value: 0},
-					&tengo.Int{Value: 1},
-					&tengo.Int{Value: 2}}},
-				&tengo.Int{Value: 1},
-				&tengo.Int{Value: 1},
-				&tengo.String{Value: "c"},
-				&tengo.String{Value: "d"}},
-			deleted: &tengo.Array{
-				Value: []tengo.Object{&tengo.Int{Value: 1}}},
-			Array: &tengo.Array{Value: []tengo.Object{
-				&tengo.Int{Value: 0},
-				&tengo.String{Value: "c"},
-				&tengo.String{Value: "d"},
-				&tengo.Int{Value: 2}}},
+		{
+			name:   "insert-at-one",
+			args:   []Object{makeArray(0, 1, 2), Int(1), Int(1), String("c"), String("d")},
+			want:   makeArray(),
+			target: makeArray(0, "c", "d", 1, 2),
 		},
-		{name: "insert with delete multi",
-			args: []tengo.Object{
-				&tengo.Array{Value: []tengo.Object{
-					&tengo.Int{Value: 0},
-					&tengo.Int{Value: 1},
-					&tengo.Int{Value: 2}}},
-				&tengo.Int{Value: 1},
-				&tengo.Int{Value: 2},
-				&tengo.String{Value: "c"},
-				&tengo.String{Value: "d"}},
-			deleted: &tengo.Array{Value: []tengo.Object{
-				&tengo.Int{Value: 1},
-				&tengo.Int{Value: 2}}},
-			Array: &tengo.Array{
-				Value: []tengo.Object{
-					&tengo.Int{Value: 0},
-					&tengo.String{Value: "c"},
-					&tengo.String{Value: "d"}}},
+		{
+			name:   "insert-with-delete",
+			args:   []Object{makeArray(0, 1, 2), Int(1), Int(2), String("c"), String("d")},
+			want:   makeArray(1),
+			target: makeArray(0, "c", "d", 2),
 		},
-		{name: "delete all with positive count",
-			args: []tengo.Object{
-				&tengo.Array{Value: []tengo.Object{
-					&tengo.Int{Value: 0},
-					&tengo.Int{Value: 1},
-					&tengo.Int{Value: 2}}},
-				&tengo.Int{Value: 0},
-				&tengo.Int{Value: 3}},
-			deleted: &tengo.Array{Value: []tengo.Object{
-				&tengo.Int{Value: 0},
-				&tengo.Int{Value: 1},
-				&tengo.Int{Value: 2}}},
-			Array: &tengo.Array{Value: []tengo.Object{}},
+		{
+			name:   "insert-with-delete-multiple",
+			args:   []Object{makeArray(0, 1, 2), Int(1), Int(3), String("c"), String("d")},
+			want:   makeArray(1, 2),
+			target: makeArray(0, "c", "d"),
 		},
-		{name: "delete all with big count",
-			args: []tengo.Object{
-				&tengo.Array{Value: []tengo.Object{
-					&tengo.Int{Value: 0},
-					&tengo.Int{Value: 1},
-					&tengo.Int{Value: 2}}},
-				&tengo.Int{Value: 0},
-				&tengo.Int{Value: 5}},
-			deleted: &tengo.Array{Value: []tengo.Object{
-				&tengo.Int{Value: 0},
-				&tengo.Int{Value: 1},
-				&tengo.Int{Value: 2}}},
-			Array: &tengo.Array{Value: []tengo.Object{}},
+		{
+			name:   "delete-all",
+			args:   []Object{makeArray(0, 1, 2), Int(0), Int(3)},
+			want:   makeArray(0, 1, 2),
+			target: makeArray(),
 		},
-		{name: "nothing2",
-			args: []tengo.Object{
-				&tengo.Array{Value: []tengo.Object{
-					&tengo.Int{Value: 0},
-					&tengo.Int{Value: 1},
-					&tengo.Int{Value: 2}}}},
-			Array: &tengo.Array{Value: []tengo.Object{}},
-			deleted: &tengo.Array{Value: []tengo.Object{
-				&tengo.Int{Value: 0},
-				&tengo.Int{Value: 1},
-				&tengo.Int{Value: 2}}},
+		{
+			name:    "delete-out-of-bounds",
+			args:    []Object{makeArray(0, 1, 2), Int(0), Int(4)},
+			wantErr: errors.New("splice bounds out of range [0:4] with len 3"),
 		},
-		{name: "pop without count",
-			args: []tengo.Object{
-				&tengo.Array{Value: []tengo.Object{
-					&tengo.Int{Value: 0},
-					&tengo.Int{Value: 1},
-					&tengo.Int{Value: 2}}},
-				&tengo.Int{Value: 2}},
-			deleted: &tengo.Array{Value: []tengo.Object{&tengo.Int{Value: 2}}},
-			Array: &tengo.Array{Value: []tengo.Object{
-				&tengo.Int{Value: 0}, &tengo.Int{Value: 1}}},
+		{
+			name:   "pop",
+			args:   []Object{makeArray(0, 1, 2), Int(2)},
+			want:   makeArray(2),
+			target: makeArray(0, 1),
+		},
+		{
+			name:    "immutable",
+			args:    []Object{makeImmutableArray(1, 2, 3), Int(1)},
+			wantErr: errors.New("cannot splice immutable array"),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := builtinSplice(tt.args...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("builtinSplice() error = %v, wantErr %v",
-					err, tt.wantErr)
-				return
+			expectEqual(t, tt.wantErr, err, "builtinSplice() error")
+			expectEqual(t, tt.want, got, "builtinSplice() result")
+			if tt.target != nil {
+				expectEqual(t, tt.target, tt.args[0], "builtinSplice() target")
 			}
-			if !reflect.DeepEqual(got, tt.deleted) {
-				t.Errorf("builtinSplice() = %v, want %v", got, tt.deleted)
+		})
+	}
+}
+
+func Test_builtinInsert(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []Object
+		want    Object
+		wantErr error
+		target  Object
+	}{
+		{
+			name: "invalid-argument",
+			args: []Object{Int(0)},
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "collection",
+				Expected: "array or map",
+				Found:    "int",
+			},
+		},
+		{
+			name:   "array-prepend",
+			args:   []Object{makeArray(0, 1, 2), Int(0), String("b")},
+			want:   makeArray(),
+			target: makeArray(makeArray("b", 0, 1, 2)),
+		},
+		{
+			name:   "array-insert-at-one",
+			args:   []Object{makeArray(0, 1, 2), Int(1), String("c"), String("d")},
+			want:   makeArray(),
+			target: makeArray(0, "c", "d", 1, 2),
+		},
+		{
+			name:   "array-append",
+			args:   []Object{makeArray(0, 1, 2), Int(3), String("c"), String("d")},
+			want:   makeArray(),
+			target: makeArray(0, 1, 2, "c", "d"),
+		},
+		{
+			name:   "map-insert",
+			args:   []Object{makeMap(), String("1"), Int(1)},
+			want:   Undefined,
+			target: makeMap("1", 1),
+		},
+		{
+			name:    "map-insert-not-hashable",
+			args:    []Object{makeMap(), Tuple{}, Int(1)},
+			wantErr: errors.New("failed to insert 'tuple' into map: not hashable"),
+		},
+		{
+			name:    "immutable-array",
+			args:    []Object{makeImmutableArray(1, 2, 3), Int(1), String("c")},
+			wantErr: errors.New("cannot insert into immutable array"),
+		},
+		{
+			name:    "immutable-map",
+			args:    []Object{makeImmutableMap("1", 1, "2", 2), String("3"), Int(3)},
+			wantErr: errors.New("failed to insert 'string' into map: cannot insert into immutable hash table"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := builtinInsert(tt.args...)
+			expectEqual(t, tt.wantErr, err, "builtinInsert() error")
+			expectEqual(t, tt.want, got, "builtinInsert() result")
+			if tt.target != nil {
+				expectEqual(t, tt.target, tt.args[0], "builtinInsert() target")
 			}
-			if tt.wantErr && tt.wantedErr.Error() != err.Error() {
-				t.Errorf("builtinSplice() error = %v, wantedErr %v",
-					err, tt.wantedErr)
-			}
-			if tt.Array != nil && !reflect.DeepEqual(tt.Array, tt.args[0]) {
-				t.Errorf("builtinSplice() arrays are not equal expected"+
-					" %s, got %s", tt.Array, tt.args[0].(*tengo.Array))
+		})
+	}
+}
+
+func Test_builtinClear(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []Object
+		want    Object
+		wantErr error
+		target  Object
+	}{
+		{
+			name:    "no-args",
+			wantErr: errors.New("want 1 arguments, got 0"),
+		},
+		{
+			name:    "too-many-args",
+			args:    []Object{makeArray(1), Int(1), Int(2)},
+			wantErr: errors.New("want 1 argument, got 3"),
+		},
+		{
+			name: "invalid-argument",
+			args: []Object{Int(0)},
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "collection",
+				Expected: "array or map",
+				Found:    "int",
+			},
+		},
+		{
+			name:   "map",
+			args:   []Object{makeMap("1", 1, "2", 2)},
+			want:   Undefined,
+			target: makeMap(),
+		},
+		{
+			name:   "map",
+			args:   []Object{makeArray(1, 2, 3)},
+			want:   Undefined,
+			target: makeArray(),
+		},
+		{
+			name:    "immutable-array",
+			args:    []Object{makeImmutableArray(1, 2, 3)},
+			wantErr: errors.New("cannot clear immutable array"),
+		},
+		{
+			name:    "immutable-map",
+			args:    []Object{makeImmutableMap("1", 1, "2", 2)},
+			wantErr: errors.New("cannot clear immutable hash table"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := builtinClear(tt.args...)
+			expectEqual(t, tt.wantErr, err, "builtinClear() error")
+			expectEqual(t, tt.want, got, "builtinClear() result")
+			if tt.target != nil {
+				expectEqual(t, tt.target, tt.args[0], "builtinClear() target")
 			}
 		})
 	}
 }
 
 func Test_builtinRange(t *testing.T) {
-	var builtinRange func(args ...tengo.Object) (tengo.Object, error)
-	for _, f := range tengo.GetAllBuiltinFunctions() {
-		if f.Name == "range" {
-			builtinRange = f.Func
-			break
-		}
-	}
-	if builtinRange == nil {
-		t.Fatal("builtin range not found")
-	}
 	tests := []struct {
-		name      string
-		args      []tengo.Object
-		result    *tengo.Array
-		wantErr   bool
-		wantedErr error
+		name    string
+		args    []Object
+		want    Object
+		wantErr error
 	}{
-		{name: "no args", args: []tengo.Object{}, wantErr: true,
-			wantedErr: tengo.ErrWrongNumArguments,
+		{
+			name:    "no args",
+			wantErr: errors.New("missing argument for 'start'"),
 		},
-		{name: "single args", args: []tengo.Object{&tengo.Map{}},
-			wantErr:   true,
-			wantedErr: tengo.ErrWrongNumArguments,
+		{
+			name:    "4 args",
+			args:    []Object{Int(0), Int(0), Int(0), Int(0)},
+			wantErr: errors.New("nant at most 3 argument(s), got 4"),
 		},
-		{name: "4 args", args: []tengo.Object{&tengo.Map{}, &tengo.String{}, &tengo.String{}, &tengo.String{}},
-			wantErr:   true,
-			wantedErr: tengo.ErrWrongNumArguments,
-		},
-		{name: "invalid start",
-			args:    []tengo.Object{&tengo.String{}, &tengo.String{}},
-			wantErr: true,
-			wantedErr: tengo.ErrInvalidArgumentType{
-				Name: "start", Expected: "int", Found: "string"},
-		},
-		{name: "invalid stop",
-			args:    []tengo.Object{&tengo.Int{}, &tengo.String{}},
-			wantErr: true,
-			wantedErr: tengo.ErrInvalidArgumentType{
-				Name: "stop", Expected: "int", Found: "string"},
-		},
-		{name: "invalid step",
-			args:    []tengo.Object{&tengo.Int{}, &tengo.Int{}, &tengo.String{}},
-			wantErr: true,
-			wantedErr: tengo.ErrInvalidArgumentType{
-				Name: "step", Expected: "int", Found: "string"},
-		},
-		{name: "zero step",
-			args:      []tengo.Object{&tengo.Int{}, &tengo.Int{}, &tengo.Int{}}, //must greate than 0
-			wantErr:   true,
-			wantedErr: tengo.ErrInvalidRangeStep,
-		},
-		{name: "negative step",
-			args:      []tengo.Object{&tengo.Int{}, &tengo.Int{}, intObject(-2)}, //must greate than 0
-			wantErr:   true,
-			wantedErr: tengo.ErrInvalidRangeStep,
-		},
-		{name: "same bound",
-			args:    []tengo.Object{&tengo.Int{}, &tengo.Int{}},
-			wantErr: false,
-			result: &tengo.Array{
-				Value: nil,
+		{
+			name: "invalid-start",
+			args: []Object{String("")},
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "start",
+				Expected: "int",
+				Found:    "string",
 			},
 		},
-		{name: "positive range",
-			args:    []tengo.Object{&tengo.Int{}, &tengo.Int{Value: 5}},
-			wantErr: false,
-			result: &tengo.Array{
-				Value: []tengo.Object{
-					intObject(0),
-					intObject(1),
-					intObject(2),
-					intObject(3),
-					intObject(4),
-				},
+		{
+			name: "invalid-stop",
+			args: []Object{Int(0), String("")},
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "stop",
+				Expected: "int",
+				Found:    "string",
 			},
 		},
-		{name: "negative range",
-			args:    []tengo.Object{&tengo.Int{}, &tengo.Int{Value: -5}},
-			wantErr: false,
-			result: &tengo.Array{
-				Value: []tengo.Object{
-					intObject(0),
-					intObject(-1),
-					intObject(-2),
-					intObject(-3),
-					intObject(-4),
-				},
+		{
+			name: "invalid-stop",
+			args: []Object{Int(0), Int(0), String("")},
+			wantErr: &ErrInvalidArgumentType{
+				Name:     "step",
+				Expected: "int",
+				Found:    "string",
 			},
 		},
-
-		{name: "positive with step",
-			args:    []tengo.Object{&tengo.Int{}, &tengo.Int{Value: 5}, &tengo.Int{Value: 2}},
-			wantErr: false,
-			result: &tengo.Array{
-				Value: []tengo.Object{
-					intObject(0),
-					intObject(2),
-					intObject(4),
-				},
-			},
+		{
+			name:    "zero-step",
+			args:    []Object{Int(0), Int(0), Int(0)},
+			wantErr: errors.New("invalid range step: must be > 0, got 0"),
 		},
-
-		{name: "negative with step",
-			args:    []tengo.Object{&tengo.Int{}, &tengo.Int{Value: -10}, &tengo.Int{Value: 2}},
-			wantErr: false,
-			result: &tengo.Array{
-				Value: []tengo.Object{
-					intObject(0),
-					intObject(-2),
-					intObject(-4),
-					intObject(-6),
-					intObject(-8),
-				},
-			},
+		{
+			name:    "negative step",
+			args:    []Object{Int(0), Int(0), Int(-2)},
+			wantErr: errors.New("invalid range step: must be > 0, got -2"),
 		},
-
-		{name: "large range",
-			args:    []tengo.Object{intObject(-10), intObject(10), &tengo.Int{Value: 3}},
-			wantErr: false,
-			result: &tengo.Array{
-				Value: []tengo.Object{
-					intObject(-10),
-					intObject(-7),
-					intObject(-4),
-					intObject(-1),
-					intObject(2),
-					intObject(5),
-					intObject(8),
-				},
-			},
+		{
+			name: "same-bound",
+			args: []Object{Int(0), Int(0)},
+			want: makeArray(),
+		},
+		{
+			name: "positive-range",
+			args: []Object{Int(0), Int(5)},
+			want: makeArray(0, 1, 2, 3, 4),
+		},
+		{
+			name: "negative-range",
+			args: []Object{Int(0), Int(-5)},
+			want: makeArray(0, -1, -2, -3, -4),
+		},
+		{
+			name: "positive-with-step",
+			args: []Object{Int(0), Int(5), Int(2)},
+			want: makeArray(0, 2, 4),
+		},
+		{
+			name: "positive-with-step",
+			args: []Object{Int(0), Int(-10), Int(2)},
+			want: makeArray(0, -2, -4, -6, -8),
+		},
+		{
+			name: "large-range",
+			args: []Object{Int(-10), Int(10), Int(3)},
+			want: makeArray(-10, -7, -4, -1, 2, 5, 8),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := builtinRange(tt.args...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("builtinRange() error = %v, wantErr %v",
-					err, tt.wantErr)
-				return
-			}
-			if tt.wantErr && tt.wantedErr.Error() != err.Error() {
-				t.Errorf("builtinRange() error = %v, wantedErr %v",
-					err, tt.wantedErr)
-			}
-			if tt.result != nil && !reflect.DeepEqual(tt.result, got) {
-				t.Errorf("builtinRange() arrays are not equal expected"+
-					" %s, got %s", tt.result, got.(*tengo.Array))
-			}
+			expectEqual(t, tt.wantErr, err, "builtinRange() error")
+			expectEqual(t, tt.want, got, "builtinRange() result")
 		})
 	}
 }

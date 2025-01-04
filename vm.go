@@ -1,11 +1,11 @@
-package tengo
+package toy
 
 import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/d5/tengo/v2/parser"
-	"github.com/d5/tengo/v2/token"
+	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/token"
 )
 
 // frame represents a function call frame.
@@ -38,14 +38,14 @@ func NewVM(bytecode *Bytecode, globals []Object) *VM {
 		globals = make([]Object, GlobalsSize)
 	}
 	v := &VM{
-		constants:   bytecode.constants,
+		constants:   bytecode.Constants,
 		sp:          0,
 		globals:     globals,
-		fileSet:     bytecode.fileSet,
+		fileSet:     bytecode.FileSet,
 		framesIndex: 1,
 		ip:          -1,
 	}
-	v.frames[0].fn = bytecode.mainFunction
+	v.frames[0].fn = bytecode.MainFunction
 	v.frames[0].ip = -1
 	v.curFrame = &v.frames[0]
 	v.curInsts = v.curFrame.fn.instructions
@@ -68,12 +68,12 @@ func (v *VM) Run() error {
 	v.run()
 	atomic.StoreInt64(&v.aborting, 0)
 	if err := v.err; err != nil {
-		filePos := v.fileSet.Position(v.curFrame.fn.SourcePos(v.ip - 1))
+		filePos := v.fileSet.Position(v.curFrame.fn.sourcePos(v.ip - 1))
 		err := fmt.Errorf("Runtime Error: %w\n\tat %s", err, filePos)
 		for v.framesIndex > 1 {
 			v.framesIndex--
 			v.curFrame = &v.frames[v.framesIndex-1]
-			filePos = v.fileSet.Position(v.curFrame.fn.SourcePos(v.curFrame.ip - 1))
+			filePos = v.fileSet.Position(v.curFrame.fn.sourcePos(v.curFrame.ip - 1))
 			err = fmt.Errorf("%w\n\tat %s", err, filePos)
 		}
 		return err

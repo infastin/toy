@@ -1,34 +1,34 @@
-package tengo_test
+package toy_test
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/d5/tengo/v2"
+	"github.com/infastin/toy"
 )
 
 func Example() {
 	// Tengo script code
 	src := `
-each := func(seq, fn) {
-    for x in seq { fn(x) }
+each := fn(seq, f) {
+	for x in seq {
+		f(x)
+	}
 }
-
-sum := 0
-mul := 1
-each([a, b, c, d], func(x) {
+sum, mul := 0, 1
+each([a, b, c, d], fn(x) {
 	sum += x
 	mul *= x
 })`
 
 	// create a new Script instance
-	script := tengo.NewScript([]byte(src))
+	script := toy.NewScript([]byte(src))
 
 	// set values
-	_ = script.Add("a", 1)
-	_ = script.Add("b", 9)
-	_ = script.Add("c", 8)
-	_ = script.Add("d", 4)
+	script.Add("a", toy.Int(1))
+	script.Add("b", toy.Int(9))
+	script.Add("c", toy.Int(8))
+	script.Add("d", toy.Int(4))
 
 	// run the script
 	compiled, err := script.RunContext(context.Background())
@@ -39,7 +39,7 @@ each([a, b, c, d], func(x) {
 	// retrieve values
 	sum := compiled.Get("sum")
 	mul := compiled.Get("mul")
-	fmt.Println(sum, mul)
+	fmt.Println(sum.Value(), mul.Value())
 
 	// Output:
 	// 22 288

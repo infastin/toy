@@ -5,7 +5,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/d5/tengo/v2/token"
+	"github.com/infastin/toy/token"
 )
 
 // byte order mark
@@ -23,8 +23,8 @@ const (
 // ScannerErrorHandler is an error handler for the scanner.
 type ScannerErrorHandler func(pos SourceFilePos, msg string)
 
-// Scanner reads the Tengo source text. It's based on Go's scanner
-// implementation.
+// Scanner reads the Toy source text.
+// It's based on Go's scanner implementation.
 type Scanner struct {
 	file         *SourceFile         // source file handle
 	src          []byte              // source

@@ -1,4 +1,4 @@
-package tengo_test
+package toy_test
 
 import (
 	"errors"
@@ -10,11 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/d5/tengo/v2"
-	"github.com/d5/tengo/v2/parser"
-	"github.com/d5/tengo/v2/require"
-	"github.com/d5/tengo/v2/stdlib"
-	"github.com/d5/tengo/v2/token"
+	"github.com/infastin/toy"
+	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/token"
 )
 
 const testOut = "out"
@@ -25,16 +23,16 @@ type MAP = map[string]interface{}
 type ARR = []interface{}
 
 type testopts struct {
-	modules     *tengo.ModuleMap
-	symbols     map[string]tengo.Object
+	modules     *toy.ModuleMap
+	symbols     map[string]toy.Object
 	maxAllocs   int64
 	skip2ndPass bool
 }
 
 func Opts() *testopts {
 	return &testopts{
-		modules:     tengo.NewModuleMap(),
-		symbols:     make(map[string]tengo.Object),
+		modules:     toy.NewModuleMap(),
+		symbols:     make(map[string]toy.Object),
 		maxAllocs:   -1,
 		skip2ndPass: false,
 	}
@@ -43,7 +41,7 @@ func Opts() *testopts {
 func (o *testopts) copy() *testopts {
 	c := &testopts{
 		modules:     o.modules.Copy(),
-		symbols:     make(map[string]tengo.Object),
+		symbols:     make(map[string]toy.Object),
 		maxAllocs:   o.maxAllocs,
 		skip2ndPass: o.skip2ndPass,
 	}
@@ -61,7 +59,7 @@ func (o *testopts) Stdlib() *testopts {
 func (o *testopts) Module(name string, mod interface{}) *testopts {
 	c := o.copy()
 	switch mod := mod.(type) {
-	case tengo.Importable:
+	case toy.Importable:
 		c.modules.Add(name, mod)
 	case string:
 		c.modules.AddSourceModule(name, []byte(mod))
@@ -73,7 +71,7 @@ func (o *testopts) Module(name string, mod interface{}) *testopts {
 	return c
 }
 
-func (o *testopts) Symbol(name string, value tengo.Object) *testopts {
+func (o *testopts) Symbol(name string, value toy.Object) *testopts {
 	c := o.copy()
 	c.symbols[name] = value
 	return c
@@ -133,9 +131,9 @@ func TestArray(t *testing.T) {
 	}
 
 	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, -1),
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, arrLen),
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 
 	// slice operator
 	for low := 0; low < arrLen; low++ {
@@ -532,11 +530,11 @@ func() {
 }
 
 func TestUndefined(t *testing.T) {
-	expectRun(t, `out = undefined`, nil, tengo.Undefined)
-	expectRun(t, `out = undefined.a`, nil, tengo.Undefined)
-	expectRun(t, `out = undefined[1]`, nil, tengo.Undefined)
-	expectRun(t, `out = undefined.a.b`, nil, tengo.Undefined)
-	expectRun(t, `out = undefined[1][2]`, nil, tengo.Undefined)
+	expectRun(t, `out = undefined`, nil, toy.Undefined)
+	expectRun(t, `out = undefined.a`, nil, toy.Undefined)
+	expectRun(t, `out = undefined[1]`, nil, toy.Undefined)
+	expectRun(t, `out = undefined.a.b`, nil, toy.Undefined)
+	expectRun(t, `out = undefined[1][2]`, nil, toy.Undefined)
 	expectRun(t, `out = undefined ? 1 : 2`, nil, 2)
 	expectRun(t, `out = undefined == undefined`, nil, true)
 	expectRun(t, `out = undefined == 1`, nil, false)
@@ -574,14 +572,14 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = int(true)`, nil, 1)
 	expectRun(t, `out = int(false)`, nil, 0)
 	expectRun(t, `out = int('8')`, nil, 56)
-	expectRun(t, `out = int([1])`, nil, tengo.Undefined)
-	expectRun(t, `out = int({a: 1})`, nil, tengo.Undefined)
-	expectRun(t, `out = int(undefined)`, nil, tengo.Undefined)
+	expectRun(t, `out = int([1])`, nil, toy.Undefined)
+	expectRun(t, `out = int({a: 1})`, nil, toy.Undefined)
+	expectRun(t, `out = int(undefined)`, nil, toy.Undefined)
 	expectRun(t, `out = int("-522", 1)`, nil, -522)
 	expectRun(t, `out = int(undefined, 1)`, nil, 1)
 	expectRun(t, `out = int(undefined, 1.8)`, nil, 1.8)
 	expectRun(t, `out = int(undefined, string(1))`, nil, "1")
-	expectRun(t, `out = int(undefined, undefined)`, nil, tengo.Undefined)
+	expectRun(t, `out = int(undefined, undefined)`, nil, toy.Undefined)
 
 	expectRun(t, `out = string(1)`, nil, "1")
 	expectRun(t, `out = string(1.8)`, nil, "1.8")
@@ -591,40 +589,40 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = string('8')`, nil, "8")
 	expectRun(t, `out = string([1,8.1,true,3])`, nil, "[1, 8.1, true, 3]")
 	expectRun(t, `out = string({b: "foo"})`, nil, `{b: "foo"}`)
-	expectRun(t, `out = string(undefined)`, nil, tengo.Undefined) // not "undefined"
+	expectRun(t, `out = string(undefined)`, nil, toy.Undefined) // not "undefined"
 	expectRun(t, `out = string(1, "-522")`, nil, "1")
 	expectRun(t, `out = string(undefined, "-522")`, nil, "-522") // not "undefined"
 
 	expectRun(t, `out = float(1)`, nil, 1.0)
 	expectRun(t, `out = float(1.8)`, nil, 1.8)
 	expectRun(t, `out = float("-52.2")`, nil, -52.2)
-	expectRun(t, `out = float(true)`, nil, tengo.Undefined)
-	expectRun(t, `out = float(false)`, nil, tengo.Undefined)
-	expectRun(t, `out = float('8')`, nil, tengo.Undefined)
-	expectRun(t, `out = float([1,8.1,true,3])`, nil, tengo.Undefined)
-	expectRun(t, `out = float({a: 1, b: "foo"})`, nil, tengo.Undefined)
-	expectRun(t, `out = float(undefined)`, nil, tengo.Undefined)
+	expectRun(t, `out = float(true)`, nil, toy.Undefined)
+	expectRun(t, `out = float(false)`, nil, toy.Undefined)
+	expectRun(t, `out = float('8')`, nil, toy.Undefined)
+	expectRun(t, `out = float([1,8.1,true,3])`, nil, toy.Undefined)
+	expectRun(t, `out = float({a: 1, b: "foo"})`, nil, toy.Undefined)
+	expectRun(t, `out = float(undefined)`, nil, toy.Undefined)
 	expectRun(t, `out = float("-52.2", 1.8)`, nil, -52.2)
 	expectRun(t, `out = float(undefined, 1)`, nil, 1)
 	expectRun(t, `out = float(undefined, 1.8)`, nil, 1.8)
 	expectRun(t, `out = float(undefined, "-52.2")`, nil, "-52.2")
 	expectRun(t, `out = float(undefined, char(56))`, nil, '8')
-	expectRun(t, `out = float(undefined, undefined)`, nil, tengo.Undefined)
+	expectRun(t, `out = float(undefined, undefined)`, nil, toy.Undefined)
 
 	expectRun(t, `out = char(56)`, nil, '8')
-	expectRun(t, `out = char(1.8)`, nil, tengo.Undefined)
-	expectRun(t, `out = char("-52.2")`, nil, tengo.Undefined)
-	expectRun(t, `out = char(true)`, nil, tengo.Undefined)
-	expectRun(t, `out = char(false)`, nil, tengo.Undefined)
+	expectRun(t, `out = char(1.8)`, nil, toy.Undefined)
+	expectRun(t, `out = char("-52.2")`, nil, toy.Undefined)
+	expectRun(t, `out = char(true)`, nil, toy.Undefined)
+	expectRun(t, `out = char(false)`, nil, toy.Undefined)
 	expectRun(t, `out = char('8')`, nil, '8')
-	expectRun(t, `out = char([1,8.1,true,3])`, nil, tengo.Undefined)
-	expectRun(t, `out = char({a: 1, b: "foo"})`, nil, tengo.Undefined)
-	expectRun(t, `out = char(undefined)`, nil, tengo.Undefined)
+	expectRun(t, `out = char([1,8.1,true,3])`, nil, toy.Undefined)
+	expectRun(t, `out = char({a: 1, b: "foo"})`, nil, toy.Undefined)
+	expectRun(t, `out = char(undefined)`, nil, toy.Undefined)
 	expectRun(t, `out = char(56, 'a')`, nil, '8')
 	expectRun(t, `out = char(undefined, '8')`, nil, '8')
 	expectRun(t, `out = char(undefined, 56)`, nil, 56)
 	expectRun(t, `out = char(undefined, "-52.2")`, nil, "-52.2")
-	expectRun(t, `out = char(undefined, undefined)`, nil, tengo.Undefined)
+	expectRun(t, `out = char(undefined, undefined)`, nil, toy.Undefined)
 
 	expectRun(t, `out = bool(1)`, nil, true)          // non-zero integer: true
 	expectRun(t, `out = bool(0)`, nil, false)         // zero: true
@@ -643,20 +641,20 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = bool(undefined)`, nil, false) // undefined: false
 
 	expectRun(t, `out = bytes(1)`, nil, []byte{0})
-	expectRun(t, `out = bytes(1.8)`, nil, tengo.Undefined)
+	expectRun(t, `out = bytes(1.8)`, nil, toy.Undefined)
 	expectRun(t, `out = bytes("-522")`, nil, []byte{'-', '5', '2', '2'})
-	expectRun(t, `out = bytes(true)`, nil, tengo.Undefined)
-	expectRun(t, `out = bytes(false)`, nil, tengo.Undefined)
-	expectRun(t, `out = bytes('8')`, nil, tengo.Undefined)
-	expectRun(t, `out = bytes([1])`, nil, tengo.Undefined)
-	expectRun(t, `out = bytes({a: 1})`, nil, tengo.Undefined)
-	expectRun(t, `out = bytes(undefined)`, nil, tengo.Undefined)
+	expectRun(t, `out = bytes(true)`, nil, toy.Undefined)
+	expectRun(t, `out = bytes(false)`, nil, toy.Undefined)
+	expectRun(t, `out = bytes('8')`, nil, toy.Undefined)
+	expectRun(t, `out = bytes([1])`, nil, toy.Undefined)
+	expectRun(t, `out = bytes({a: 1})`, nil, toy.Undefined)
+	expectRun(t, `out = bytes(undefined)`, nil, toy.Undefined)
 	expectRun(t, `out = bytes("-522", ['8'])`, nil, []byte{'-', '5', '2', '2'})
 	expectRun(t, `out = bytes(undefined, "-522")`, nil, "-522")
 	expectRun(t, `out = bytes(undefined, 1)`, nil, 1)
 	expectRun(t, `out = bytes(undefined, 1.8)`, nil, 1.8)
 	expectRun(t, `out = bytes(undefined, int("-522"))`, nil, -522)
-	expectRun(t, `out = bytes(undefined, undefined)`, nil, tengo.Undefined)
+	expectRun(t, `out = bytes(undefined, undefined)`, nil, toy.Undefined)
 
 	expectRun(t, `out = is_error(error(1))`, nil, true)
 	expectRun(t, `out = is_error(1)`, nil, false)
@@ -722,16 +720,16 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = format("%v", [1, [2, [3, 4]]])`,
 		nil, `[1, [2, [3, 4]]]`)
 
-	tengo.MaxStringLen = 9
+	toy.MaxStringLen = 9
 	expectError(t, `format("%s", "1234567890")`,
 		nil, "exceeding string size limit")
-	tengo.MaxStringLen = 2147483647
+	toy.MaxStringLen = 2147483647
 
 	// delete
-	expectError(t, `delete()`, nil, tengo.ErrWrongNumArguments.Error())
-	expectError(t, `delete(1)`, nil, tengo.ErrWrongNumArguments.Error())
-	expectError(t, `delete(1, 2, 3)`, nil, tengo.ErrWrongNumArguments.Error())
-	expectError(t, `delete({}, "", 3)`, nil, tengo.ErrWrongNumArguments.Error())
+	expectError(t, `delete()`, nil, toy.ErrWrongNumArguments.Error())
+	expectError(t, `delete(1)`, nil, toy.ErrWrongNumArguments.Error())
+	expectError(t, `delete(1, 2, 3)`, nil, toy.ErrWrongNumArguments.Error())
+	expectError(t, `delete({}, "", 3)`, nil, toy.ErrWrongNumArguments.Error())
 	expectError(t, `delete(1, 1)`, nil, `invalid type for argument 'first'`)
 	expectError(t, `delete(1.0, 1)`, nil, `invalid type for argument 'first'`)
 	expectError(t, `delete("str", 1)`, nil, `invalid type for argument 'first'`)
@@ -770,7 +768,7 @@ func TestBuiltinFunction(t *testing.T) {
 	expectError(t, `delete({}, immutable([]))`, nil,
 		`invalid type for argument 'second'`)
 
-	expectRun(t, `out = delete({}, "")`, nil, tengo.Undefined)
+	expectRun(t, `out = delete({}, "")`, nil, toy.Undefined)
 	expectRun(t, `out = {key1: 1}; delete(out, "key1")`, nil, MAP{})
 	expectRun(t, `out = {key1: 1, key2: "2"}; delete(out, "key1")`, nil,
 		MAP{"key2": "2"})
@@ -778,7 +776,7 @@ func TestBuiltinFunction(t *testing.T) {
 		ARR{1, "2", MAP{"a": "b"}})
 
 	// splice
-	expectError(t, `splice()`, nil, tengo.ErrWrongNumArguments.Error())
+	expectError(t, `splice()`, nil, toy.ErrWrongNumArguments.Error())
 	expectError(t, `splice(1)`, nil, `invalid type for argument 'first'`)
 	expectError(t, `splice(1.0)`, nil, `invalid type for argument 'first'`)
 	expectError(t, `splice("str")`, nil, `invalid type for argument 'first'`)
@@ -846,11 +844,11 @@ func TestBuiltinFunction(t *testing.T) {
 		`invalid type for argument 'third'`)
 	expectError(t, `splice([], 0, immutable({}))`, nil,
 		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 1)`, nil, tengo.ErrIndexOutOfBounds.Error())
+	expectError(t, `splice([], 1)`, nil, toy.ErrIndexOutOfBounds.Error())
 	expectError(t, `splice([1, 2, 3], 0, -1)`, nil,
-		tengo.ErrIndexOutOfBounds.Error())
+		toy.ErrIndexOutOfBounds.Error())
 	expectError(t, `splice([1, 2, 3], 99, 0, "a", "b")`, nil,
-		tengo.ErrIndexOutOfBounds.Error())
+		toy.ErrIndexOutOfBounds.Error())
 	expectRun(t, `out = []; splice(out)`, nil, ARR{})
 	expectRun(t, `out = ["a"]; splice(out, 1)`, nil, ARR{"a"})
 	expectRun(t, `out = ["a"]; out = splice(out, 1)`, nil, ARR{})
@@ -896,15 +894,15 @@ func TestBuiltinFunction(t *testing.T) {
 }
 
 func TestBytesN(t *testing.T) {
-	curMaxBytesLen := tengo.MaxBytesLen
-	defer func() { tengo.MaxBytesLen = curMaxBytesLen }()
-	tengo.MaxBytesLen = 10
+	curMaxBytesLen := toy.MaxBytesLen
+	defer func() { toy.MaxBytesLen = curMaxBytesLen }()
+	toy.MaxBytesLen = 10
 
 	expectRun(t, `out = bytes(0)`, nil, make([]byte, 0))
 	expectRun(t, `out = bytes(10)`, nil, make([]byte, 10))
 	expectError(t, `bytes(11)`, nil, "bytes size limit")
 
-	tengo.MaxBytesLen = 1000
+	toy.MaxBytesLen = 1000
 	expectRun(t, `out = bytes(1000)`, nil, make([]byte, 1000))
 	expectError(t, `bytes(1001)`, nil, "bytes size limit")
 }
@@ -918,7 +916,7 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("abcde")[0]`, nil, 97)
 	expectRun(t, `out = bytes("abcde")[1]`, nil, 98)
 	expectRun(t, `out = bytes("abcde")[4]`, nil, 101)
-	expectRun(t, `out = bytes("abcde")[10]`, nil, tengo.Undefined)
+	expectRun(t, `out = bytes("abcde")[10]`, nil, toy.Undefined)
 }
 
 func TestCall(t *testing.T) {
@@ -1103,17 +1101,17 @@ export func() {
 
 func TestVMErrorUnwrap(t *testing.T) {
 	userErr := errors.New("user runtime error")
-	userFunc := func(err error) *tengo.UserFunction {
-		return &tengo.UserFunction{Name: "user_func", Func: func(args ...tengo.Object) (tengo.Object, error) {
+	userFunc := func(err error) *toy.UserFunction {
+		return &toy.UserFunction{Name: "user_func", Func: func(args ...toy.Object) (toy.Object, error) {
 			return nil, err
 		}}
 	}
-	userModule := func(err error) *tengo.BuiltinModule {
-		return &tengo.BuiltinModule{
-			Attrs: map[string]tengo.Object{
-				"afunction": &tengo.UserFunction{
+	userModule := func(err error) *toy.BuiltinModule {
+		return &toy.BuiltinModule{
+			Attrs: map[string]toy.Object{
+				"afunction": &toy.UserFunction{
 					Name: "afunction",
-					Func: func(a ...tengo.Object) (tengo.Object, error) {
+					Func: func(a ...toy.Object) (toy.Object, error) {
 						return nil, err
 					},
 				},
@@ -1471,11 +1469,11 @@ func TestFor(t *testing.T) {
 func TestFunction(t *testing.T) {
 	// function with no "return" statement returns "invalid" value.
 	expectRun(t, `f1 := func() {}; out = f1();`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 	expectRun(t, `f1 := func() {}; f2 := func() { return f1(); }; f1(); out = f2();`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 	expectRun(t, `f := func(x) { x; }; out = f(5);`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 
 	expectRun(t, `f := func(...x) { return x; }; out = f(1,2,3);`,
 		nil, ARR{1, 2, 3})
@@ -1487,7 +1485,7 @@ func TestFunction(t *testing.T) {
 		nil, ARR{"a", ARR{"b"}, 7})
 
 	expectRun(t, `f := func(...x) { return x; }; out = f();`,
-		nil, &tengo.Array{Value: []tengo.Object{}})
+		nil, &toy.Array{Value: []toy.Object{}})
 
 	expectRun(t, `f := func(a, b, ...x) { return [a, b, x]; }; out = f(8, 9);`,
 		nil, ARR{8, 9, ARR{}})
@@ -1784,26 +1782,26 @@ func() {
 
 	// function skipping return
 	expectRun(t, `out = func() {}()`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 	expectRun(t, `out = func(v) { if v { return true } }(1)`,
 		nil, true)
 	expectRun(t, `out = func(v) { if v { return true } }(0)`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 	expectRun(t, `out = func(v) { if v { } else { return true } }(1)`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 	expectRun(t, `out = func(v) { if v { return } }(1)`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 	expectRun(t, `out = func(v) { if v { return } }(0)`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 	expectRun(t, `out = func(v) { if v { } else { return } }(1)`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 	expectRun(t, `out = func(v) { for ;;v++ { if v == 3 { return true } } }(1)`,
 		nil, true)
 	expectRun(t, `out = func(v) { for ;;v++ { if v == 3 { break } } }(1)`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 
 	// 'f' in RHS at line 4 must reference global variable 'f'
-	// See https://github.com/d5/tengo/issues/314
+	// See https://github.com/d5/toy.issues/314
 	expectRun(t, `
 f := func() { return 2 }
 out = (func() {
@@ -1901,12 +1899,12 @@ for x in [1, 2, 3] {
 func TestIf(t *testing.T) {
 
 	expectRun(t, `if (true) { out = 10 }`, nil, 10)
-	expectRun(t, `if (false) { out = 10 }`, nil, tengo.Undefined)
+	expectRun(t, `if (false) { out = 10 }`, nil, toy.Undefined)
 	expectRun(t, `if (false) { out = 10 } else { out = 20 }`, nil, 20)
 	expectRun(t, `if (1) { out = 10 }`, nil, 10)
 	expectRun(t, `if (0) { out = 10 } else { out = 20 }`, nil, 20)
 	expectRun(t, `if (1 < 2) { out = 10 }`, nil, 10)
-	expectRun(t, `if (1 > 2) { out = 10 }`, nil, tengo.Undefined)
+	expectRun(t, `if (1 > 2) { out = 10 }`, nil, toy.Undefined)
 	expectRun(t, `if (1 < 2) { out = 10 } else { out = 20 }`, nil, 10)
 	expectRun(t, `if (1 > 2) { out = 10 } else { out = 20 }`, nil, 20)
 
@@ -2046,7 +2044,7 @@ func TestImmutable(t *testing.T) {
 	expectRun(t, `a := immutable([1,2,3]); a = 5; out = a`,
 		nil, 5)
 	expectRun(t, `a := immutable([1, 2, 3]); out = a[5]`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 
 	// map
 	expectError(t, `a := immutable({b: 1, c: 2}); a.b = 5`,
@@ -2078,7 +2076,7 @@ func TestImmutable(t *testing.T) {
 	expectRun(t, `a := immutable({a:1,b:2}); a = 5; out = 5`,
 		nil, 5)
 	expectRun(t, `a := immutable({a:1,b:2}); out = a.c`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 
 	expectRun(t, `a := immutable({b: 5, c: "foo"}); out = a.b`,
 		nil, 5)
@@ -2103,7 +2101,7 @@ func TestIncDec(t *testing.T) {
 }
 
 type StringDict struct {
-	tengo.ObjectImpl
+	toy.ObjectImpl
 	Value map[string]string
 }
 
@@ -2113,30 +2111,30 @@ func (o *StringDict) TypeName() string {
 	return "string-dict"
 }
 
-func (o *StringDict) IndexGet(index tengo.Object) (tengo.Object, error) {
-	strIdx, ok := index.(*tengo.String)
+func (o *StringDict) IndexGet(index toy.Object) (toy.Object, error) {
+	strIdx, ok := index.(*toy.String)
 	if !ok {
-		return nil, tengo.ErrInvalidIndexType
+		return nil, toy.ErrInvalidIndexType
 	}
 
 	for k, v := range o.Value {
 		if strings.EqualFold(strIdx.Value, k) {
-			return &tengo.String{Value: v}, nil
+			return &toy.String{Value: v}, nil
 		}
 	}
 
-	return tengo.Undefined, nil
+	return toy.Undefined, nil
 }
 
-func (o *StringDict) IndexSet(index, value tengo.Object) error {
-	strIdx, ok := index.(*tengo.String)
+func (o *StringDict) IndexSet(index, value toy.Object) error {
+	strIdx, ok := index.(*toy.String)
 	if !ok {
-		return tengo.ErrInvalidIndexType
+		return toy.ErrInvalidIndexType
 	}
 
-	strVal, ok := tengo.ToString(value)
+	strVal, ok := toy.ToString(value)
 	if !ok {
-		return tengo.ErrInvalidIndexValueType
+		return toy.ErrInvalidIndexValueType
 	}
 
 	o.Value[strings.ToLower(strIdx.Value)] = strVal
@@ -2145,7 +2143,7 @@ func (o *StringDict) IndexSet(index, value tengo.Object) error {
 }
 
 type StringCircle struct {
-	tengo.ObjectImpl
+	toy.ObjectImpl
 	Value []string
 }
 
@@ -2157,10 +2155,10 @@ func (o *StringCircle) String() string {
 	return ""
 }
 
-func (o *StringCircle) IndexGet(index tengo.Object) (tengo.Object, error) {
-	intIdx, ok := index.(*tengo.Int)
+func (o *StringCircle) IndexGet(index toy.Object) (toy.Object, error) {
+	intIdx, ok := index.(*toy.Int)
 	if !ok {
-		return nil, tengo.ErrInvalidIndexType
+		return nil, toy.ErrInvalidIndexType
 	}
 
 	r := int(intIdx.Value) % len(o.Value)
@@ -2168,13 +2166,13 @@ func (o *StringCircle) IndexGet(index tengo.Object) (tengo.Object, error) {
 		r = len(o.Value) + r
 	}
 
-	return &tengo.String{Value: o.Value[r]}, nil
+	return &toy.String{Value: o.Value[r]}, nil
 }
 
-func (o *StringCircle) IndexSet(index, value tengo.Object) error {
-	intIdx, ok := index.(*tengo.Int)
+func (o *StringCircle) IndexSet(index, value toy.Object) error {
+	intIdx, ok := index.(*toy.Int)
 	if !ok {
-		return tengo.ErrInvalidIndexType
+		return toy.ErrInvalidIndexType
 	}
 
 	r := int(intIdx.Value) % len(o.Value)
@@ -2182,9 +2180,9 @@ func (o *StringCircle) IndexSet(index, value tengo.Object) error {
 		r = len(o.Value) + r
 	}
 
-	strVal, ok := tengo.ToString(value)
+	strVal, ok := toy.ToString(value)
 	if !ok {
-		return tengo.ErrInvalidIndexValueType
+		return toy.ErrInvalidIndexValueType
 	}
 
 	o.Value[r] = strVal
@@ -2193,7 +2191,7 @@ func (o *StringCircle) IndexSet(index, value tengo.Object) error {
 }
 
 type StringArray struct {
-	tengo.ObjectImpl
+	toy.ObjectImpl
 	Value []string
 }
 
@@ -2203,8 +2201,8 @@ func (o *StringArray) String() string {
 
 func (o *StringArray) BinaryOp(
 	op token.Token,
-	rhs tengo.Object,
-) (tengo.Object, error) {
+	rhs toy.Object,
+) (toy.Object, error) {
 	if rhs, ok := rhs.(*StringArray); ok {
 		switch op {
 		case token.Add:
@@ -2215,14 +2213,14 @@ func (o *StringArray) BinaryOp(
 		}
 	}
 
-	return nil, tengo.ErrInvalidOperator
+	return nil, toy.ErrInvalidOperator
 }
 
 func (o *StringArray) IsFalsy() bool {
 	return len(o.Value) == 0
 }
 
-func (o *StringArray) Equals(x tengo.Object) bool {
+func (o *StringArray) Equals(x toy.Object) bool {
 	if x, ok := x.(*StringArray); ok {
 		if len(o.Value) != len(x.Value) {
 			return false
@@ -2240,7 +2238,7 @@ func (o *StringArray) Equals(x tengo.Object) bool {
 	return false
 }
 
-func (o *StringArray) Copy() tengo.Object {
+func (o *StringArray) Copy() toy.Object {
 	return &StringArray{
 		Value: append([]string{}, o.Value...),
 	}
@@ -2250,59 +2248,59 @@ func (o *StringArray) TypeName() string {
 	return "string-array"
 }
 
-func (o *StringArray) IndexGet(index tengo.Object) (tengo.Object, error) {
-	intIdx, ok := index.(*tengo.Int)
+func (o *StringArray) IndexGet(index toy.Object) (toy.Object, error) {
+	intIdx, ok := index.(*toy.Int)
 	if ok {
 		if intIdx.Value >= 0 && intIdx.Value < int64(len(o.Value)) {
-			return &tengo.String{Value: o.Value[intIdx.Value]}, nil
+			return &toy.String{Value: o.Value[intIdx.Value]}, nil
 		}
 
-		return nil, tengo.ErrIndexOutOfBounds
+		return nil, toy.ErrIndexOutOfBounds
 	}
 
-	strIdx, ok := index.(*tengo.String)
+	strIdx, ok := index.(*toy.String)
 	if ok {
 		for vidx, str := range o.Value {
 			if strIdx.Value == str {
-				return &tengo.Int{Value: int64(vidx)}, nil
+				return &toy.Int{Value: int64(vidx)}, nil
 			}
 		}
 
-		return tengo.Undefined, nil
+		return toy.Undefined, nil
 	}
 
-	return nil, tengo.ErrInvalidIndexType
+	return nil, toy.ErrInvalidIndexType
 }
 
-func (o *StringArray) IndexSet(index, value tengo.Object) error {
-	strVal, ok := tengo.ToString(value)
+func (o *StringArray) IndexSet(index, value toy.Object) error {
+	strVal, ok := toy.ToString(value)
 	if !ok {
-		return tengo.ErrInvalidIndexValueType
+		return toy.ErrInvalidIndexValueType
 	}
 
-	intIdx, ok := index.(*tengo.Int)
+	intIdx, ok := index.(*toy.Int)
 	if ok {
 		if intIdx.Value >= 0 && intIdx.Value < int64(len(o.Value)) {
 			o.Value[intIdx.Value] = strVal
 			return nil
 		}
 
-		return tengo.ErrIndexOutOfBounds
+		return toy.ErrIndexOutOfBounds
 	}
 
-	return tengo.ErrInvalidIndexType
+	return toy.ErrInvalidIndexType
 }
 
 func (o *StringArray) Call(
-	args ...tengo.Object,
-) (ret tengo.Object, err error) {
+	args ...toy.Object,
+) (ret toy.Object, err error) {
 	if len(args) != 1 {
-		return nil, tengo.ErrWrongNumArguments
+		return nil, toy.ErrWrongNumArguments
 	}
 
-	s1, ok := tengo.ToString(args[0])
+	s1, ok := toy.ToString(args[0])
 	if !ok {
-		return nil, tengo.ErrInvalidArgumentType{
+		return nil, toy.ErrInvalidArgumentType{
 			Name:     "first",
 			Expected: "string(compatible)",
 			Found:    args[0].TypeName(),
@@ -2311,11 +2309,11 @@ func (o *StringArray) Call(
 
 	for i, v := range o.Value {
 		if v == s1 {
-			return &tengo.Int{Value: int64(i)}, nil
+			return &toy.Int{Value: int64(i)}, nil
 		}
 	}
 
-	return tengo.Undefined, nil
+	return toy.Undefined, nil
 }
 
 func (o *StringArray) CanCall() bool {
@@ -2331,7 +2329,7 @@ func TestIndexable(t *testing.T) {
 	expectRun(t, `out = dict["B"]`,
 		Opts().Symbol("dict", dict()).Skip2ndPass(), "bar")
 	expectRun(t, `out = dict["x"]`,
-		Opts().Symbol("dict", dict()).Skip2ndPass(), tengo.Undefined)
+		Opts().Symbol("dict", dict()).Skip2ndPass(), toy.Undefined)
 	expectError(t, `dict[0]`,
 		Opts().Symbol("dict", dict()).Skip2ndPass(), "invalid index type")
 
@@ -2359,7 +2357,7 @@ func TestIndexable(t *testing.T) {
 	expectRun(t, `out = arr["three"]`,
 		Opts().Symbol("arr", strArr()).Skip2ndPass(), 2)
 	expectRun(t, `out = arr["four"]`,
-		Opts().Symbol("arr", strArr()).Skip2ndPass(), tengo.Undefined)
+		Opts().Symbol("arr", strArr()).Skip2ndPass(), toy.Undefined)
 	expectRun(t, `out = arr[0]`,
 		Opts().Symbol("arr", strArr()).Skip2ndPass(), "one")
 	expectRun(t, `out = arr[1]`,
@@ -2432,7 +2430,7 @@ func TestInteger(t *testing.T) {
 }
 
 type StringArrayIterator struct {
-	tengo.ObjectImpl
+	toy.ObjectImpl
 	strArr *StringArray
 	idx    int
 }
@@ -2450,15 +2448,15 @@ func (i *StringArrayIterator) Next() bool {
 	return i.idx <= len(i.strArr.Value)
 }
 
-func (i *StringArrayIterator) Key() tengo.Object {
-	return &tengo.Int{Value: int64(i.idx - 1)}
+func (i *StringArrayIterator) Key() toy.Object {
+	return &toy.Int{Value: int64(i.idx - 1)}
 }
 
-func (i *StringArrayIterator) Value() tengo.Object {
-	return &tengo.String{Value: i.strArr.Value[i.idx-1]}
+func (i *StringArrayIterator) Value() toy.Object {
+	return &toy.String{Value: i.strArr.Value[i.idx-1]}
 }
 
-func (o *StringArray) Iterate() tengo.Iterator {
+func (o *StringArray) Iterate() toy.Iterator {
 	return &StringArrayIterator{
 		strArr: o,
 	}
@@ -2550,9 +2548,9 @@ out = {
 	})
 
 	expectRun(t, `out = {foo: 5}["foo"]`, nil, 5)
-	expectRun(t, `out = {foo: 5}["bar"]`, nil, tengo.Undefined)
+	expectRun(t, `out = {foo: 5}["bar"]`, nil, toy.Undefined)
 	expectRun(t, `key := "foo"; out = {foo: 5}[key]`, nil, 5)
-	expectRun(t, `out = {}["foo"]`, nil, tengo.Undefined)
+	expectRun(t, `out = {}["foo"]`, nil, toy.Undefined)
 
 	expectRun(t, `
 m := {
@@ -2576,13 +2574,13 @@ out = m["foo"](2) + m["foo"](3)
 
 func TestBuiltin(t *testing.T) {
 	m := Opts().Module("math",
-		&tengo.BuiltinModule{
-			Attrs: map[string]tengo.Object{
-				"abs": &tengo.UserFunction{
+		&toy.BuiltinModule{
+			Attrs: map[string]toy.Object{
+				"abs": &toy.UserFunction{
 					Name: "abs",
-					Func: func(a ...tengo.Object) (tengo.Object, error) {
-						v, _ := tengo.ToFloat64(a[0])
-						return &tengo.Float{Value: math.Abs(v)}, nil
+					Func: func(a ...toy.Object) (toy.Object, error) {
+						v, _ := toy.ToFloat64(a[0])
+						return &toy.Float{Value: math.Abs(v)}, nil
 					},
 				},
 			},
@@ -2599,7 +2597,7 @@ func TestUserModules(t *testing.T) {
 	// export none
 	expectRun(t, `out = import("mod1")`,
 		Opts().Module("mod1", `fn := func() { return 5.0 }; a := 2`),
-		tengo.Undefined)
+		toy.Undefined)
 
 	// export values
 	expectRun(t, `out = import("mod1")`,
@@ -2744,21 +2742,21 @@ export func(a) {
 
 	// module skipping export
 	expectRun(t, `out = import("mod0")`,
-		Opts().Module("mod0", ``), tengo.Undefined)
+		Opts().Module("mod0", ``), toy.Undefined)
 	expectRun(t, `out = import("mod0")`,
 		Opts().Module("mod0", `if 1 { export true }`), true)
 	expectRun(t, `out = import("mod0")`,
 		Opts().Module("mod0", `if 0 { export true }`),
-		tengo.Undefined)
+		toy.Undefined)
 	expectRun(t, `out = import("mod0")`,
 		Opts().Module("mod0", `if 1 { } else { export true }`),
-		tengo.Undefined)
+		toy.Undefined)
 	expectRun(t, `out = import("mod0")`,
 		Opts().Module("mod0", `for v:=0;;v++ { if v == 3 { export true } }`),
 		true)
 	expectRun(t, `out = import("mod0")`,
 		Opts().Module("mod0", `for v:=0;;v++ { if v == 3 { break } }`),
-		tengo.Undefined)
+		toy.Undefined)
 
 	// duplicate compiled functions
 	// NOTE: module "mod" has a function with some local variable, and it's
@@ -2782,13 +2780,13 @@ export { x: 1 }
 
 func TestModuleBlockScopes(t *testing.T) {
 	m := Opts().Module("rand",
-		&tengo.BuiltinModule{
-			Attrs: map[string]tengo.Object{
-				"intn": &tengo.UserFunction{
+		&toy.BuiltinModule{
+			Attrs: map[string]toy.Object{
+				"intn": &toy.UserFunction{
 					Name: "abs",
-					Func: func(a ...tengo.Object) (tengo.Object, error) {
-						v, _ := tengo.ToInt64(a[0])
-						return &tengo.Int{Value: rand.Int63n(v)}, nil
+					Func: func(a ...toy.Object) (toy.Object, error) {
+						v, _ := toy.ToInt64(a[0])
+						return &toy.Int{Value: rand.Int63n(v)}, nil
 					},
 				},
 			},
@@ -2869,11 +2867,11 @@ f()
 
 func testAllocsLimit(t *testing.T, src string, limit int64) {
 	expectRun(t, src,
-		Opts().Skip2ndPass(), tengo.Undefined) // no limit
+		Opts().Skip2ndPass(), toy.Undefined) // no limit
 	expectRun(t, src,
-		Opts().MaxAllocs(limit).Skip2ndPass(), tengo.Undefined)
+		Opts().MaxAllocs(limit).Skip2ndPass(), toy.Undefined)
 	expectRun(t, src,
-		Opts().MaxAllocs(limit+1).Skip2ndPass(), tengo.Undefined)
+		Opts().MaxAllocs(limit+1).Skip2ndPass(), toy.Undefined)
 	if limit > 1 {
 		expectError(t, src,
 			Opts().MaxAllocs(limit-1).Skip2ndPass(),
@@ -3011,7 +3009,7 @@ func TestSelector(t *testing.T) {
 	expectRun(t, `a := {k1: 5, k2: "foo"}; out = a.k2`,
 		nil, "foo")
 	expectRun(t, `a := {k1: 5, k2: "foo"}; out = a.k3`,
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 
 	expectRun(t, `
 a := {
@@ -3031,7 +3029,7 @@ a := {
 	},
 	c: "foo bar"
 }
-b := a.x.c`, nil, tengo.Undefined)
+b := a.x.c`, nil, toy.Undefined)
 
 	expectRun(t, `
 a := {
@@ -3041,7 +3039,7 @@ a := {
 	},
 	c: "foo bar"
 }
-b := a.x.y`, nil, tengo.Undefined)
+b := a.x.y`, nil, toy.Undefined)
 
 	expectRun(t, `a := {b: 1, c: "foo"}; a.b = 2; out = a.b`,
 		nil, 2)
@@ -3133,9 +3131,9 @@ func TestSourceModules(t *testing.T) {
 	testEnumModule(t, `out = enum.all({a:true, b:0}, enum.value)`, false)
 	testEnumModule(t, `out = enum.all({a:true, b:0, c:1}, enum.value)`, false)
 	testEnumModule(t, `out = enum.all(0, enum.value)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 	testEnumModule(t, `out = enum.all("123", enum.value)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 
 	testEnumModule(t, `out = enum.any([], enum.value)`, false)
 	testEnumModule(t, `out = enum.any([1], enum.value)`, true)
@@ -3156,9 +3154,9 @@ func TestSourceModules(t *testing.T) {
 	testEnumModule(t, `out = enum.any({a:false}, enum.value)`, false)
 	testEnumModule(t, `out = enum.any({a:false, b:0}, enum.value)`, false)
 	testEnumModule(t, `out = enum.any(0, enum.value)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 	testEnumModule(t, `out = enum.any("123", enum.value)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 
 	testEnumModule(t, `out = enum.chunk([], 1)`, ARR{})
 	testEnumModule(t, `out = enum.chunk([1], 1)`, ARR{ARR{1}})
@@ -3173,30 +3171,30 @@ func TestSourceModules(t *testing.T) {
 	testEnumModule(t, `out = enum.chunk([1,2,3,4], 3)`,
 		ARR{ARR{1, 2, 3}, ARR{4}})
 	testEnumModule(t, `out = enum.chunk([], 0)`,
-		tengo.Undefined) // size=0: undefined
+		toy.Undefined) // size=0: undefined
 	testEnumModule(t, `out = enum.chunk([1], 0)`,
-		tengo.Undefined) // size=0: undefined
+		toy.Undefined) // size=0: undefined
 	testEnumModule(t, `out = enum.chunk([1,2,3], 0)`,
-		tengo.Undefined) // size=0: undefined
+		toy.Undefined) // size=0: undefined
 	testEnumModule(t, `out = enum.chunk({a:1,b:2,c:3}, 1)`,
-		tengo.Undefined) // map: undefined
+		toy.Undefined) // map: undefined
 	testEnumModule(t, `out = enum.chunk(0, 1)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 	testEnumModule(t, `out = enum.chunk("123", 1)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 
 	testEnumModule(t, `out = enum.at([], 0)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.at([], 1)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.at([], -1)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.at(["one"], 0)`,
 		"one")
 	testEnumModule(t, `out = enum.at(["one"], 1)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.at(["one"], -1)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.at(["one","two","three"], 0)`,
 		"one")
 	testEnumModule(t, `out = enum.at(["one","two","three"], 1)`,
@@ -3204,17 +3202,17 @@ func TestSourceModules(t *testing.T) {
 	testEnumModule(t, `out = enum.at(["one","two","three"], 2)`,
 		"three")
 	testEnumModule(t, `out = enum.at(["one","two","three"], -1)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.at(["one","two","three"], 3)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.at(["one","two","three"], "1")`,
-		tengo.Undefined) // non-int index: undefined
+		toy.Undefined) // non-int index: undefined
 	testEnumModule(t, `out = enum.at({}, "a")`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.at({a:"one"}, "a")`,
 		"one")
 	testEnumModule(t, `out = enum.at({a:"one"}, "b")`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "a")`,
 		"one")
 	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "b")`,
@@ -3222,13 +3220,13 @@ func TestSourceModules(t *testing.T) {
 	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "c")`,
 		"three")
 	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "d")`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, 'a')`,
-		tengo.Undefined) // non-string index: undefined
+		toy.Undefined) // non-string index: undefined
 	testEnumModule(t, `out = enum.at(0, 1)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 	testEnumModule(t, `out = enum.at("abc", 1)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 
 	testEnumModule(t, `out=0; enum.each([],func(k,v){out+=v})`, 0)
 	testEnumModule(t, `out=0; enum.each([1,2,3],func(k,v){out+=v})`, 6)
@@ -3246,53 +3244,53 @@ func TestSourceModules(t *testing.T) {
 	testEnumModule(t, `out = enum.filter([false,1,0,2], enum.value)`,
 		ARR{1, 2})
 	testEnumModule(t, `out = enum.filter({}, enum.value)`,
-		tengo.Undefined) // non-array: undefined
+		toy.Undefined) // non-array: undefined
 	testEnumModule(t, `out = enum.filter(0, enum.value)`,
-		tengo.Undefined) // non-array: undefined
+		toy.Undefined) // non-array: undefined
 	testEnumModule(t, `out = enum.filter("123", enum.value)`,
-		tengo.Undefined) // non-array: undefined
+		toy.Undefined) // non-array: undefined
 
 	testEnumModule(t, `out = enum.find([], enum.value)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.find([0], enum.value)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.find([1], enum.value)`, 1)
 	testEnumModule(t, `out = enum.find([false,0,undefined,1], enum.value)`, 1)
 	testEnumModule(t, `out = enum.find([1,2,3], enum.value)`, 1)
 	testEnumModule(t, `out = enum.find({}, enum.value)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.find({a:0}, enum.value)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.find({a:1}, enum.value)`, 1)
 	testEnumModule(t, `out = enum.find({a:false,b:0,c:undefined,d:1}, enum.value)`,
 		1)
 	//testEnumModule(t, `out = enum.find({a:1,b:2,c:3}, enum.value)`, 1)
 	testEnumModule(t, `out = enum.find(0, enum.value)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 	testEnumModule(t, `out = enum.find("123", enum.value)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 
 	testEnumModule(t, `out = enum.find_key([], enum.value)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.find_key([0], enum.value)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.find_key([1], enum.value)`, 0)
 	testEnumModule(t, `out = enum.find_key([false,0,undefined,1], enum.value)`,
 		3)
 	testEnumModule(t, `out = enum.find_key([1,2,3], enum.value)`, 0)
 	testEnumModule(t, `out = enum.find_key({}, enum.value)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.find_key({a:0}, enum.value)`,
-		tengo.Undefined)
+		toy.Undefined)
 	testEnumModule(t, `out = enum.find_key({a:1}, enum.value)`,
 		"a")
 	testEnumModule(t, `out = enum.find_key({a:false,b:0,c:undefined,d:1}, enum.value)`,
 		"d")
 	//testEnumModule(t, `out = enum.find_key({a:1,b:2,c:3}, enum.value)`, "a")
 	testEnumModule(t, `out = enum.find_key(0, enum.value)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 	testEnumModule(t, `out = enum.find_key("123", enum.value)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 
 	testEnumModule(t, `out = enum.map([], enum.value)`,
 		ARR{})
@@ -3307,9 +3305,9 @@ func TestSourceModules(t *testing.T) {
 	testEnumModule(t, `out = enum.map({a:1}, func(k,v) { return v*2 })`,
 		ARR{2})
 	testEnumModule(t, `out = enum.map(0, enum.value)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 	testEnumModule(t, `out = enum.map("123", enum.value)`,
-		tengo.Undefined) // non-enumerable: undefined
+		toy.Undefined) // non-enumerable: undefined
 }
 
 func testEnumModule(t *testing.T, input string, expected interface{}) {
@@ -3403,9 +3401,9 @@ func TestString(t *testing.T) {
 	}
 
 	expectRun(t, fmt.Sprintf("%s[%d]", strStr, -1),
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 	expectRun(t, fmt.Sprintf("%s[%d]", strStr, strLen),
-		nil, tengo.Undefined)
+		nil, toy.Undefined)
 
 	// slice operator
 	for low := 0; low <= strLen; low++ {
@@ -3541,7 +3539,6 @@ iter := func(n, max) {
 	if n == max {
 		return n
 	}
-
 	return iter(n+1, max)
 }
 out = iter(0, 9999)
@@ -3658,7 +3655,7 @@ func expectRun(
 	expectedObj := toObject(expected)
 
 	if symbols == nil {
-		symbols = make(map[string]tengo.Object)
+		symbols = make(map[string]toy.Object)
 	}
 	symbols[testOut] = objectZeroCopy(expectedObj)
 
@@ -3686,10 +3683,10 @@ func expectRun(
 
 		expectedObj := toObject(expected)
 		switch eo := expectedObj.(type) {
-		case *tengo.Array:
-			expectedObj = &tengo.ImmutableArray{Value: eo.Value}
-		case *tengo.Map:
-			expectedObj = &tengo.ImmutableMap{Value: eo.Value}
+		case *toy.Array:
+			expectedObj = &toy.ImmutableArray{Value: eo.Value}
+		case *toy.Map:
+			expectedObj = &toy.ImmutableMap{Value: eo.Value}
 		}
 
 		modules.AddSourceModule("__code__",
@@ -3800,11 +3797,11 @@ func (o *vmTracer) Write(p []byte) (n int, err error) {
 
 func traceCompileRun(
 	file *parser.File,
-	symbols map[string]tengo.Object,
-	modules *tengo.ModuleMap,
+	symbols map[string]toy.Object,
+	modules *toy.ModuleMap,
 	maxAllocs int64,
-) (res map[string]tengo.Object, trace []string, err error) {
-	var v *tengo.VM
+) (res map[string]toy.Object, trace []string, err error) {
+	var v *toy.VM
 
 	defer func() {
 		if e := recover(); e != nil {
@@ -3827,9 +3824,9 @@ func traceCompileRun(
 		}
 	}()
 
-	globals := make([]tengo.Object, tengo.GlobalsSize)
+	globals := make([]toy.Object, toy.GlobalsSize)
 
-	symTable := tengo.NewSymbolTable()
+	symTable := toy.NewSymbolTable()
 	for name, value := range symbols {
 		sym := symTable.Define(name)
 
@@ -3838,12 +3835,12 @@ func traceCompileRun(
 		valueCopy := value
 		globals[sym.Index] = valueCopy
 	}
-	for idx, fn := range tengo.GetAllBuiltinFunctions() {
+	for idx, fn := range toy.GetAllBuiltinFunctions() {
 		symTable.DefineBuiltin(idx, fn.Name)
 	}
 
 	tr := &vmTracer{}
-	c := tengo.NewCompiler(file.InputFile, symTable, nil, modules, tr)
+	c := toy.NewCompiler(file.InputFile, symTable, nil, modules, tr)
 	err = c.Compile(file)
 	trace = append(trace,
 		fmt.Sprintf("\n[Compiler Trace]\n\n%s",
@@ -3859,11 +3856,11 @@ func traceCompileRun(
 	trace = append(trace, fmt.Sprintf("\n[Compiled Instructions]\n\n%s\n",
 		strings.Join(bytecode.FormatInstructions(), "\n")))
 
-	v = tengo.NewVM(bytecode, globals, maxAllocs)
+	v = toy.NewVM(bytecode, globals, maxAllocs)
 
 	err = v.Run()
 	{
-		res = make(map[string]tengo.Object)
+		res = make(map[string]toy.Object)
 		for name := range symbols {
 			sym, depth, ok := symTable.Resolve(name, false)
 			if !ok || depth != 0 {
@@ -3883,7 +3880,7 @@ func traceCompileRun(
 	return
 }
 
-func formatGlobals(globals []tengo.Object) (formatted []string) {
+func formatGlobals(globals []toy.Object) (formatted []string) {
 	for idx, global := range globals {
 		if global == nil {
 			return
@@ -3904,92 +3901,92 @@ func parse(t *testing.T, input string) *parser.File {
 	return file
 }
 
-func errorObject(v interface{}) *tengo.Error {
-	return &tengo.Error{Value: toObject(v)}
+func errorObject(v interface{}) *toy.Error {
+	return &toy.Error{Value: toObject(v)}
 }
 
-func toObject(v interface{}) tengo.Object {
+func toObject(v interface{}) toy.Object {
 	switch v := v.(type) {
-	case tengo.Object:
+	case toy.Object:
 		return v
 	case string:
-		return &tengo.String{Value: v}
+		return &toy.String{Value: v}
 	case int64:
-		return &tengo.Int{Value: v}
+		return &toy.Int{Value: v}
 	case int: // for convenience
-		return &tengo.Int{Value: int64(v)}
+		return &toy.Int{Value: int64(v)}
 	case bool:
 		if v {
-			return tengo.True
+			return toy.True
 		}
-		return tengo.False
+		return toy.False
 	case rune:
-		return &tengo.Char{Value: v}
+		return &toy.Char{Value: v}
 	case byte: // for convenience
-		return &tengo.Char{Value: rune(v)}
+		return &toy.Char{Value: rune(v)}
 	case float64:
-		return &tengo.Float{Value: v}
+		return &toy.Float{Value: v}
 	case []byte:
-		return &tengo.Bytes{Value: v}
+		return &toy.Bytes{Value: v}
 	case MAP:
-		objs := make(map[string]tengo.Object)
+		objs := make(map[string]toy.Object)
 		for k, v := range v {
 			objs[k] = toObject(v)
 		}
 
-		return &tengo.Map{Value: objs}
+		return &toy.Map{Value: objs}
 	case ARR:
-		var objs []tengo.Object
+		var objs []toy.Object
 		for _, e := range v {
 			objs = append(objs, toObject(e))
 		}
 
-		return &tengo.Array{Value: objs}
+		return &toy.Array{Value: objs}
 	case IMAP:
-		objs := make(map[string]tengo.Object)
+		objs := make(map[string]toy.Object)
 		for k, v := range v {
 			objs[k] = toObject(v)
 		}
 
-		return &tengo.ImmutableMap{Value: objs}
+		return &toy.ImmutableMap{Value: objs}
 	case IARR:
-		var objs []tengo.Object
+		var objs []toy.Object
 		for _, e := range v {
 			objs = append(objs, toObject(e))
 		}
 
-		return &tengo.ImmutableArray{Value: objs}
+		return &toy.ImmutableArray{Value: objs}
 	}
 
 	panic(fmt.Errorf("unknown type: %T", v))
 }
 
-func objectZeroCopy(o tengo.Object) tengo.Object {
+func objectZeroCopy(o toy.Object) toy.Object {
 	switch o.(type) {
-	case *tengo.Int:
-		return &tengo.Int{}
-	case *tengo.Float:
-		return &tengo.Float{}
-	case *tengo.Bool:
-		return &tengo.Bool{}
-	case *tengo.Char:
-		return &tengo.Char{}
-	case *tengo.String:
-		return &tengo.String{}
-	case *tengo.Array:
-		return &tengo.Array{}
-	case *tengo.Map:
-		return &tengo.Map{}
-	case *tengo.UndefinedType:
-		return tengo.Undefined
-	case *tengo.Error:
-		return &tengo.Error{}
-	case *tengo.Bytes:
-		return &tengo.Bytes{}
-	case *tengo.ImmutableArray:
-		return &tengo.ImmutableArray{}
-	case *tengo.ImmutableMap:
-		return &tengo.ImmutableMap{}
+	case *toy.Int:
+		return &toy.Int{}
+	case *toy.Float:
+		return &toy.Float{}
+	case *toy.Bool:
+		return &toy.Bool{}
+	case *toy.Char:
+		return &toy.Char{}
+	case *toy.String:
+		return &toy.String{}
+	case *toy.Array:
+		return &toy.Array{}
+	case *toy.Map:
+		return &toy.Map{}
+	case *toy.UndefinedType:
+		return toy.Undefined
+	case *toy.Error:
+		return &toy.Error{}
+	case *toy.Bytes:
+		return &toy.Bytes{}
+	case *toy.ImmutableArray:
+		return &toy.ImmutableArray{}
+	case *toy.ImmutableMap:
+		return &toy.ImmutableMap{}
 	case nil:
 		panic("nil")
 	default:

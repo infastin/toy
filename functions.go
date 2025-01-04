@@ -1,12 +1,12 @@
-package tengo
+package toy
 
 import (
 	"slices"
 
-	"github.com/d5/tengo/v2/parser"
+	"github.com/infastin/toy/parser"
 )
 
-// BuiltinFunction represents a builtin function.
+// BuiltinFunction represents a builtin function provided from Go.
 type BuiltinFunction struct {
 	Name     string
 	Receiver Object
@@ -54,19 +54,8 @@ type CompiledFunction struct {
 	free          []*objectPtr
 }
 
-func (o *CompiledFunction) Instructions() []byte { return o.instructions }
-func (o *CompiledFunction) NumParameters() int   { return o.numParameters }
-
-// SourcePos returns the source position of the instruction at ip.
-func (o *CompiledFunction) SourcePos(ip int) parser.Pos {
-	for ip >= 0 {
-		if p, ok := o.sourceMap[ip]; ok {
-			return p
-		}
-		ip--
-	}
-	return parser.NoPos
-}
+func (o *CompiledFunction) NumParameters() int { return o.numParameters }
+func (o *CompiledFunction) VarArgs() bool      { return o.varArgs }
 
 func (o *CompiledFunction) TypeName() string { return "compiled-function" }
 func (o *CompiledFunction) String() string   { return "<compiled-function>" }
@@ -78,20 +67,20 @@ func (o *CompiledFunction) Copy() Object {
 		numLocals:     o.numLocals,
 		numParameters: o.numParameters,
 		varArgs:       o.varArgs,
+		sourceMap:     o.sourceMap,
 		free:          slices.Clone(o.free), // DO NOT Copy() of elements; these are variable pointers
 	}
 }
 
 func (o *CompiledFunction) Call(args ...Object) (Object, error) { return nil, nil }
 
-// UserFunction represents a user function.
-type UserFunction struct {
-	Name string
-	Func CallableFunc
+// sourcePos returns the source position of the instruction at ip.
+func (o *CompiledFunction) sourcePos(ip int) parser.Pos {
+	for ip >= 0 {
+		if p, ok := o.sourceMap[ip]; ok {
+			return p
+		}
+		ip--
+	}
+	return parser.NoPos
 }
-
-func (o *UserFunction) TypeName() string                    { return "user-function:" + o.Name }
-func (o *UserFunction) String() string                      { return "<user-function>" }
-func (o *UserFunction) IsFalsy() bool                       { return false }
-func (o *UserFunction) Copy() Object                        { return &UserFunction{Name: o.Name, Func: o.Func} }
-func (o *UserFunction) Call(args ...Object) (Object, error) { return o.Func(args...) }

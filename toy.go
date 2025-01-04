@@ -1,6 +1,8 @@
-package tengo
+package toy
 
-import "iter"
+import (
+	"iter"
+)
 
 var (
 	// MaxStringLen is the maximum byte-length for string value. Note this
@@ -23,7 +25,7 @@ const (
 	MaxFrames = 1024
 
 	// SourceFileExtDefault is the default extension for source files.
-	SourceFileExtDefault = ".tengo"
+	SourceFileExtDefault = ".toy"
 )
 
 // CallableFunc is a function signature for the callable functions.

@@ -1,4 +1,4 @@
-package tengo
+package toy
 
 import (
 	"bytes"
@@ -10,7 +10,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/d5/tengo/v2/token"
+	"github.com/infastin/toy/hash"
+	"github.com/infastin/toy/token"
 )
 
 // Object represents an object in the VM.
@@ -34,8 +35,8 @@ type Object interface {
 type Hashable interface {
 	Object
 	// Hash returns a function of x such that Equals(x, y) => Hash(x) == Hash(y).
-	// The hash is used only by maps and is not exposed to the Tengo program.
-	Hash() uint32
+	// The hash is used only by maps and is not exposed to the Toy program.
+	Hash() uint64
 }
 
 // Freezable represents an object that can create immutable copies.
@@ -45,6 +46,8 @@ type Freezable interface {
 	// AsImmutable function will be used for immutable() builtin keyword
 	// which is expected to deep-copy the values generally.
 	AsImmutable() Object
+	// Mutable should return true if the object is mutable.
+	Mutable() bool
 }
 
 // A Comparable is a value that defines its own equivalence relation and
@@ -196,7 +199,7 @@ type CloseableIterator interface {
 	Close()
 }
 
-func Hash(x Object) (uint32, error) {
+func Hash(x Object) (uint64, error) {
 	xh, ok := x.(Hashable)
 	if !ok {
 		return 0, ErrNotHashable
@@ -210,6 +213,14 @@ func AsImmutable(x Object) Object {
 		return x.Copy()
 	}
 	return xf.AsImmutable()
+}
+
+func Mutable(x Object) bool {
+	m, ok := x.(Freezable)
+	if !ok {
+		return true
+	}
+	return m.Mutable()
 }
 
 func Equals(x, y Object) (bool, error) {
@@ -411,7 +422,7 @@ func (o Bool) TypeName() string { return "bool" }
 func (o Bool) IsFalsy() bool    { return !bool(o) }
 func (o Bool) Copy() Object     { return o }
 
-func (o Bool) Hash() uint32 {
+func (o Bool) Hash() uint64 {
 	if o {
 		return 1
 	}
@@ -440,11 +451,11 @@ func (o Float) TypeName() string { return "float" }
 func (o Float) IsFalsy() bool    { return math.IsNaN(float64(o)) }
 func (o Float) Copy() Object     { return o }
 
-func (o Float) Hash() uint32 {
+func (o Float) Hash() uint64 {
 	if float64(o) == math.Trunc(float64(o)) && float64(o) <= float64(math.MaxInt64) {
-		return Int(o).Hash()
+		return hash.Int64(int64(o))
 	}
-	return murmur32Float64(float64(o))
+	return hash.Float64(float64(o))
 }
 
 func (o Float) Convert(p any) error {
@@ -537,7 +548,7 @@ func (o Int) String() string   { return strconv.FormatInt(int64(o), 10) }
 func (o Int) TypeName() string { return "int" }
 func (o Int) IsFalsy() bool    { return o == 0 }
 func (o Int) Copy() Object     { return o }
-func (o Int) Hash() uint32     { return murmur32Int64(int64(o)) }
+func (o Int) Hash() uint64     { return hash.Int64(int64(o)) }
 
 func (o Int) Convert(p any) error {
 	switch p := p.(type) {
@@ -670,7 +681,7 @@ func (o String) TypeName() string { return "string" }
 func (o String) String() string   { return strconv.Quote(string(o)) }
 func (o String) IsFalsy() bool    { return len(o) == 0 }
 func (o String) Copy() Object     { return o }
-func (o String) Hash() uint32     { return murmur32String(string(o)) }
+func (o String) Hash() uint64     { return hash.String(string(o)) }
 
 func (o String) Len() int { return utf8.RuneCountInString(string(o)) }
 
@@ -780,7 +791,7 @@ func (o Bytes) String() string   { return string(o) }
 func (o Bytes) TypeName() string { return "bytes" }
 func (o Bytes) IsFalsy() bool    { return len(o) == 0 }
 func (o Bytes) Copy() Object     { return slices.Clone(o) }
-func (o Bytes) Hash() uint32     { return murmur32(o) }
+func (o Bytes) Hash() uint64     { return hash.Bytes(o) }
 
 func (o Bytes) Len() int                   { return len(o) }
 func (o Bytes) At(i int) Object            { return Int(o[i]) }
@@ -876,7 +887,7 @@ func (o Char) String() string   { return string(o) }
 func (o Char) TypeName() string { return "char" }
 func (o Char) IsFalsy() bool    { return o == 0 }
 func (o Char) Copy() Object     { return o }
-func (o Char) Hash() uint32     { return murmur32Int32(int32(o)) }
+func (o Char) Hash() uint64     { return hash.Int32(int32(o)) }
 
 func (o Char) Convert(p any) error {
 	i, ok := p.(*Int)
@@ -946,7 +957,7 @@ func (o Char) BinaryOp(op token.Token, rhs Object) (Object, error) {
 type Array struct {
 	elems     []Object
 	immutable bool
-	itercount uint32 // number of active iterators (ignored if frozen)
+	itercount uint64 // number of active iterators (ignored if frozen)
 }
 
 func NewArray(elems []Object) *Array {
@@ -996,6 +1007,7 @@ func (o *Array) AsImmutable() Object {
 	return &Array{elems: elems, immutable: true}
 }
 
+func (o *Array) Mutable() bool   { return o.immutable }
 func (o *Array) Len() int        { return len(o.elems) }
 func (o *Array) At(i int) Object { return o.elems[i] }
 func (o *Array) Items() []Object { return o.elems }
@@ -1136,7 +1148,7 @@ func (o *Array) Entries() iter.Seq2[Object, Object] {
 }
 
 // checkMutable reports an error if the array should not be mutated.
-// verb+" dict" should describe the operation.
+// verb+" immutable array" should describe the operation.
 func (o *Array) checkMutable(verb string) error {
 	if o.immutable {
 		return fmt.Errorf("cannot %s immutable array", verb)
@@ -1225,7 +1237,8 @@ func (o *Map) AsImmutable() Object {
 	return m
 }
 
-func (o *Map) Len() int { return int(o.ht.len) }
+func (o *Map) Mutable() bool { return o.ht.immutable }
+func (o *Map) Len() int      { return int(o.ht.len) }
 
 func (o *Map) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(*Map)
@@ -1405,48 +1418,48 @@ type Error struct {
 	cause   *Error
 }
 
-func (e *Error) Message() string { return e.message }
-func (e *Error) Cause() *Error   { return e.cause }
+func (o *Error) Message() string { return o.message }
+func (o *Error) Cause() *Error   { return o.cause }
 
-func (e *Error) TypeName() string { return "error" }
+func (o *Error) TypeName() string { return "error" }
 
-func (e *Error) String() string {
+func (o *Error) String() string {
 	var b strings.Builder
-	b.WriteString(e.message)
-	if e.cause != nil {
+	b.WriteString(o.message)
+	if o.cause != nil {
 		b.WriteString(": ")
-		b.WriteString(e.cause.String())
+		b.WriteString(o.cause.String())
 	}
 	return b.String()
 }
 
-func (e *Error) IsFalsy() bool { return true }
+func (o *Error) IsFalsy() bool { return true }
 
-func (e *Error) Copy() Object {
+func (o *Error) Copy() Object {
 	var cause *Error
-	if e.cause != nil {
-		cause = e.cause.Copy().(*Error)
+	if o.cause != nil {
+		cause = o.cause.Copy().(*Error)
 	}
-	return &Error{message: e.message, cause: cause}
+	return &Error{message: o.message, cause: cause}
 }
 
-func (e *Error) Hash() uint32 { return murmur32String(e.String()) }
+func (o *Error) Hash() uint64 { return hash.String(o.String()) }
 
-func (e *Error) Compare(op token.Token, rhs Object) (bool, error) {
+func (o *Error) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(*Error)
 	if !ok {
 		return false, ErrInvalidOperator
 	}
 	switch op {
 	case token.Equal:
-		for x := e; x != nil; x = x.cause {
+		for x := o; x != nil; x = x.cause {
 			if x == y {
 				return true, nil
 			}
 		}
 		return false, nil
 	case token.NotEqual:
-		for x := e; x != nil; x = x.cause {
+		for x := o; x != nil; x = x.cause {
 			if x == y {
 				return false, nil
 			}
@@ -1456,13 +1469,13 @@ func (e *Error) Compare(op token.Token, rhs Object) (bool, error) {
 	return false, ErrInvalidOperator
 }
 
-func (e *Error) FieldGet(name string) (res Object, err error) {
+func (o *Error) FieldGet(name string) (res Object, err error) {
 	switch name {
 	case "message":
-		return String(e.message), nil
+		return String(o.message), nil
 	case "cause":
-		if e.cause != nil {
-			return e.cause, nil
+		if o.cause != nil {
+			return o.cause, nil
 		}
 		return Undefined, nil
 	}

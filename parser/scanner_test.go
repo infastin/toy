@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/d5/tengo/v2/parser"
-	"github.com/d5/tengo/v2/require"
-	"github.com/d5/tengo/v2/token"
+	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/require"
+	"github.com/infastin/toy/token"
 )
 
 var testFileSet = parser.NewFileSet()
@@ -112,7 +112,7 @@ func TestScanner_Scan(t *testing.T) {
 		{token.Continue, "continue"},
 		{token.Else, "else"},
 		{token.For, "for"},
-		{token.Func, "func"},
+		{token.Func, "fn"},
 		{token.If, "if"},
 		{token.Return, "return"},
 		{token.Export, "export"},

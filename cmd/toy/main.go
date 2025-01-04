@@ -10,42 +10,22 @@ import (
 	"github.com/chzyer/readline"
 	"github.com/urfave/cli/v2"
 
-	"github.com/d5/tengo/v2"
-	"github.com/d5/tengo/v2/parser"
+	"github.com/infastin/toy"
+	"github.com/infastin/toy/parser"
 )
 
 const (
-	sourceFileExt = ".tengo"
+	sourceFileExt = ".toy"
 	replPrompt    = ">>> "
 )
 
 func main() {
 	app := &cli.App{
-		Name:      "tengo",
-		Usage:     "Tengo language compiler and runtime",
+		Name:      "toy",
+		Usage:     "Toy language interpreter",
 		Version:   "dev",
 		ArgsUsage: "[FILE]",
-		Action: func(ctx *cli.Context) error {
-			var inputFile string
-			args := ctx.Args()
-			if args.Len() > 0 {
-				inputFile = args.First()
-			}
-			if inputFile == "" {
-				return RunREPL(os.Stderr, os.Stdout)
-			}
-			inputData, err := os.ReadFile(inputFile)
-			if err != nil {
-				return fmt.Errorf("failed to read input file: %w", err)
-			}
-			if len(inputData) > 1 && string(inputData[:2]) == "#!" {
-				copy(inputData, "//")
-			}
-			if err := CompileAndRun(inputData, inputFile); err != nil {
-				return fmt.Errorf("failed to compile and run: %w", err)
-			}
-			return nil
-		},
+		Action:    mainAction,
 	}
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -53,9 +33,30 @@ func main() {
 	}
 }
 
+func mainAction(ctx *cli.Context) error {
+	var inputFile string
+	if args := ctx.Args(); args.Len() > 0 {
+		inputFile = args.First()
+	}
+	if inputFile == "" {
+		return RunREPL(os.Stderr, os.Stdout)
+	}
+	inputData, err := os.ReadFile(inputFile)
+	if err != nil {
+		return fmt.Errorf("failed to read input file: %w", err)
+	}
+	if len(inputData) > 1 && string(inputData[:2]) == "#!" {
+		copy(inputData, "//")
+	}
+	if err := CompileAndRun(inputData, inputFile); err != nil {
+		return fmt.Errorf("failed to compile and run: %w", err)
+	}
+	return nil
+}
+
 // CompileAndRun compiles the source code and executes it.
 func CompileAndRun(inputData []byte, inputFile string) error {
-	script := tengo.NewScript(inputData)
+	script := toy.NewScript(inputData)
 	script.EnableFileImport(true)
 	if err := script.SetImportDir(filepath.Dir(inputFile)); err != nil {
 		return err
@@ -78,34 +79,34 @@ func RunREPL(in io.ReadCloser, out io.Writer) error {
 	}
 	defer rl.Clean()
 
-	replPrint := func(args ...tengo.Object) (ret tengo.Object, err error) {
+	replPrint := func(args ...toy.Object) (ret toy.Object, err error) {
 		var printArgs []string
 		for _, arg := range args {
-			if arg == tengo.Undefined {
+			if arg == toy.Undefined {
 				printArgs = append(printArgs, "<undefined>")
 			} else {
-				var s tengo.String
-				if err := tengo.Convert(&s, arg); err != nil {
+				var s toy.String
+				if err := toy.Convert(&s, arg); err != nil {
 					return nil, err
 				}
 				printArgs = append(printArgs, string(s))
 			}
 		}
 		fmt.Fprintln(rl, strings.Join(printArgs, " "))
-		return tengo.Undefined, nil
+		return toy.Undefined, nil
 	}
 
-	tengo.BuiltinFuncs = append(tengo.BuiltinFuncs,
-		&tengo.BuiltinFunction{Name: "print", Func: replPrint})
+	toy.BuiltinFuncs = append(toy.BuiltinFuncs,
+		&toy.BuiltinFunction{Name: "print", Func: replPrint})
 
 	fileSet := parser.NewFileSet()
-	globals := make([]tengo.Object, tengo.GlobalsSize)
-	symbolTable := tengo.NewSymbolTable()
-	for idx, fn := range tengo.BuiltinFuncs {
+	globals := make([]toy.Object, toy.GlobalsSize)
+	symbolTable := toy.NewSymbolTable()
+	for idx, fn := range toy.BuiltinFuncs {
 		symbolTable.DefineBuiltin(idx, fn.Name)
 	}
 
-	var constants []tengo.Object
+	var constants []toy.Object
 	for {
 		line, err := rl.Readline()
 		if err != nil {
@@ -127,7 +128,7 @@ func RunREPL(in io.ReadCloser, out io.Writer) error {
 		}
 		file = addPrints(file)
 
-		c := tengo.NewCompiler(srcFile, symbolTable, constants, nil, nil)
+		c := toy.NewCompiler(srcFile, symbolTable, constants, nil, nil)
 		if err := c.Compile(file); err != nil {
 			fmt.Fprint(rl, err.Error())
 			continue
@@ -136,12 +137,12 @@ func RunREPL(in io.ReadCloser, out io.Writer) error {
 		bytecode := c.Bytecode()
 		bytecode.RemoveDuplicates()
 
-		machine := tengo.NewVM(bytecode, globals)
+		machine := toy.NewVM(bytecode, globals)
 		if err := machine.Run(); err != nil {
 			fmt.Fprint(rl, err.Error())
 			continue
 		}
-		constants = bytecode.Constants()
+		constants = bytecode.Constants
 	}
 }
 

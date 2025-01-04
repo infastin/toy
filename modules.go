@@ -1,4 +1,4 @@
-package tengo
+package toy
 
 // Importable interface represents importable module instance.
 type Importable interface {
@@ -114,7 +114,7 @@ func (m *BuiltinModule) FieldGet(name string) (Object, error) {
 	return field, nil
 }
 
-// SourceModule is an importable module that's written in Tengo.
+// SourceModule is an importable module that's written in Toy.
 type SourceModule []byte
 
 // Import returns a module source code.

@@ -1,4 +1,4 @@
-package tengo
+package toy
 
 import (
 	"errors"
@@ -9,8 +9,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/d5/tengo/v2/parser"
-	"github.com/d5/tengo/v2/token"
+	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/token"
 )
 
 // compilationScope represents a compiled instructions and the last two
@@ -477,9 +477,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return err
 			}
 		}
-		var opReturnOperand int
-		if len(node.Results) >= 1 {
+		if len(node.Results) > 1 {
 			c.emit(node, parser.OpTuple, len(node.Results))
+		}
+		var opReturnOperand int
+		if len(node.Results) != 0 {
 			opReturnOperand = 1
 		}
 		c.emit(node, parser.OpReturn, opReturnOperand)
@@ -601,12 +603,12 @@ func (c *Compiler) Compile(node parser.Node) error {
 // Bytecode returns a compiled bytecode.
 func (c *Compiler) Bytecode() *Bytecode {
 	return &Bytecode{
-		fileSet: c.file.Set(),
-		mainFunction: &CompiledFunction{
+		FileSet: c.file.Set(),
+		MainFunction: &CompiledFunction{
 			instructions: append(c.currentInstructions(), parser.OpSuspend),
 			sourceMap:    c.currentSourceMap(),
 		},
-		constants: c.constants,
+		Constants: c.constants,
 	}
 }
 
@@ -624,10 +626,10 @@ func (c *Compiler) SetImportDir(dir string) {
 // SetImportFileExt sets the extension name of the source file for loading
 // local module files.
 //
-// Use this method if you want other source file extension than ".tengo".
+// Use this method if you want other source file extension than ".toy".
 //
-//	// this will search for *.tengo, *.foo, *.bar
-//	err := c.SetImportFileExt(".tengo", ".foo", ".bar")
+//	// this will search for *.toy. *.foo, *.bar
+//	err := c.SetImportFileExt(".toy", ".foo", ".bar")
 //
 // This function requires at least one argument, since it will replace the
 // current list of extension name.
@@ -1156,7 +1158,7 @@ func (c *Compiler) compileModule(
 
 	// code optimization
 	moduleCompiler.optimizeFunc(node)
-	compiledFunc := moduleCompiler.Bytecode().mainFunction
+	compiledFunc := moduleCompiler.Bytecode().MainFunction
 	compiledFunc.numLocals = symbolTable.MaxSymbols()
 	c.storeCompiledModule(modulePath, compiledFunc)
 	return compiledFunc, nil

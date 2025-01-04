@@ -326,16 +326,16 @@ func (c *Compiler) Compile(node parser.Node) error {
 			c.emit(node, parser.OpGetFree, symbol.Index)
 		}
 	case *parser.ArrayLit:
+		splat := 0
 		for _, elem := range node.Elements {
+			if _, ok := elem.(*parser.SplatExpr); ok {
+				splat = 1
+			}
 			if err := c.Compile(elem); err != nil {
 				return err
 			}
 		}
-		ellipsis := 0
-		if node.Ellipsis.IsValid() {
-			ellipsis = 1
-		}
-		c.emit(node, parser.OpArray, len(node.Elements), ellipsis)
+		c.emit(node, parser.OpArray, len(node.Elements), splat)
 	case *parser.MapLit:
 		for _, elt := range node.Elements {
 			if err := c.Compile(elt.Key); err != nil {
@@ -483,20 +483,25 @@ func (c *Compiler) Compile(node parser.Node) error {
 			opReturnOperand = 1
 		}
 		c.emit(node, parser.OpReturn, opReturnOperand)
+	case *parser.SplatExpr:
+		if err := c.Compile(node.Expr); err != nil {
+			return err
+		}
+		c.emit(node, parser.OpSplat)
 	case *parser.CallExpr:
 		if err := c.Compile(node.Func); err != nil {
 			return err
 		}
+		splat := 0
 		for _, arg := range node.Args {
+			if _, ok := arg.(*parser.SplatExpr); ok {
+				splat = 1
+			}
 			if err := c.Compile(arg); err != nil {
 				return err
 			}
 		}
-		ellipsis := 0
-		if node.Ellipsis.IsValid() {
-			ellipsis = 1
-		}
-		c.emit(node, parser.OpCall, len(node.Args), ellipsis)
+		c.emit(node, parser.OpCall, len(node.Args), splat)
 	case *parser.ImportExpr:
 		if node.ModuleName == "" {
 			return c.errorf(node, "empty module name")

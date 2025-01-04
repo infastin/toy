@@ -21,6 +21,7 @@ const (
 	OpIndex                           // Index operation
 	OpField                           // Field operation
 	OpSliceIndex                      // Slice operation
+	OpSplat                           // Splat operation
 	OpCall                            // Call function
 	OpReturn                          // Return
 	OpGetGlobal                       // Get global variable
@@ -70,6 +71,7 @@ var OpcodeNames = [...]string{
 	OpIndex:             "INDEX",
 	OpField:             "FIELD",
 	OpSliceIndex:        "SLICE",
+	OpSplat:             "SPLAT",
 	OpCall:              "CALL",
 	OpReturn:            "RET",
 	OpGetLocal:          "GETL",
@@ -116,6 +118,7 @@ var OpcodeOperands = [...][]int{
 	OpIndex:             {},
 	OpField:             {},
 	OpSliceIndex:        {1},
+	OpSplat:             {},
 	OpCall:              {1, 1},
 	OpReturn:            {1},
 	OpGetLocal:          {1},

@@ -1478,3 +1478,13 @@ func (o *objectPtr) String() string   { return "free-var" }
 func (o *objectPtr) TypeName() string { return "<free-var>" }
 func (o *objectPtr) IsFalsy() bool    { return o.p == nil }
 func (o *objectPtr) Copy() Object     { return o }
+
+// splatSequence represents a sequence that supposed to be splat.
+type splatSequence struct {
+	s Sequence
+}
+
+func (o *splatSequence) String() string   { return "splat-sequence" }
+func (o *splatSequence) TypeName() string { return "<splat-sequence>" }
+func (o *splatSequence) IsFalsy() bool    { return o.s == nil }
+func (o *splatSequence) Copy() Object     { return o }

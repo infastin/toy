@@ -203,27 +203,22 @@ func (v *VM) run() {
 		case parser.OpArray:
 			v.ip += 3
 			numElements := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
-			spread := int(v.curInsts[v.ip])
-
-			if spread == 1 {
-				v.sp--
-				switch seq := v.stack[v.sp].(type) {
-				case Sequence:
-					for elem := range Elements(seq) {
-						v.stack[v.sp] = elem
-						v.sp++
-					}
-					numElements += seq.Len() - 1
-				default:
-					v.err = fmt.Errorf("spread operator can only be used with sequence, got '%s' instead",
-						seq.TypeName())
-					return
-				}
-			}
+			splat := int(v.curInsts[v.ip])
 
 			var elements []Object
-			for i := v.sp - numElements; i < v.sp; i++ {
-				elements = append(elements, v.stack[i])
+			if splat == 1 {
+				for i := v.sp - numElements; i < v.sp; i++ {
+					switch elem := v.stack[i].(type) {
+					case *splatSequence:
+						elements = append(elements, elem.s.Items()...)
+					default:
+						elements = append(elements, elem)
+					}
+				}
+			} else {
+				for i := v.sp - numElements; i < v.sp; i++ {
+					elements = append(elements, v.stack[i])
+				}
 			}
 			v.sp -= numElements
 
@@ -352,9 +347,18 @@ func (v *VM) run() {
 
 			v.stack[v.sp] = s.Slice(lowIdx, highIdx)
 			v.sp++
+		case parser.OpSplat:
+			value := v.stack[v.sp-1]
+			seq, ok := value.(Sequence)
+			if !ok {
+				v.err = fmt.Errorf("splat operator can only be used with sequence, got '%s' instead",
+					seq.TypeName())
+				return
+			}
+			v.stack[v.sp-1] = &splatSequence{s: seq}
 		case parser.OpCall:
 			numArgs := int(v.curInsts[v.ip+1])
-			spread := int(v.curInsts[v.ip+2])
+			splat := int(v.curInsts[v.ip+2])
 			v.ip += 2
 
 			value := v.stack[v.sp-1-numArgs]
@@ -365,20 +369,19 @@ func (v *VM) run() {
 				return
 			}
 
-			if spread == 1 {
-				v.sp--
-				switch seq := v.stack[v.sp].(type) {
-				case Sequence:
-					for elem := range Elements(seq) {
-						v.stack[v.sp] = elem
-						v.sp++
+			if splat == 1 {
+				var newArgs []Object
+				for i := v.sp - numArgs; i < v.sp; i++ {
+					switch arg := v.stack[i].(type) {
+					case *splatSequence:
+						newArgs = append(newArgs, arg.s.Items()...)
+					default:
+						newArgs = append(newArgs, arg)
 					}
-					numArgs += seq.Len() - 1
-				default:
-					v.err = fmt.Errorf("spread operator can only be used with sequence, got '%s' instead",
-						seq.TypeName())
-					return
 				}
+				copy(v.stack[v.sp-numArgs:], newArgs)
+				v.sp += len(newArgs) - numArgs
+				numArgs = len(newArgs)
 			}
 
 			if callee, ok := callable.(*CompiledFunction); ok {

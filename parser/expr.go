@@ -17,7 +17,6 @@ type Expr interface {
 type ArrayLit struct {
 	Elements []Expr
 	LBrack   Pos
-	Ellipsis Pos
 	RBrack   Pos
 }
 
@@ -41,9 +40,6 @@ func (e *ArrayLit) String() string {
 			b.WriteString(", ")
 		}
 		b.WriteString(elem.String())
-	}
-	if e.Ellipsis.IsValid() && len(e.Elements) > 0 {
-		b.WriteString("...")
 	}
 	b.WriteByte(']')
 	return b.String()
@@ -126,13 +122,34 @@ func (e *BoolLit) String() string {
 	return e.Literal
 }
 
+// CallExpr represents a splat expression.
+type SplatExpr struct {
+	Ellipsis Pos
+	Expr     Expr
+}
+
+func (e *SplatExpr) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *SplatExpr) Pos() Pos {
+	return e.Ellipsis
+}
+
+// End returns the position of first character immediately after the node.
+func (e *SplatExpr) End() Pos {
+	return e.Expr.End()
+}
+
+func (e *SplatExpr) String() string {
+	return "..." + e.Expr.String()
+}
+
 // CallExpr represents a function call expression.
 type CallExpr struct {
-	Func     Expr
-	LParen   Pos
-	Args     []Expr
-	Ellipsis Pos
-	RParen   Pos
+	Func   Expr
+	LParen Pos
+	Args   []Expr
+	RParen Pos
 }
 
 func (e *CallExpr) exprNode() {}
@@ -156,9 +173,6 @@ func (e *CallExpr) String() string {
 			b.WriteString(", ")
 		}
 		b.WriteString(arg.String())
-	}
-	if e.Ellipsis.IsValid() && len(e.Args) > 0 {
-		b.WriteString("...")
 	}
 	b.WriteByte(')')
 	return b.String()

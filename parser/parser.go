@@ -249,6 +249,22 @@ L:
 	return x
 }
 
+func (p *Parser) parseArgument() Expr {
+	if p.trace {
+		defer untracep(tracep(p, "Argument"))
+	}
+	if p.token != token.Ellipsis {
+		return p.parseExpr()
+	}
+	ellipsis := p.pos
+	p.next()
+	x := p.parseExpr()
+	return &SplatExpr{
+		Ellipsis: ellipsis,
+		Expr:     x,
+	}
+}
+
 func (p *Parser) parseCall(x Expr) *CallExpr {
 	if p.trace {
 		defer untracep(tracep(p, "Call"))
@@ -258,13 +274,8 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 	p.exprLevel++
 
 	var list []Expr
-	var ellipsis Pos
-	for p.token != token.RParen && p.token != token.EOF && !ellipsis.IsValid() {
-		list = append(list, p.parseExpr())
-		if p.token == token.Ellipsis {
-			ellipsis = p.pos
-			p.next()
-		}
+	for p.token != token.RParen && p.token != token.EOF {
+		list = append(list, p.parseArgument())
 		if !p.expectComma("call argument", token.RParen) {
 			break
 		}
@@ -274,11 +285,10 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 	rparen := p.expect(token.RParen)
 
 	return &CallExpr{
-		Func:     x,
-		LParen:   lparen,
-		RParen:   rparen,
-		Ellipsis: ellipsis,
-		Args:     list,
+		Func:   x,
+		LParen: lparen,
+		RParen: rparen,
+		Args:   list,
 	}
 }
 
@@ -515,13 +525,8 @@ func (p *Parser) parseArrayLit() Expr {
 	p.exprLevel++
 
 	var elements []Expr
-	var ellipsis Pos
-	for p.token != token.RBrack && p.token != token.EOF && !ellipsis.IsValid() {
-		elements = append(elements, p.parseExpr())
-		if p.token == token.Ellipsis {
-			ellipsis = p.pos
-			p.next()
-		}
+	for p.token != token.RBrack && p.token != token.EOF {
+		elements = append(elements, p.parseArgument())
 		if !p.expectComma("array element", token.RBrack) {
 			break
 		}
@@ -533,7 +538,6 @@ func (p *Parser) parseArrayLit() Expr {
 	return &ArrayLit{
 		Elements: elements,
 		LBrack:   lbrack,
-		Ellipsis: ellipsis,
 		RBrack:   rbrack,
 	}
 }

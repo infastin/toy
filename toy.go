@@ -12,9 +12,7 @@ var (
 	// MaxBytesLen is the maximum length for bytes value. Note this limit
 	// applies to all compiler/VM instances in the process.
 	MaxBytesLen = 2147483647
-)
 
-const (
 	// GlobalsSize is the maximum number of global variables for a VM.
 	GlobalsSize = 1024
 
@@ -23,7 +21,9 @@ const (
 
 	// MaxFrames is the maximum number of function frames for a VM.
 	MaxFrames = 1024
+)
 
+const (
 	// SourceFileExtDefault is the default extension for source files.
 	SourceFileExtDefault = ".toy"
 )

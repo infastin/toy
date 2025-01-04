@@ -323,22 +323,26 @@ func Slice(x Object, low, high int) (Object, error) {
 	return xs.Slice(low, high), nil
 }
 
-func Convert[T Object](p *T, o Object) error {
+func Convert[T Object](p *T, o Object) (err error) {
 	if o == Undefined {
 		return ErrNotConvertible
 	}
 	switch p := any(p).(type) {
 	case *String:
-		if x, ok := o.(String); ok {
-			*p = x
-		} else {
-			*p = String(o.String())
+		if s, ok := o.(String); ok {
+			*p = s
+			return nil
 		}
+		if c, ok := o.(Convertible); ok {
+			if err := c.Convert(p); err == nil {
+				return nil
+			}
+		}
+		*p = String(o.String())
 	case *Bool:
 		*p = Bool(!o.IsFalsy())
 	case *T:
-		t, ok := o.(T)
-		if ok {
+		if t, ok := o.(T); ok {
 			*p = t
 			return nil
 		}
@@ -731,13 +735,21 @@ func (o String) Compare(op token.Token, rhs Object) (bool, error) {
 }
 
 func (o String) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	y, ok := rhs.(String)
-	if !ok {
-		return nil, ErrInvalidOperator
-	}
 	switch op {
 	case token.Add:
-		return o + y, nil
+		switch y := rhs.(type) {
+		case String:
+			if len(o)+len(y) > MaxStringLen {
+				return nil, ErrStringLimit
+			}
+			return o + y, nil
+		case Char:
+			ys := String(y)
+			if len(o)+len(ys) > MaxStringLen {
+				return nil, ErrStringLimit
+			}
+			return o + ys, nil
+		}
 	}
 	return nil, ErrInvalidOperator
 }
@@ -787,7 +799,19 @@ func (it *stringIterator) Next(key, value *Object) bool {
 // Bytes represents a byte array.
 type Bytes []byte
 
-func (o Bytes) String() string   { return string(o) }
+func (o Bytes) String() string {
+	var b strings.Builder
+	b.WriteByte('[')
+	for i, v := range o {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(strconv.Itoa(int(v)))
+	}
+	b.WriteByte(']')
+	return b.String()
+}
+
 func (o Bytes) TypeName() string { return "bytes" }
 func (o Bytes) IsFalsy() bool    { return len(o) == 0 }
 func (o Bytes) Copy() Object     { return slices.Clone(o) }
@@ -829,16 +853,15 @@ func (o Bytes) Compare(op token.Token, rhs Object) (bool, error) {
 }
 
 func (o Bytes) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	y, ok := rhs.(Bytes)
-	if !ok {
-		return nil, ErrInvalidOperator
-	}
 	switch op {
 	case token.Add:
-		if len(o)+len(y) > MaxBytesLen {
-			return nil, ErrBytesLimit
+		switch y := rhs.(type) {
+		case Bytes:
+			if len(o)+len(y) > MaxBytesLen {
+				return nil, ErrBytesLimit
+			}
+			return append(o, y...), nil
 		}
-		return slices.Concat(o, y), nil
 	}
 	return nil, ErrInvalidOperator
 }
@@ -1416,6 +1439,10 @@ func (it *tupleIterator) Next(key, value *Object) bool {
 type Error struct {
 	message string
 	cause   *Error
+}
+
+func NewError(format string, args ...any) *Error {
+	return &Error{message: fmt.Sprintf(format, args...)}
 }
 
 func (o *Error) Message() string { return o.message }

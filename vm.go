@@ -19,11 +19,11 @@ type frame struct {
 // VM is a virtual machine that executes the bytecode compiled by Compiler.
 type VM struct {
 	constants   []Object
-	stack       [StackSize]Object
+	stack       []Object
 	sp          int
 	globals     []Object
 	fileSet     *parser.SourceFileSet
-	frames      [MaxFrames]frame
+	frames      []frame
 	framesIndex int
 	curFrame    *frame
 	curInsts    []byte
@@ -39,9 +39,11 @@ func NewVM(bytecode *Bytecode, globals []Object) *VM {
 	}
 	v := &VM{
 		constants:   bytecode.Constants,
+		stack:       make([]Object, StackSize),
 		sp:          0,
 		globals:     globals,
 		fileSet:     bytecode.FileSet,
+		frames:      make([]frame, MaxFrames),
 		framesIndex: 1,
 		ip:          -1,
 	}
@@ -102,7 +104,7 @@ func (v *VM) run() {
 			res, err := BinaryOp(tok, left, right)
 			if err != nil {
 				v.sp -= 2
-				v.err = fmt.Errorf("operation %s %s %s has failed: %w",
+				v.err = fmt.Errorf("operation '%s %s %s' has failed: %w",
 					left.TypeName(), tok.String(), right.TypeName(), err)
 				return
 			}
@@ -118,7 +120,7 @@ func (v *VM) run() {
 			res, err := Compare(tok, left, right)
 			if err != nil {
 				v.sp -= 2
-				v.err = fmt.Errorf("operation %s %s %s has failed: %w",
+				v.err = fmt.Errorf("operation '%s %s %s' has failed: %w",
 					left.TypeName(), tok.String(), right.TypeName(), err)
 				return
 			}
@@ -141,7 +143,7 @@ func (v *VM) run() {
 
 			res, err := UnaryOp(tok, operand)
 			if err != nil {
-				v.err = fmt.Errorf("operation %s%s has failed: %w",
+				v.err = fmt.Errorf("operation '%s%s' has failed: %w",
 					tok.String(), operand.TypeName(), err)
 				return
 			}
@@ -270,7 +272,7 @@ func (v *VM) run() {
 			v.sp -= 2
 			val, err := IndexGet(left, index)
 			if err != nil {
-				v.err = fmt.Errorf("operation %s[%s] has failed: %w",
+				v.err = fmt.Errorf("operation '%s[%s]' has failed: %w",
 					left.TypeName(), index.TypeName(), err)
 				return
 			}
@@ -285,7 +287,7 @@ func (v *VM) run() {
 			v.sp -= 2
 			val, err := FieldGet(left, string(name))
 			if err != nil {
-				v.err = fmt.Errorf("operation %s.%s has failed: %w",
+				v.err = fmt.Errorf("operation '%s.%s' has failed: %w",
 					left.TypeName(), string(name), err)
 				return
 			}
@@ -697,13 +699,13 @@ func indexAssign(dst, src Object, selectors []Object) error {
 	for sidx := numSel - 1; sidx > 0; sidx-- {
 		next, err := IndexGet(dst, selectors[sidx])
 		if err != nil {
-			return fmt.Errorf("operation %s[%s] has failed: %w",
+			return fmt.Errorf("operation '%s[%s]' has failed: %w",
 				dst.TypeName(), selectors[sidx].TypeName(), err)
 		}
 		dst = next
 	}
 	if err := IndexSet(dst, selectors[0], src); err != nil {
-		return fmt.Errorf("assignment operation %s[%s] has failed: %w",
+		return fmt.Errorf("assignment operation '%s[%s]' has failed: %w",
 			dst.TypeName(), selectors[0].TypeName(), err)
 	}
 	return nil

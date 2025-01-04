@@ -85,11 +85,7 @@ func RunREPL(in io.ReadCloser, out io.Writer) error {
 			if arg == toy.Undefined {
 				printArgs = append(printArgs, "<undefined>")
 			} else {
-				var s toy.String
-				if err := toy.Convert(&s, arg); err != nil {
-					return nil, err
-				}
-				printArgs = append(printArgs, string(s))
+				printArgs = append(printArgs, arg.String())
 			}
 		}
 		fmt.Fprintln(rl, strings.Join(printArgs, " "))

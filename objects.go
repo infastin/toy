@@ -76,8 +76,8 @@ type HasUnaryOp interface {
 	UnaryOp(op token.Token) (Object, error)
 }
 
-// HasIndexGet represents an object that supports indexed access.
-type HasIndexGet interface {
+// IndexAccessible represents an object that supports index access.
+type IndexAccessible interface {
 	Object
 	// IndexGet should take an index Object and return a result Object or an
 	// error for indexable objects. Indexable is an object that can take an
@@ -87,9 +87,10 @@ type HasIndexGet interface {
 	IndexGet(index Object) (value Object, err error)
 }
 
-// HasIndexSet represents an object that supports indexed assignment.
-type HasIndexSet interface {
+// IndexAssignable represents an object that supports index access and assignment.
+type IndexAssignable interface {
 	Object
+	IndexAccessible
 	// IndexSet should take an index Object and a value Object for index
 	// assignable objects. Index assignable is an object that can take an index
 	// and a value on the left-hand side of the assignment statement.
@@ -97,8 +98,8 @@ type HasIndexSet interface {
 	IndexSet(index, value Object) error
 }
 
-// HasFieldGet represents an object that supports field access.
-type HasFieldGet interface {
+// FieldAccessible represents an object that supports field access.
+type FieldAccessible interface {
 	Object
 	// FieldGet should take a name of the field and return its value.
 	// If error is returned, the runtime will treat
@@ -106,17 +107,18 @@ type HasFieldGet interface {
 	FieldGet(name string) (Object, error)
 }
 
-// HasFieldGet represents an object that supports field assignment.
-type HasFieldSet interface {
+// HasFieldGet represents an object that supports field access and assignment.
+type FieldAssignable interface {
 	Object
+	FieldAccessible
 	// FieldSet should take the name of a field and its new value Object
 	// and return an error if the field cannot be set.
 	// If error is returned, the runtime will treat it as a run-time error.
 	FieldSet(name string, value Object) error
 }
 
-// HasLen represents an object that can report its length or size.
-type HasLen interface {
+// Sized represents an object that can report its length or size.
+type Sized interface {
 	Object
 	// Len should return object's length or size.
 	Len() int
@@ -125,7 +127,7 @@ type HasLen interface {
 // An Indexable is a sequence of known length that supports efficient random access.
 // It is not necessarily iterable.
 type Indexable interface {
-	HasLen
+	Sized
 	// The caller must ensure that 0 <= i < Len().
 	At(i int) Object
 }
@@ -163,7 +165,7 @@ type Iterable interface {
 // Sequence represents an iterable sequence of objects of known length.
 type Sequence interface {
 	Iterable
-	HasLen
+	Sized
 	// Items should return a slice containing all the elements in the Sequence.
 	Items() []Object
 }
@@ -253,7 +255,7 @@ func IndexGet(x, index Object) (Object, error) {
 			return xi.At(int(i)), nil
 		}
 	}
-	xi, ok := x.(HasIndexGet)
+	xi, ok := x.(IndexAccessible)
 	if !ok {
 		return nil, ErrNotIndexable
 	}
@@ -261,7 +263,7 @@ func IndexGet(x, index Object) (Object, error) {
 }
 
 func IndexSet(x, index, value Object) error {
-	xi, ok := x.(HasIndexSet)
+	xi, ok := x.(IndexAssignable)
 	if !ok {
 		return ErrNotIndexable
 	}
@@ -269,11 +271,11 @@ func IndexSet(x, index, value Object) error {
 }
 
 func FieldGet(x Object, name string) (Object, error) {
-	xf, ok := x.(HasFieldGet)
+	xf, ok := x.(FieldAccessible)
 	if ok {
 		return xf.FieldGet(name)
 	}
-	xi, ok := x.(HasIndexGet)
+	xi, ok := x.(IndexAccessible)
 	if !ok {
 		return nil, ErrNoFields
 	}
@@ -281,11 +283,11 @@ func FieldGet(x Object, name string) (Object, error) {
 }
 
 func FieldSet(x Object, name string, value Object) error {
-	xf, ok := x.(HasFieldSet)
+	xf, ok := x.(FieldAssignable)
 	if ok {
 		return xf.FieldSet(name, value)
 	}
-	xi, ok := x.(HasIndexSet)
+	xi, ok := x.(IndexAssignable)
 	if !ok {
 		return ErrNoFields
 	}

@@ -17,6 +17,7 @@ type Expr interface {
 type ArrayLit struct {
 	Elements []Expr
 	LBrack   Pos
+	Ellipsis Pos
 	RBrack   Pos
 }
 
@@ -40,6 +41,9 @@ func (e *ArrayLit) String() string {
 			b.WriteString(", ")
 		}
 		b.WriteString(elem.String())
+	}
+	if e.Ellipsis.IsValid() && len(e.Elements) > 0 {
+		b.WriteString("...")
 	}
 	b.WriteByte(']')
 	return b.String()
@@ -308,7 +312,7 @@ func (e *Ident) String() string {
 	return nullRep
 }
 
-// ImmutableExpr represents an immutable expression
+// ImmutableExpr represents an immutable expression.
 type ImmutableExpr struct {
 	Expr         Expr
 	ImmutablePos Pos
@@ -332,7 +336,31 @@ func (e *ImmutableExpr) String() string {
 	return "immutable(" + e.Expr.String() + ")"
 }
 
-// ImportExpr represents an import expression
+// UnpackExpr represents an unpack expression.
+type UnpackExpr struct {
+	Expr      Expr
+	UnpackPos Pos
+	LParen    Pos
+	RParen    Pos
+}
+
+func (e *UnpackExpr) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *UnpackExpr) Pos() Pos {
+	return e.UnpackPos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *UnpackExpr) End() Pos {
+	return e.RParen
+}
+
+func (e *UnpackExpr) String() string {
+	return "unpack(" + e.Expr.String() + ")"
+}
+
+// ImportExpr represents an import expression.
 type ImportExpr struct {
 	ModuleName string
 	Token      token.Token

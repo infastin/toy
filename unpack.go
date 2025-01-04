@@ -133,18 +133,108 @@ func unpackArg(ptr any, o Object) error {
 			return &ErrInvalidArgumentType{Expected: "map"}
 		}
 		*p = m
-	case *Iterable:
-		it, ok := o.(Iterable)
+	case *Hashable:
+		h, ok := o.(Hashable)
 		if !ok {
-			return &ErrInvalidArgumentType{Expected: "iterable"}
+			return &ErrInvalidArgumentType{Expected: "hashable"}
 		}
-		*p = it
+		*p = h
+	case *Freezable:
+		f, ok := o.(Freezable)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "freezable"}
+		}
+		*p = f
+	case *Comparable:
+		c, ok := o.(Comparable)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "comparable"}
+		}
+		*p = c
+	case *HasBinaryOp:
+		b, ok := o.(HasBinaryOp)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "object supporting binary operations"}
+		}
+		*p = b
+	case *HasUnaryOp:
+		u, ok := o.(HasUnaryOp)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "object supporting unary operations"}
+		}
+		*p = u
+	case *IndexAccessible:
+		i, ok := o.(IndexAccessible)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "index accesible"}
+		}
+		*p = i
+	case *IndexAssignable:
+		i, ok := o.(IndexAssignable)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "index assignable"}
+		}
+		*p = i
+	case *FieldAccessible:
+		f, ok := o.(FieldAccessible)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "field accesible"}
+		}
+		*p = f
+	case *FieldAssignable:
+		f, ok := o.(FieldAssignable)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "field assignable"}
+		}
+		*p = f
+	case *Sized:
+		s, ok := o.(Sized)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "sized"}
+		}
+		*p = s
+	case *Indexable:
+		i, ok := o.(Indexable)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "indexable"}
+		}
+		*p = i
+	case *Sliceable:
+		s, ok := o.(Sliceable)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "sliceable"}
+		}
+		*p = s
+	case *Convertible:
+		c, ok := o.(Convertible)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "convertible"}
+		}
+		*p = c
 	case *Callable:
 		f, ok := o.(Callable)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "callable"}
 		}
 		*p = f
+	case *Iterable:
+		it, ok := o.(Iterable)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "iterable"}
+		}
+		*p = it
+	case *Sequence:
+		seq, ok := o.(Sequence)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "sequence"}
+		}
+		*p = seq
+	case *Mapping:
+		m, ok := o.(Mapping)
+		if !ok {
+			return &ErrInvalidArgumentType{Expected: "mapping"}
+		}
+		*p = m
 	default:
 		// ptr must be a pointer.
 		ptrv := reflect.ValueOf(ptr)

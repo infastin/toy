@@ -201,8 +201,25 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 		case parser.OpArray:
-			v.ip += 2
-			numElements := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+			v.ip += 3
+			numElements := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
+			spread := int(v.curInsts[v.ip])
+
+			if spread == 1 {
+				v.sp--
+				switch seq := v.stack[v.sp].(type) {
+				case Sequence:
+					for elem := range Elements(seq) {
+						v.stack[v.sp] = elem
+						v.sp++
+					}
+					numElements += seq.Len() - 1
+				default:
+					v.err = fmt.Errorf("spread operator can only be used with sequence, got '%s' instead",
+						seq.TypeName())
+					return
+				}
+			}
 
 			var elements []Object
 			for i := v.sp - numElements; i < v.sp; i++ {
@@ -244,6 +261,14 @@ func (v *VM) run() {
 		case parser.OpImmutable:
 			value := v.stack[v.sp-1]
 			v.stack[v.sp-1] = AsImmutable(value)
+		case parser.OpSeqToTuple:
+			value := v.stack[v.sp-1]
+			seq, ok := value.(Sequence)
+			if !ok {
+				v.err = fmt.Errorf("unpack expression can only be used with sequence, got '%s' instead",
+					value.TypeName())
+			}
+			v.stack[v.sp-1] = Tuple(seq.Items())
 		case parser.OpIndex:
 			index := v.stack[v.sp-1]
 			left := v.stack[v.sp-2]
@@ -350,7 +375,8 @@ func (v *VM) run() {
 					}
 					numArgs += seq.Len() - 1
 				default:
-					v.err = fmt.Errorf("not sequence: %s", seq.TypeName())
+					v.err = fmt.Errorf("spread operator can only be used with sequence, got '%s' instead",
+						seq.TypeName())
 					return
 				}
 			}
@@ -511,7 +537,7 @@ func (v *VM) run() {
 			builtinIndex := int(v.curInsts[v.ip])
 			v.stack[v.sp] = BuiltinFuncs[builtinIndex]
 			v.sp++
-		case parser.OpResultGuard:
+		case parser.OpTupleAssignAssert:
 			v.ip += 2
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 			tup := v.stack[v.sp-1].(Tuple)
@@ -519,7 +545,7 @@ func (v *VM) run() {
 				v.err = fmt.Errorf("trying to assign %d values to %d variables", len(tup), n)
 				return
 			}
-		case parser.OpResultElem:
+		case parser.OpTupleElem:
 			v.ip += 2
 			eidx := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 			tup := v.stack[v.sp-1].(Tuple)

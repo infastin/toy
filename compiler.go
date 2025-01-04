@@ -331,7 +331,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return err
 			}
 		}
-		c.emit(node, parser.OpArray, len(node.Elements))
+		ellipsis := 0
+		if node.Ellipsis.IsValid() {
+			ellipsis = 1
+		}
+		c.emit(node, parser.OpArray, len(node.Elements), ellipsis)
 	case *parser.MapLit:
 		for _, elt := range node.Elements {
 			if err := c.Compile(elt.Key); err != nil {
@@ -556,6 +560,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 			return err
 		}
 		c.emit(node, parser.OpImmutable)
+	case *parser.UnpackExpr:
+		if err := c.Compile(node.Expr); err != nil {
+			return err
+		}
+		c.emit(node, parser.OpSeqToTuple)
 	case *parser.CondExpr:
 		if err := c.Compile(node.Cond); err != nil {
 			return err
@@ -737,10 +746,15 @@ func (c *Compiler) compileAssignDefine(
 	lhs, rhs []parser.Expr,
 	op token.Token,
 ) error {
-	var isCall bool
-	if len(rhs) != len(lhs) {
-		_, isCall = rhs[0].(*parser.CallExpr)
-		if !isCall || len(rhs) != 1 {
+	var unpacking bool
+	if len(lhs) == len(rhs) {
+		_, unpacking = rhs[0].(*parser.UnpackExpr)
+	} else {
+		switch rhs[0].(type) {
+		case *parser.CallExpr, *parser.UnpackExpr:
+			unpacking = true
+		}
+		if !unpacking || len(rhs) != 1 {
 			return c.errorf(node, "trying to assign %d values to %d variables", len(rhs), len(lhs))
 		}
 	}
@@ -765,7 +779,7 @@ func (c *Compiler) compileAssignDefine(
 		}
 
 		var isFunc bool
-		if !isCall {
+		if !unpacking {
 			_, isFunc = rhs[j].(*parser.FuncLit)
 		}
 
@@ -799,7 +813,7 @@ func (c *Compiler) compileAssignDefine(
 		})
 	}
 
-	if !isCall {
+	if !unpacking {
 		for j := len(rhs) - 1; j >= 0; j-- {
 			// compile RHSs
 			if err := c.Compile(rhs[j]); err != nil {
@@ -807,14 +821,14 @@ func (c *Compiler) compileAssignDefine(
 			}
 		}
 	} else {
-		// if call completes successfully, the tuple
-		// with the results will be at the top of the stack
+		// if call completes successfully, the tuple with the values to unpack
+		// will be at the top of the stack
 		if err := c.Compile(rhs[0]); err != nil {
 			return err
 		}
-		// since we can't check how many values a function returns at compile time
+		// since we can't check how many values a tuple contains at compile time
 		// we have to check it at the runtime
-		c.emit(node, parser.OpResultGuard, len(lhs))
+		c.emit(node, parser.OpTupleAssignAssert, len(lhs))
 	}
 
 	for j, lr := range resolved {
@@ -827,9 +841,9 @@ func (c *Compiler) compileAssignDefine(
 			}
 		}
 
-		if isCall {
-			// push value from the tuple with results onto the top of the stack
-			c.emit(node, parser.OpResultElem, j)
+		if unpacking {
+			// push value from the tuple to the top of the stack
+			c.emit(node, parser.OpTupleElem, j)
 		}
 
 		switch lr.symbol.Scope {
@@ -862,7 +876,7 @@ func (c *Compiler) compileAssignDefine(
 		}
 	}
 
-	if isCall {
+	if unpacking {
 		// there will be tuple left, so we pop it
 		c.emit(node, parser.OpPop)
 	}

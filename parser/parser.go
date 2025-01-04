@@ -515,8 +515,13 @@ func (p *Parser) parseArrayLit() Expr {
 	p.exprLevel++
 
 	var elements []Expr
-	for p.token != token.RBrack && p.token != token.EOF {
+	var ellipsis Pos
+	for p.token != token.RBrack && p.token != token.EOF && !ellipsis.IsValid() {
 		elements = append(elements, p.parseExpr())
+		if p.token == token.Ellipsis {
+			ellipsis = p.pos
+			p.next()
+		}
 		if !p.expectComma("array element", token.RBrack) {
 			break
 		}
@@ -528,6 +533,7 @@ func (p *Parser) parseArrayLit() Expr {
 	return &ArrayLit{
 		Elements: elements,
 		LBrack:   lbrack,
+		Ellipsis: ellipsis,
 		RBrack:   rbrack,
 	}
 }
@@ -545,6 +551,22 @@ func (p *Parser) parseImmutableExpr() Expr {
 		Expr:         value,
 		LParen:       lparen,
 		RParen:       rparen,
+	}
+}
+
+func (p *Parser) parseUnpackExpr() Expr {
+	if p.trace {
+		defer untracep(tracep(p, "UnpackExpr"))
+	}
+	unpack := p.expect(token.Unpack)
+	lparen := p.expect(token.LParen)
+	value := p.parseExpr()
+	rparen := p.expect(token.RParen)
+	return &UnpackExpr{
+		UnpackPos: unpack,
+		Expr:      value,
+		LParen:    lparen,
+		RParen:    rparen,
 	}
 }
 
@@ -911,7 +933,12 @@ func (p *Parser) parseSimpleStmt(forIn bool) Stmt {
 	case token.Assign, token.Define: // assignment statement
 		pos, tok := p.pos, p.token
 		p.next()
-		y := p.parseExprList()
+		var y []Expr
+		if p.token == token.Unpack {
+			y = append(y, p.parseUnpackExpr())
+		} else {
+			y = p.parseExprList()
+		}
 		return &AssignStmt{
 			LHS:      x,
 			RHS:      y,

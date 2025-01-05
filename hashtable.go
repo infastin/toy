@@ -1,7 +1,3 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package toy
 
 import (
@@ -15,6 +11,10 @@ import (
 // in the order the entries were inserted.
 //
 // Initialized instances of hashtable must not be copied.
+//
+// It's a slightly modified version of the hashtable used
+// in the Starlark interpreter written in Go.
+// See https://github.com/google/starlark-go.
 type hashtable struct {
 	table     []bucket  // len is zero or a power of two
 	bucket0   [1]bucket // inline allocation for small maps.
@@ -367,7 +367,7 @@ func (ht *hashtable) equals(other *hashtable) (bool, error) {
 	}
 	for e := ht.head; e != nil; e = e.next {
 		key, xval := e.key, e.value
-		if yval, _ := ht.lookup(key); yval == Undefined {
+		if yval, _ := other.lookup(key); yval == Undefined {
 			return false, nil
 		} else if eq, err := Equals(xval, yval); err != nil {
 			return false, err
@@ -442,7 +442,7 @@ func (it *htIterator) Close() {
 	}
 }
 
-// elementsis a go1.23 iterator over the values of the hash table.
+// elements is a go1.23 iterator over the values of the hash table.
 func (ht *hashtable) elements() iter.Seq[Object] {
 	return func(yield func(Object) bool) {
 		if !ht.immutable {

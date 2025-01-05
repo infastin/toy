@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/infastin/toy"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSymbolTable(t *testing.T) {
@@ -90,11 +92,7 @@ func TestSymbolTable(t *testing.T) {
 	resolveExpect(t, local2Block2, "b", globalSymbol("b", 1), 3)
 }
 
-func symbol(
-	name string,
-	scope toy.SymbolScope,
-	index int,
-) *toy.Symbol {
+func symbol(name string, scope toy.SymbolScope, index int) *toy.Symbol {
 	return &toy.Symbol{
 		Name:  name,
 		Scope: scope,

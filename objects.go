@@ -906,18 +906,21 @@ func (it *bytesIterator) Next(key, value *Object) bool {
 // Char represents a character value.
 type Char rune
 
-func (o Char) String() string   { return string(o) }
+func (o Char) String() string   { return strconv.QuoteRune(rune(o)) }
 func (o Char) TypeName() string { return "char" }
 func (o Char) IsFalsy() bool    { return o == 0 }
 func (o Char) Copy() Object     { return o }
 func (o Char) Hash() uint64     { return hash.Int32(int32(o)) }
 
 func (o Char) Convert(p any) error {
-	i, ok := p.(*Int)
-	if !ok {
+	switch p := p.(type) {
+	case *Int:
+		*p = Int(o)
+	case *String:
+		*p = String(o)
+	default:
 		return ErrNotConvertible
 	}
-	*i = Int(o)
 	return nil
 }
 
@@ -1030,7 +1033,7 @@ func (o *Array) AsImmutable() Object {
 	return &Array{elems: elems, immutable: true}
 }
 
-func (o *Array) Mutable() bool   { return o.immutable }
+func (o *Array) Mutable() bool   { return !o.immutable }
 func (o *Array) Len() int        { return len(o.elems) }
 func (o *Array) At(i int) Object { return o.elems[i] }
 func (o *Array) Items() []Object { return o.elems }
@@ -1077,6 +1080,7 @@ func (o *Array) Compare(op token.Token, rhs Object) (bool, error) {
 				return false, nil
 			}
 		}
+		return true, nil
 	case token.NotEqual:
 		if len(o.elems) != len(y.elems) {
 			return true, nil
@@ -1088,6 +1092,7 @@ func (o *Array) Compare(op token.Token, rhs Object) (bool, error) {
 				return true, nil
 			}
 		}
+		return false, nil
 	}
 	return false, ErrInvalidOperator
 }
@@ -1260,7 +1265,7 @@ func (o *Map) AsImmutable() Object {
 	return m
 }
 
-func (o *Map) Mutable() bool { return o.ht.immutable }
+func (o *Map) Mutable() bool { return !o.ht.immutable }
 func (o *Map) Len() int      { return int(o.ht.len) }
 
 func (o *Map) Compare(op token.Token, rhs Object) (bool, error) {

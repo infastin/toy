@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/infastin/toy/parser"
+
 	"github.com/stretchr/testify/require"
 )
 

@@ -121,18 +121,6 @@ func unpackArg(ptr any, o Object) error {
 		case *float64:
 			*p = float64(f)
 		}
-	case **Array:
-		a, ok := o.(*Array)
-		if !ok {
-			return &ErrInvalidArgumentType{Expected: "array"}
-		}
-		*p = a
-	case **Map:
-		m, ok := o.(*Map)
-		if !ok {
-			return &ErrInvalidArgumentType{Expected: "map"}
-		}
-		*p = m
 	case *Hashable:
 		h, ok := o.(Hashable)
 		if !ok {

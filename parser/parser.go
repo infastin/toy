@@ -1142,7 +1142,8 @@ func (p *Parser) error(pos Pos, msg string) {
 func (p *Parser) errorExpected(pos Pos, msg string) {
 	msg = "expected " + msg
 	if pos == p.pos {
-		// error happened at the current position: provide more specific
+		// error happened at the current position;
+		// make the error message more specific
 		switch {
 		case p.token == token.Semicolon && p.tokenLit == "\n":
 			msg += ", found newline"

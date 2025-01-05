@@ -30,7 +30,7 @@ func (m *ModuleMap) Add(name string, module Importable) {
 
 // AddBuiltinModule adds a builtin module.
 func (m *ModuleMap) AddBuiltinModule(name string, fields map[string]Object) {
-	m.m[name] = &BuiltinModule{Name: name, Fields: fields}
+	m.m[name] = &BuiltinModule{Name: name, Members: fields}
 }
 
 // AddSourceModule adds a source module.
@@ -88,8 +88,8 @@ func (m *ModuleMap) AddMap(o *ModuleMap) {
 
 // BuiltinModule is an importable module that's written in Go.
 type BuiltinModule struct {
-	Name   string
-	Fields map[string]Object
+	Name    string
+	Members map[string]Object
 }
 
 func (m *BuiltinModule) importable() {}
@@ -100,14 +100,14 @@ func (m *BuiltinModule) IsFalsy() bool    { return false }
 
 func (m *BuiltinModule) Copy() Object {
 	fields := make(map[string]Object)
-	for name, value := range m.Fields {
+	for name, value := range m.Members {
 		fields[name] = value.Copy()
 	}
-	return &BuiltinModule{Name: m.Name, Fields: m.Fields}
+	return &BuiltinModule{Name: m.Name, Members: m.Members}
 }
 
 func (m *BuiltinModule) FieldGet(name string) (Object, error) {
-	field, ok := m.Fields[name]
+	field, ok := m.Members[name]
 	if !ok {
 		return nil, ErrNoSuchField
 	}

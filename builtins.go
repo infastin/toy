@@ -9,22 +9,60 @@ var (
 	BuiltinFuncs = []*BuiltinFunction{
 		{Name: "typename", Func: builtinTypeName},
 		{Name: "copy", Func: builtinCopy},
+
 		{Name: "len", Func: builtinLen},
 		{Name: "append", Func: builtinAppend},
 		{Name: "delete", Func: builtinDelete},
 		{Name: "splice", Func: builtinSplice},
 		{Name: "insert", Func: builtinInsert},
 		{Name: "clear", Func: builtinClear},
+
 		{Name: "format", Func: builtinFormat},
 		{Name: "range", Func: builtinRange},
+
 		{Name: "error", Func: builtinError},
 		{Name: "tuple", Func: builtinTuple},
+
 		{Name: "string", Func: builtinConvert[String]},
 		{Name: "int", Func: builtinConvert[Int]},
 		{Name: "bool", Func: builtinConvert[Bool]},
 		{Name: "float", Func: builtinConvert[Float]},
 		{Name: "char", Func: builtinConvert[Char]},
 		{Name: "bytes", Func: builtinConvert[Bytes]},
+
+		{Name: "isBool", Func: builtinIs[Bool]},
+		{Name: "isFloat", Func: builtinIs[Float]},
+		{Name: "isInt", Func: builtinIs[Int]},
+		{Name: "isString", Func: builtinIs[String]},
+		{Name: "isBytes", Func: builtinIs[Bytes]},
+		{Name: "isChar", Func: builtinIs[Char]},
+		{Name: "isArray", Func: builtinIs[*Array]},
+		{Name: "isMap", Func: builtinIs[*Map]},
+		{Name: "isTuple", Func: builtinIs[Tuple]},
+		{Name: "isError", Func: builtinIs[*Error]},
+		{Name: "isImmutable", Func: builtinIsImmutable},
+		{Name: "isBuiltinFunction", Func: builtinIs[*BuiltinFunction]},
+		{Name: "isCompiledFunction", Func: builtinIs[*CompiledFunction]},
+		{Name: "isFunction", Func: builtinIsFunction},
+		{Name: "isBuiltinModule", Func: builtinIs[*BuiltinModule]},
+
+		{Name: "isHashable", Func: builtinIs[Hashable]},
+		{Name: "isFreezable", Func: builtinIs[Freezable]},
+		{Name: "isComparable", Func: builtinIs[Comparable]},
+		{Name: "hasBinaryOp", Func: builtinIs[HasBinaryOp]},
+		{Name: "hasUnaryOp", Func: builtinIs[HasUnaryOp]},
+		{Name: "isIndexAccessible", Func: builtinIs[IndexAccessible]},
+		{Name: "isIndexAssignable", Func: builtinIs[IndexAssignable]},
+		{Name: "isFieldAccessible", Func: builtinIs[FieldAccessible]},
+		{Name: "isFieldAssignable", Func: builtinIs[FieldAssignable]},
+		{Name: "isSized", Func: builtinIs[Sized]},
+		{Name: "isIndexable", Func: builtinIs[Indexable]},
+		{Name: "isSliceable", Func: builtinIs[Sliceable]},
+		{Name: "isConvertible", Func: builtinIs[Convertible]},
+		{Name: "isCallable", Func: builtinIs[Callable]},
+		{Name: "isIterable", Func: builtinIs[Iterable]},
+		{Name: "isSequence", Func: builtinIs[Sequence]},
+		{Name: "isMapping", Func: builtinIs[Mapping]},
 	}
 )
 
@@ -329,4 +367,30 @@ func builtinConvert[T Object](args ...Object) (Object, error) {
 		return args[1], nil
 	}
 	return Undefined, nil
+}
+
+func builtinIs[T Object](args ...Object) (Object, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("want at most 1 argument, got %d", len(args))
+	}
+	_, ok := args[0].(T)
+	return Bool(ok), nil
+}
+
+func builtinIsFunction(args ...Object) (Object, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("want at most 1 argument, got %d", len(args))
+	}
+	switch args[0].(type) {
+	case *BuiltinFunction, *CompiledFunction:
+		return Bool(true), nil
+	}
+	return Bool(false), nil
+}
+
+func builtinIsImmutable(args ...Object) (Object, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("want at most 1 argument, got %d", len(args))
+	}
+	return Bool(!Mutable(args[0])), nil
 }

@@ -89,9 +89,9 @@ func TestObject_String(t *testing.T) {
 	o = Float(1)
 	expectEqual(t, "1", o.String())
 	o = Char(' ')
-	expectEqual(t, " ", o.String())
+	expectEqual(t, "' '", o.String())
 	o = Char('T')
-	expectEqual(t, "T", o.String())
+	expectEqual(t, "'T'", o.String())
 	o = String("")
 	expectEqual(t, `""`, o.String())
 	o = String(" ")
@@ -107,9 +107,9 @@ func TestObject_String(t *testing.T) {
 	o = UndefinedType(0)
 	expectEqual(t, "<undefined>", o.String())
 	o = Bytes{}
-	expectEqual(t, "", o.String())
+	expectEqual(t, "[]", o.String())
 	o = Bytes{'f', 'o', 'o'}
-	expectEqual(t, "foo", o.String())
+	expectEqual(t, "[102, 111, 111]", o.String())
 	o = Tuple{}
 	expectEqual(t, "", o.String())
 }

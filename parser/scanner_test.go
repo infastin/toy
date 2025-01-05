@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/infastin/toy/parser"
-	"github.com/infastin/toy/require"
 	"github.com/infastin/toy/token"
 )
 

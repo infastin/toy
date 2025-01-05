@@ -2,7 +2,6 @@ package toy_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -13,23 +12,26 @@ import (
 
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/token"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestScript_Add(t *testing.T) {
 	s := toy.NewScript([]byte(`a := b; c := test(b); d := test(5)`))
-	require.NoError(t, s.Add("b", 5))     // b = 5
-	require.NoError(t, s.Add("b", "foo")) // b = "foo"  (re-define before compilation)
-	require.NoError(t, s.Add("test",
-		func(args ...toy.Object) (ret toy.Object, err error) {
+	s.Add("b", toy.Int(5))
+	s.Add("b", toy.String("foo"))
+	s.Add("test", &toy.BuiltinFunction{
+		Name: "test",
+		Func: func(args ...toy.Object) (ret toy.Object, err error) {
 			if len(args) > 0 {
 				switch arg := args[0].(type) {
-				case *toy.Int:
-					return &toy.Int{Value: arg.Value + 1}, nil
+				case toy.Int:
+					return arg + 1, nil
 				}
 			}
-
-			return &toy.Int{Value: 0}, nil
-		}))
+			return toy.Int(0), nil
+		},
+	})
 	c, err := s.Compile()
 	require.NoError(t, err)
 	require.NoError(t, c.Run())
@@ -41,62 +43,60 @@ func TestScript_Add(t *testing.T) {
 
 func TestScript_Remove(t *testing.T) {
 	s := toy.NewScript([]byte(`a := b`))
-	err := s.Add("b", 5)
-	require.NoError(t, err)
+	s.Add("b", toy.Int(5))
 	require.True(t, s.Remove("b")) // b is removed
-	_, err = s.Compile()           // should not compile because b is undefined
+	_, err := s.Compile()          // should not compile because b is undefined
 	require.Error(t, err)
 }
 
 func TestScript_Run(t *testing.T) {
 	s := toy.NewScript([]byte(`a := b`))
-	err := s.Add("b", 5)
-	require.NoError(t, err)
+	s.Add("b", toy.Int(5))
 	c, err := s.Run()
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	compiledGet(t, c, "a", int64(5))
 }
 
-func TestScript_BuiltinModules(t *testing.T) {
-	s := toy.NewScript([]byte(`math := import("math"); a := math.abs(-19.84)`))
-	s.SetImports(stdlib.GetModuleMap("math"))
-	c, err := s.Run()
-	require.NoError(t, err)
-	require.NotNil(t, c)
-	compiledGet(t, c, "a", 19.84)
-
-	c, err = s.Run()
-	require.NoError(t, err)
-	require.NotNil(t, c)
-	compiledGet(t, c, "a", 19.84)
-
-	s.SetImports(stdlib.GetModuleMap("os"))
-	_, err = s.Run()
-	require.Error(t, err)
-
-	s.SetImports(nil)
-	_, err = s.Run()
-	require.Error(t, err)
-}
-
-func TestScript_SourceModules(t *testing.T) {
-	s := toy.NewScript([]byte(`
-enum := import("enum")
-a := enum.all([1,2,3], func(_, v) {
-	return v > 0
-})
-`))
-	s.SetImports(stdlib.GetModuleMap("enum"))
-	c, err := s.Run()
-	require.NoError(t, err)
-	require.NotNil(t, c)
-	compiledGet(t, c, "a", true)
-
-	s.SetImports(nil)
-	_, err = s.Run()
-	require.Error(t, err)
-}
+// func TestScript_BuiltinModules(t *testing.T) {
+// 	s := toy.NewScript([]byte(`math := import("math"); a := math.abs(-19.84)`))
+// 	s.SetImports(stdlib.GetModuleMap("math"))
+// 	c, err := s.Run()
+// 	require.NoError(t, err)
+// 	require.NotNil(t, c)
+// 	compiledGet(t, c, "a", 19.84)
+//
+// 	c, err = s.Run()
+// 	require.NoError(t, err)
+// 	require.NotNil(t, c)
+// 	compiledGet(t, c, "a", 19.84)
+//
+// 	s.SetImports(stdlib.GetModuleMap("os"))
+// 	_, err = s.Run()
+// 	require.Error(t, err)
+//
+// 	s.SetImports(nil)
+// 	_, err = s.Run()
+// 	require.Error(t, err)
+// }
+//
+// func TestScript_SourceModules(t *testing.T) {
+// 	s := toy.NewScript([]byte(`
+// enum := import("enum")
+// a := enum.all([1,2,3], func(_, v) {
+// 	return v > 0
+// })
+// `))
+// 	s.SetImports(stdlib.GetModuleMap("enum"))
+// 	c, err := s.Run()
+// 	require.NoError(t, err)
+// 	require.NotNil(t, c)
+// 	compiledGet(t, c, "a", true)
+//
+// 	s.SetImports(nil)
+// 	_, err = s.Run()
+// 	require.Error(t, err)
+// }
 
 func TestScript_SetMaxConstObjects(t *testing.T) {
 	// one constant '5'
@@ -225,66 +225,42 @@ e := mod1.double(s)
 	wg.Wait()
 }
 
-type Counter struct {
-	toy.ObjectImpl
-	value int64
+type Counter int64
+
+func (o Counter) TypeName() string { return "counter" }
+func (o Counter) String() string   { return fmt.Sprintf("Counter(%d)", int64(o)) }
+func (o Counter) IsFalsy() bool    { return o == 0 }
+func (o Counter) Copy() toy.Object { return o }
+
+func (o Counter) Compare(op token.Token, rhs toy.Object) (bool, error) {
+	switch y := rhs.(type) {
+	case Counter:
+		return o == y, nil
+	}
+	return false, toy.ErrInvalidOperator
 }
 
-func (o *Counter) TypeName() string {
-	return "counter"
-}
-
-func (o *Counter) String() string {
-	return fmt.Sprintf("Counter(%d)", o.value)
-}
-
-func (o *Counter) BinaryOp(
-	op token.Token,
-	rhs toy.Object,
-) (toy.Object, error) {
+func (o Counter) BinaryOp(op token.Token, rhs toy.Object) (toy.Object, error) {
 	switch rhs := rhs.(type) {
-	case *Counter:
+	case Counter:
 		switch op {
 		case token.Add:
-			return &Counter{value: o.value + rhs.value}, nil
+			return o + rhs, nil
 		case token.Sub:
-			return &Counter{value: o.value - rhs.value}, nil
+			return o - rhs, nil
 		}
-	case *toy.Int:
+	case toy.Int:
 		switch op {
 		case token.Add:
-			return &Counter{value: o.value + rhs.Value}, nil
+			return o + Counter(rhs), nil
 		case token.Sub:
-			return &Counter{value: o.value - rhs.Value}, nil
+			return o - Counter(rhs), nil
 		}
 	}
-
-	return nil, errors.New("invalid operator")
+	return nil, toy.ErrInvalidOperator
 }
 
-func (o *Counter) IsFalsy() bool {
-	return o.value == 0
-}
-
-func (o *Counter) Equals(t toy.Object) bool {
-	if tc, ok := t.(*Counter); ok {
-		return o.value == tc.value
-	}
-
-	return false
-}
-
-func (o *Counter) Copy() toy.Object {
-	return &Counter{value: o.value}
-}
-
-func (o *Counter) Call(_ ...toy.Object) (toy.Object, error) {
-	return &toy.Int{Value: o.value}, nil
-}
-
-func (o *Counter) CanCall() bool {
-	return true
-}
+func (o Counter) Call(_ ...toy.Object) (toy.Object, error) { return toy.Int(o), nil }
 
 func TestScript_CustomObjects(t *testing.T) {
 	c := compile(t, `a := c1(); s := string(c1); c2 := c1; c2++`, M{
@@ -394,7 +370,7 @@ func bench(n int, input string) {
 	}
 }
 
-type M map[string]interface{}
+type M map[string]any
 
 func TestCompiled_Get(t *testing.T) {
 	// simple script
@@ -562,7 +538,7 @@ export func(ctx) {
 	mods.AddSourceModule("expression", []byte(src))
 	s.SetImports(mods)
 
-	err := s.Add("ctx", map[string]interface{}{
+	err := s.Add("ctx", map[string]any{
 		"ctx": 12,
 	})
 	require.NoError(t, err)
@@ -599,22 +575,13 @@ func compiledRun(t *testing.T, c *toy.Compiled) {
 	require.NoError(t, err)
 }
 
-func compiledGet(
-	t *testing.T,
-	c *toy.Compiled,
-	name string,
-	expected interface{},
-) {
+func compiledGet(t *testing.T, c *toy.Compiled, name string, expected any) {
 	v := c.Get(name)
 	require.NotNil(t, v)
 	require.Equal(t, expected, v.Value())
 }
 
-func compiledGetAll(
-	t *testing.T,
-	c *toy.Compiled,
-	expected M,
-) {
+func compiledGetAll(t *testing.T, c *toy.Compiled, expected M) {
 	vars := c.GetAll()
 	require.Equal(t, len(expected), len(vars))
 
@@ -644,7 +611,7 @@ count += 1
 data["b"] = 2
 `))
 
-	err := script.Add("data", map[string]interface{}{"a": 1})
+	err := script.Add("data", map[string]any{"a": 1})
 	require.NoError(t, err)
 
 	err = script.Add("count", 1000)

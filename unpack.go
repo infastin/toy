@@ -17,7 +17,7 @@ type Unpacker interface {
 func UnpackArgs(args []Object, pairs ...any) error {
 	var defined big.Int
 	nparams := len(pairs) / 2
-	paramName := func(x any) string { // (no free variables)
+	paramName := func(x any) string {
 		name := x.(string)
 		if name[len(name)-1] == '?' {
 			name = name[:len(name)-1]
@@ -63,30 +63,30 @@ func UnpackArgs(args []Object, pairs ...any) error {
 }
 
 func unpackArg(ptr any, o Object) error {
-	switch p := ptr.(type) {
+	switch ptr := ptr.(type) {
 	case Unpacker:
-		return p.Unpack(o)
+		return ptr.Unpack(o)
 	case *Object:
-		*p = o
+		*ptr = o
 	case *string:
 		s, ok := o.(String)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "string"}
 		}
-		*p = string(s)
+		*ptr = string(s)
 	case *bool:
 		b, ok := o.(Bool)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "bool"}
 		}
-		*p = bool(b)
+		*ptr = bool(b)
 	case *int, *int8, *int16, *int32, *int64,
 		*uint, *uint8, *uint16, *uint32, *uint64, *uintptr:
 		i, ok := o.(Int)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "int"}
 		}
-		switch p := p.(type) {
+		switch p := ptr.(type) {
 		case *int:
 			*p = int(i)
 		case *int8:
@@ -115,7 +115,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "float"}
 		}
-		switch p := p.(type) {
+		switch p := ptr.(type) {
 		case *float32:
 			*p = float32(f)
 		case *float64:
@@ -126,103 +126,103 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "hashable"}
 		}
-		*p = h
+		*ptr = h
 	case *Freezable:
 		f, ok := o.(Freezable)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "freezable"}
 		}
-		*p = f
+		*ptr = f
 	case *Comparable:
 		c, ok := o.(Comparable)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "comparable"}
 		}
-		*p = c
+		*ptr = c
 	case *HasBinaryOp:
 		b, ok := o.(HasBinaryOp)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "object supporting binary operations"}
 		}
-		*p = b
+		*ptr = b
 	case *HasUnaryOp:
 		u, ok := o.(HasUnaryOp)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "object supporting unary operations"}
 		}
-		*p = u
+		*ptr = u
 	case *IndexAccessible:
 		i, ok := o.(IndexAccessible)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "index accesible"}
 		}
-		*p = i
+		*ptr = i
 	case *IndexAssignable:
 		i, ok := o.(IndexAssignable)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "index assignable"}
 		}
-		*p = i
+		*ptr = i
 	case *FieldAccessible:
 		f, ok := o.(FieldAccessible)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "field accesible"}
 		}
-		*p = f
+		*ptr = f
 	case *FieldAssignable:
 		f, ok := o.(FieldAssignable)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "field assignable"}
 		}
-		*p = f
+		*ptr = f
 	case *Sized:
 		s, ok := o.(Sized)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "sized"}
 		}
-		*p = s
+		*ptr = s
 	case *Indexable:
 		i, ok := o.(Indexable)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "indexable"}
 		}
-		*p = i
+		*ptr = i
 	case *Sliceable:
 		s, ok := o.(Sliceable)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "sliceable"}
 		}
-		*p = s
+		*ptr = s
 	case *Convertible:
 		c, ok := o.(Convertible)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "convertible"}
 		}
-		*p = c
+		*ptr = c
 	case *Callable:
 		f, ok := o.(Callable)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "callable"}
 		}
-		*p = f
+		*ptr = f
 	case *Iterable:
 		it, ok := o.(Iterable)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "iterable"}
 		}
-		*p = it
+		*ptr = it
 	case *Sequence:
 		seq, ok := o.(Sequence)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "sequence"}
 		}
-		*p = seq
+		*ptr = seq
 	case *Mapping:
 		m, ok := o.(Mapping)
 		if !ok {
 			return &ErrInvalidArgumentType{Expected: "mapping"}
 		}
-		*p = m
+		*ptr = m
 	default:
 		// ptr must be a pointer.
 		ptrv := reflect.ValueOf(ptr)
@@ -236,24 +236,21 @@ func unpackArg(ptr any, o Object) error {
 			paramVar.Set(reflect.ValueOf(o))
 			break
 		}
-		paramVarType := paramVar.Type()
-		// Maybe ptr is a pointer to a pointer.
-		if paramVarType.Kind() == reflect.Pointer {
+		// If *ptr implements Object, return an error.
+		if paramVar.Type().Implements(reflect.TypeFor[Object]()) {
+			// It should be safe to call TypeName on potentially nil object.
+			return &ErrInvalidArgumentType{Expected: paramVar.Interface().(Object).TypeName()}
+		}
+		// Maybe ptr is a pointer to a pointer that implements Object.
+		if paramVar.Type().Kind() == reflect.Pointer {
 			// Unwrap ptr and call unpackArg recursively.
 			if paramVar.IsNil() {
-				elem := reflect.New(paramVarType.Elem())
+				elem := reflect.New(paramVar.Type().Elem())
 				paramVar.Set(elem)
 			}
 			return unpackArg(paramVar.Interface(), o)
 		}
-		// Nothing worked, so we need to return an error.
-		// For than we need to make sure that ptr points
-		// to a value of a type that implements Object.
-		if paramVarType.Implements(reflect.TypeFor[Object]()) {
-			// It should be safe to call TypeName on potentially nil object.
-			return &ErrInvalidArgumentType{Expected: paramVar.Interface().(Object).TypeName()}
-		}
-		// If *ptr doesn't implement Object then panic.
+		// Nothing worked, panic.
 		panic(fmt.Sprintf("pointer element type does not implement Object: %T", ptr))
 	}
 	return nil

@@ -7,25 +7,31 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/chzyer/readline"
 	"github.com/urfave/cli/v2"
 
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/parser"
 )
 
-const (
-	sourceFileExt = ".toy"
-	replPrompt    = ">>> "
+var (
+	version         = "dev"
+	compilationDate = "2006-01-02 15:04:05"
 )
 
 func main() {
 	app := &cli.App{
 		Name:      "toy",
 		Usage:     "Toy language interpreter",
-		Version:   "dev",
+		Version:   fmt.Sprintf("%s (%s)", version, compilationDate),
 		ArgsUsage: "[FILE]",
-		Action:    mainAction,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "trace",
+				Usage:   "compile and show trace",
+				Aliases: []string{"t"},
+			},
+		},
+		Action: mainAction,
 	}
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -48,9 +54,97 @@ func mainAction(ctx *cli.Context) error {
 	if len(inputData) > 1 && string(inputData[:2]) == "#!" {
 		copy(inputData, "//")
 	}
-	if err := CompileAndRun(inputData, inputFile); err != nil {
-		return fmt.Errorf("failed to compile and run: %w", err)
+	if ctx.Bool("trace") {
+		if err := PrintTrace(inputData, inputFile); err != nil {
+			return fmt.Errorf("failed to compile: %w", err)
+		}
+	} else {
+		if err := CompileAndRun(inputData, inputFile); err != nil {
+			return fmt.Errorf("failed to compile and run: %w", err)
+		}
 	}
+	return nil
+}
+
+type compileTracer struct {
+	Out []string
+}
+
+func (o *compileTracer) Write(p []byte) (n int, err error) {
+	o.Out = append(o.Out, string(p))
+	return len(p), nil
+}
+
+// PrintTrace compiles the source code and prints compiler trace.
+func PrintTrace(inputData []byte, inputFile string) error {
+	fileSet := parser.NewFileSet()
+	file := fileSet.AddFile(inputFile, -1, len(inputData))
+
+	symTable := toy.NewSymbolTable()
+	for idx, fn := range toy.BuiltinFuncs {
+		symTable.DefineBuiltin(idx, fn.Name)
+	}
+
+	p := parser.NewParser(file, []byte(inputData), nil)
+	parsed, err := p.ParseFile()
+	if err != nil {
+		return err
+	}
+
+	tr := &compileTracer{}
+
+	c := toy.NewCompiler(file, symTable, nil, nil, tr)
+	if err := c.Compile(parsed); err != nil {
+		return err
+	}
+
+	bytecode := c.Bytecode()
+	bytecode.RemoveDuplicates()
+
+	var b strings.Builder
+
+	b.WriteString(`
+######################
+##  Compiler Trace  ##
+######################
+
+`)
+
+	for _, line := range tr.Out {
+		b.WriteString(line)
+	}
+
+	b.WriteString(`
+##########################
+##  Compiler Constants  ##
+##########################
+
+`)
+
+	for i, line := range bytecode.FormatConstants() {
+		if i != 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(line)
+	}
+
+	b.WriteString(`
+
+#############################
+##  Compiler Instructions  ##
+#############################
+
+`)
+
+	for i, line := range bytecode.FormatInstructions() {
+		if i != 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(line)
+	}
+
+	fmt.Println(b.String())
+
 	return nil
 }
 
@@ -69,105 +163,9 @@ func CompileAndRun(inputData []byte, inputFile string) error {
 
 // RunREPL starts REPL.
 func RunREPL(in io.ReadCloser, out io.Writer) error {
-	rl, err := readline.NewEx(&readline.Config{
-		Prompt: replPrompt,
-		Stdin:  in,
-		Stdout: out,
-	})
-	if err != nil {
+	model := newModel()
+	if err := model.Run(in, out); err != nil {
 		return err
 	}
-	defer rl.Clean()
-
-	replPrint := func(args ...toy.Object) (ret toy.Object, err error) {
-		var printArgs []string
-		for _, arg := range args {
-			if arg == toy.Undefined {
-				printArgs = append(printArgs, "<undefined>")
-			} else {
-				printArgs = append(printArgs, arg.String())
-			}
-		}
-		fmt.Fprintln(rl, strings.Join(printArgs, " "))
-		return toy.Undefined, nil
-	}
-
-	toy.BuiltinFuncs = append(toy.BuiltinFuncs,
-		&toy.BuiltinFunction{Name: "print", Func: replPrint})
-
-	fileSet := parser.NewFileSet()
-	globals := make([]toy.Object, toy.GlobalsSize)
-	symbolTable := toy.NewSymbolTable()
-	for idx, fn := range toy.BuiltinFuncs {
-		symbolTable.DefineBuiltin(idx, fn.Name)
-	}
-
-	var constants []toy.Object
-	for {
-		line, err := rl.Readline()
-		if err != nil {
-			return err
-		}
-
-		line = strings.TrimSpace(line)
-		if len(line) == 0 {
-			continue
-		}
-
-		srcFile := fileSet.AddFile("repl", -1, len(line))
-		p := parser.NewParser(srcFile, []byte(line), nil)
-
-		file, err := p.ParseFile()
-		if err != nil {
-			fmt.Fprint(rl, err.Error())
-			continue
-		}
-		file = addPrints(file)
-
-		c := toy.NewCompiler(srcFile, symbolTable, constants, nil, nil)
-		if err := c.Compile(file); err != nil {
-			fmt.Fprint(rl, err.Error())
-			continue
-		}
-
-		bytecode := c.Bytecode()
-		bytecode.RemoveDuplicates()
-
-		machine := toy.NewVM(bytecode, globals)
-		if err := machine.Run(); err != nil {
-			fmt.Fprint(rl, err.Error())
-			continue
-		}
-		constants = bytecode.Constants
-	}
-}
-
-func addPrints(file *parser.File) *parser.File {
-	var stmts []parser.Stmt
-	for _, s := range file.Stmts {
-		switch s := s.(type) {
-		case *parser.ExprStmt:
-			stmts = append(stmts, &parser.ExprStmt{
-				Expr: &parser.CallExpr{
-					Func: &parser.Ident{Name: "print"},
-					Args: []parser.Expr{s.Expr},
-				},
-			})
-		case *parser.AssignStmt:
-			stmts = append(stmts, s, &parser.ExprStmt{
-				Expr: &parser.CallExpr{
-					Func: &parser.Ident{
-						Name: "print",
-					},
-					Args: s.LHS,
-				},
-			})
-		default:
-			stmts = append(stmts, s)
-		}
-	}
-	return &parser.File{
-		InputFile: file.InputFile,
-		Stmts:     stmts,
-	}
+	return nil
 }

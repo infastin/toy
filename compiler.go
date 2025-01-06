@@ -17,7 +17,6 @@ import (
 // instructions that were emitted.
 type compilationScope struct {
 	instructions []byte
-	symbolInit   map[string]bool
 	sourceMap    map[int]parser.Pos
 }
 
@@ -69,8 +68,7 @@ func NewCompiler(
 	trace io.Writer,
 ) *Compiler {
 	mainScope := compilationScope{
-		symbolInit: make(map[string]bool),
-		sourceMap:  make(map[int]parser.Pos),
+		sourceMap: make(map[int]parser.Pos),
 	}
 
 	// symbol table
@@ -149,40 +147,14 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 
 		switch node.Token {
-		case token.Equal:
-			c.emit(node, parser.OpCompare, int(token.Equal))
-		case token.NotEqual:
-			c.emit(node, parser.OpCompare, int(token.NotEqual))
-		case token.Greater:
-			c.emit(node, parser.OpCompare, int(token.Greater))
-		case token.GreaterEq:
-			c.emit(node, parser.OpCompare, int(token.GreaterEq))
-		case token.Less:
-			c.emit(node, parser.OpCompare, int(token.Less))
-		case token.LessEq:
-			c.emit(node, parser.OpCompare, int(token.LessEq))
-		case token.Add:
-			c.emit(node, parser.OpBinaryOp, int(token.Add))
-		case token.Sub:
-			c.emit(node, parser.OpBinaryOp, int(token.Sub))
-		case token.Mul:
-			c.emit(node, parser.OpBinaryOp, int(token.Mul))
-		case token.Quo:
-			c.emit(node, parser.OpBinaryOp, int(token.Quo))
-		case token.Rem:
-			c.emit(node, parser.OpBinaryOp, int(token.Rem))
-		case token.And:
-			c.emit(node, parser.OpBinaryOp, int(token.And))
-		case token.Or:
-			c.emit(node, parser.OpBinaryOp, int(token.Or))
-		case token.Xor:
-			c.emit(node, parser.OpBinaryOp, int(token.Xor))
-		case token.AndNot:
-			c.emit(node, parser.OpBinaryOp, int(token.AndNot))
-		case token.Shl:
-			c.emit(node, parser.OpBinaryOp, int(token.Shl))
-		case token.Shr:
-			c.emit(node, parser.OpBinaryOp, int(token.Shr))
+		case token.Equal, token.NotEqual,
+			token.Greater, token.GreaterEq,
+			token.Less, token.LessEq:
+			c.emit(node, parser.OpCompare, int(node.Token))
+		case token.Add, token.Sub, token.Mul, token.Quo, token.Rem,
+			token.And, token.Or, token.Xor, token.AndNot,
+			token.Shl, token.Shr:
+			c.emit(node, parser.OpBinaryOp, int(node.Token))
 		default:
 			return c.errorf(node, "invalid binary operator: %s",
 				node.Token.String())
@@ -215,14 +187,8 @@ func (c *Compiler) Compile(node parser.Node) error {
 			return err
 		}
 		switch node.Token {
-		case token.Add:
-			c.emit(node, parser.OpUnaryOp, int(token.Add))
-		case token.Sub:
-			c.emit(node, parser.OpUnaryOp, int(token.Sub))
-		case token.Not:
-			c.emit(node, parser.OpUnaryOp, int(token.Not))
-		case token.Xor:
-			c.emit(node, parser.OpUnaryOp, int(token.Xor))
+		case token.Add, token.Sub, token.Not, token.Xor:
+			c.emit(node, parser.OpUnaryOp, int(node.Token))
 		default:
 			return c.errorf(node, "invalid unary operator: %s", node.Token.String())
 		}
@@ -377,17 +343,17 @@ func (c *Compiler) Compile(node parser.Node) error {
 		c.emit(node, parser.OpIndex)
 	case *parser.SliceExpr:
 		var sliceOpOperand int
-		if node.High != nil {
-			if err := c.Compile(node.High); err != nil {
-				return err
-			}
-			sliceOpOperand |= 0x2
-		}
 		if node.Low != nil {
 			if err := c.Compile(node.Low); err != nil {
 				return err
 			}
 			sliceOpOperand |= 0x1
+		}
+		if node.High != nil {
+			if err := c.Compile(node.High); err != nil {
+				return err
+			}
+			sliceOpOperand |= 0x2
 		}
 		if err := c.Compile(node.Expr); err != nil {
 			return err
@@ -407,10 +373,10 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 
 		// code optimization
-		c.optimizeFunc(node)
+		numRemovedLocals := c.optimizeFunc(node)
 
 		freeSymbols := c.symbolTable.FreeSymbols()
-		numLocals := c.symbolTable.MaxSymbols()
+		numLocals := c.symbolTable.MaxSymbols() - numRemovedLocals
 		scope := c.leaveScope()
 
 		for _, s := range freeSymbols {
@@ -782,6 +748,8 @@ func (c *Compiler) compileAssignDefine(
 		ident     string
 		selectors []parser.Expr
 		symbol    *Symbol
+		exists    bool
+		isFunc    bool
 	}
 
 	var redecl int
@@ -821,14 +789,12 @@ func (c *Compiler) compileAssignDefine(
 			return c.errorf(node, "no new variables on the left side of :=")
 		}
 
-		if op == token.Define && !exists && !isFunc {
-			symbol = c.symbolTable.Define(ident)
-		}
-
 		resolved = append(resolved, &lhsResolved{
 			ident:     ident,
 			selectors: selectors,
 			symbol:    symbol,
+			exists:    exists,
+			isFunc:    isFunc,
 		})
 	}
 
@@ -852,6 +818,10 @@ func (c *Compiler) compileAssignDefine(
 
 	for j, lr := range resolved {
 		numSel := len(lr.selectors)
+
+		if op == token.Define && !lr.exists && !lr.isFunc {
+			lr.symbol = c.symbolTable.Define(lr.ident)
+		}
 
 		// compile selector expressions (right to left)
 		for i := numSel - 1; i >= 0; i-- {
@@ -1229,8 +1199,7 @@ func (c *Compiler) currentSourceMap() map[int]parser.Pos {
 
 func (c *Compiler) enterScope() {
 	scope := compilationScope{
-		symbolInit: make(map[string]bool),
-		sourceMap:  make(map[int]parser.Pos),
+		sourceMap: make(map[int]parser.Pos),
 	}
 	c.scopes = append(c.scopes, scope)
 	c.scopeIndex++
@@ -1320,8 +1289,9 @@ func (c *Compiler) changeOperand(opPos int, operand ...int) {
 
 // optimizeFunc performs some code-level optimization for the current function
 // instructions. It also removes unreachable (dead code) instructions and adds
-// "returns" instruction if needed.
-func (c *Compiler) optimizeFunc(node parser.Node) {
+// "return" instruction if needed.
+// Returns the number of removed local variables.
+func (c *Compiler) optimizeFunc(node parser.Node) int {
 	// any instructions between RETURN and the function end
 	// or instructions between RETURN and jump target position
 	// are considered as unreachable.
@@ -1343,23 +1313,27 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 	posMap := make(map[int]int) // old position to new position
 	var dstIdx int
 	var deadCode bool
+	deadLocals := make(map[int]struct{}) // set of indices of dead local variables
 	iterateInstructions(c.scopes[c.scopeIndex].instructions,
 		func(pos int, opcode parser.Opcode, operands []int) bool {
-			switch {
-			case dsts[pos]:
+			if dsts[pos] {
 				dstIdx++
 				deadCode = false
-			case opcode == parser.OpReturn:
+			}
+			switch {
+			case opcode == parser.OpDefineLocal:
 				if deadCode {
+					deadLocals[operands[0]] = struct{}{}
 					return true
 				}
-				deadCode = true
+				delete(deadLocals, operands[0])
 			case deadCode:
 				return true
+			case opcode == parser.OpReturn:
+				deadCode = true
 			}
 			posMap[pos] = len(newInsts)
-			newInsts = append(newInsts,
-				MakeInstruction(opcode, operands...)...)
+			newInsts = append(newInsts, MakeInstruction(opcode, operands...)...)
 			return true
 		})
 
@@ -1375,13 +1349,11 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 				parser.OpOrJump:
 				newDst, ok := posMap[operands[0]]
 				if ok {
-					copy(newInsts[pos:],
-						MakeInstruction(opcode, newDst))
+					copy(newInsts[pos:], MakeInstruction(opcode, newDst))
 				} else if endPos == operands[0] {
 					// there's a jump instruction that jumps to the end of
 					// function compiler should append "return".
-					copy(newInsts[pos:],
-						MakeInstruction(opcode, newEndPost))
+					copy(newInsts[pos:], MakeInstruction(opcode, newEndPost))
 					appendReturn = true
 				} else {
 					panic(fmt.Errorf("invalid jump position: %d", newDst))
@@ -1409,6 +1381,8 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 	if appendReturn {
 		c.emit(node, parser.OpReturn, 0)
 	}
+
+	return len(deadLocals)
 }
 
 func (c *Compiler) emit(

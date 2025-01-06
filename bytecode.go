@@ -39,8 +39,8 @@ func (b *Bytecode) FormatConstants() (output []string) {
 	return output
 }
 
-// RemoveDuplicates finds and remove the duplicate values in Constants.
-// Note this function mutates Bytecode.
+// RemoveDuplicates finds and removes the duplicate values in Constants.
+// NOTE: this function mutates Bytecode.
 func (b *Bytecode) RemoveDuplicates() {
 	var deduped []Object
 
@@ -117,10 +117,9 @@ func (b *Bytecode) RemoveDuplicates() {
 	// replace with de-duplicated constants
 	b.Constants = deduped
 
-	// update CONST instructions with new indexes
-	// main function
+	// update CONST instructions in main function with new indexes
 	updateConstIndexes(b.MainFunction.instructions, indexMap)
-	// other compiled functions in constants
+	// update CONST instructions in other compiled functions
 	for _, c := range b.Constants {
 		switch c := c.(type) {
 		case *CompiledFunction:
@@ -129,31 +128,77 @@ func (b *Bytecode) RemoveDuplicates() {
 	}
 }
 
-func updateConstIndexes(insts []byte, indexMap map[int]int) {
-	i := 0
-	for i < len(insts) {
+// RemoveUnused finds and removes the unused values in Constants.
+// NOTE: this function mutates Bytecode.
+func (b *Bytecode) RemoveUnused() {
+	indexMap := make(map[int]int)
+	// find constants in use by looking at main function
+	stripped := b.removeUnused(b.MainFunction.instructions, nil, indexMap)
+	// iterate over other visible compiled functions
+	// and try to find more constants
+	for i := 0; i < len(stripped); i++ {
+		switch c := stripped[i]; c := c.(type) {
+		case *CompiledFunction:
+			stripped = b.removeUnused(c.instructions, stripped, indexMap)
+		}
+	}
+	// at this point we are left with the list of constants in use
+	b.Constants = stripped
+}
+
+func (b *Bytecode) removeUnused(insts []byte, stripped []Object, indexMap map[int]int) []Object {
+	for i := 0; i < len(insts); {
 		op := insts[i]
 		numOperands := parser.OpcodeOperands[op]
-		_, read := parser.ReadOperands(numOperands, insts[i+1:])
-
+		operands, read := parser.ReadOperands(numOperands, insts[i+1:])
 		switch op {
 		case parser.OpConstant:
-			curIdx := int(insts[i+2]) | int(insts[i+1])<<8
+			curIdx := operands[0]
+			newIdx, ok := indexMap[curIdx]
+			if !ok {
+				newIdx = len(stripped)
+				stripped = append(stripped, b.Constants[curIdx])
+				indexMap[curIdx] = newIdx
+			}
+			copy(insts[i:], MakeInstruction(op, newIdx))
+		case parser.OpClosure:
+			curIdx := operands[0]
+			numFree := operands[1]
+			newIdx, ok := indexMap[curIdx]
+			if !ok {
+				newIdx = len(stripped)
+				stripped = append(stripped, b.Constants[curIdx])
+				indexMap[curIdx] = newIdx
+			}
+			copy(insts[i:], MakeInstruction(op, newIdx, numFree))
+		}
+		i += 1 + read
+	}
+	return stripped
+}
+
+func updateConstIndexes(insts []byte, indexMap map[int]int) {
+	for i := 0; i < len(insts); {
+		op := insts[i]
+		numOperands := parser.OpcodeOperands[op]
+		operands, read := parser.ReadOperands(numOperands, insts[i+1:])
+		switch op {
+		case parser.OpConstant:
+			curIdx := operands[0]
 			newIdx, ok := indexMap[curIdx]
 			if !ok {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
 			copy(insts[i:], MakeInstruction(op, newIdx))
 		case parser.OpClosure:
-			curIdx := int(insts[i+2]) | int(insts[i+1])<<8
-			numFree := int(insts[i+3])
+			curIdx := operands[0]
+			numFree := operands[1]
 			newIdx, ok := indexMap[curIdx]
 			if !ok {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
 			copy(insts[i:], MakeInstruction(op, newIdx, numFree))
 		}
-
 		i += 1 + read
 	}
 }

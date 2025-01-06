@@ -3,7 +3,6 @@ package parser
 import (
 	"fmt"
 	"io"
-	"slices"
 	"sort"
 	"strconv"
 
@@ -276,7 +275,7 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 	var list []Expr
 	for p.token != token.RParen && p.token != token.EOF {
 		list = append(list, p.parseArgument())
-		if !p.expectComma("call argument", token.RParen) {
+		if !p.expectComma(token.RParen, "call argument") {
 			break
 		}
 	}
@@ -292,10 +291,10 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 	}
 }
 
-func (p *Parser) expectComma(want string, closing ...token.Token) bool {
+func (p *Parser) expectComma(closing token.Token, want string) bool {
 	if p.token == token.Comma {
 		p.next()
-		if slices.Contains(closing, p.token) {
+		if p.token == closing {
 			p.errorExpected(p.pos, want)
 			return false
 		}
@@ -533,7 +532,7 @@ func (p *Parser) parseArrayLit() Expr {
 	var elements []Expr
 	for p.token != token.RBrack && p.token != token.EOF {
 		elements = append(elements, p.parseArgument())
-		if !p.expectComma("array element", token.RBrack) {
+		if !p.expectComma(token.RBrack, "array element") {
 			break
 		}
 	}
@@ -903,11 +902,8 @@ func (p *Parser) parseReturnStmt() Stmt {
 	p.expect(token.Return)
 
 	var results []Expr
-	for p.token != token.Semicolon && p.token != token.RBrace {
-		results = append(results, p.parseExpr())
-		if !p.expectComma("return element", token.Semicolon, token.RBrace) {
-			break
-		}
+	if p.token != token.Semicolon && p.token != token.RBrace {
+		results = p.parseExprList()
 	}
 
 	p.expectSemi()
@@ -1076,7 +1072,7 @@ func (p *Parser) parseMapLit() *MapLit {
 	var elements []*MapElementLit
 	for p.token != token.RBrace && p.token != token.EOF {
 		elements = append(elements, p.parseMapElementLit())
-		if !p.expectComma("map element", token.RBrace) {
+		if !p.expectComma(token.RBrace, "map element") {
 			break
 		}
 	}

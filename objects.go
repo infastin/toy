@@ -229,7 +229,20 @@ func Equals(x, y Object) (bool, error) {
 
 func Compare(op token.Token, x, y Object) (bool, error) {
 	if x == y {
-		return op == token.Equal, nil
+		switch op {
+		case token.Equal:
+			return true, nil
+		case token.NotEqual:
+			return false, nil
+		}
+	}
+	if x == Undefined || y == Undefined {
+		switch op {
+		case token.Equal:
+			return false, nil
+		case token.NotEqual:
+			return true, nil
+		}
 	}
 	xc, ok := x.(Comparable)
 	if !ok {
@@ -450,8 +463,8 @@ func (o Bool) Compare(op token.Token, rhs Object) (bool, error) {
 // Float represents a floating point number value.
 type Float float64
 
-func (o Float) String() string   { return strconv.FormatFloat(float64(o), 'g', -1, 64) }
 func (o Float) TypeName() string { return "float" }
+func (o Float) String() string   { return strconv.FormatFloat(float64(o), 'g', -1, 64) }
 func (o Float) IsFalsy() bool    { return math.IsNaN(float64(o)) }
 func (o Float) Copy() Object     { return o }
 
@@ -548,8 +561,8 @@ func (o Float) UnaryOp(op token.Token) (Object, error) {
 // Int represents an integer value.
 type Int int64
 
-func (o Int) String() string   { return strconv.FormatInt(int64(o), 10) }
 func (o Int) TypeName() string { return "int" }
+func (o Int) String() string   { return strconv.FormatInt(int64(o), 10) }
 func (o Int) IsFalsy() bool    { return o == 0 }
 func (o Int) Copy() Object     { return o }
 func (o Int) Hash() uint64     { return hash.Int64(int64(o)) }
@@ -586,17 +599,17 @@ func (o Int) Compare(op token.Token, rhs Object) (bool, error) {
 	case Float:
 		switch op {
 		case token.Equal:
-			return o == Int(y), nil
+			return Float(o) == y, nil
 		case token.NotEqual:
-			return o != Int(y), nil
+			return Float(o) != y, nil
 		case token.Less:
-			return o < Int(y), nil
+			return Float(o) < y, nil
 		case token.Greater:
-			return o > Int(y), nil
+			return Float(o) > y, nil
 		case token.LessEq:
-			return o <= Int(y), nil
+			return Float(o) <= y, nil
 		case token.GreaterEq:
-			return o >= Int(y), nil
+			return Float(o) >= y, nil
 		}
 	case Char:
 		switch op {
@@ -906,8 +919,8 @@ func (it *bytesIterator) Next(key, value *Object) bool {
 // Char represents a character value.
 type Char rune
 
-func (o Char) String() string   { return strconv.QuoteRune(rune(o)) }
 func (o Char) TypeName() string { return "char" }
+func (o Char) String() string   { return strconv.QuoteRune(rune(o)) }
 func (o Char) IsFalsy() bool    { return o == 0 }
 func (o Char) Copy() Object     { return o }
 func (o Char) Hash() uint64     { return hash.Int32(int32(o)) }
@@ -1519,8 +1532,8 @@ type objectPtr struct {
 	p *Object
 }
 
-func (o *objectPtr) String() string   { return "free-var" }
 func (o *objectPtr) TypeName() string { return "<free-var>" }
+func (o *objectPtr) String() string   { return "free-var" }
 func (o *objectPtr) IsFalsy() bool    { return o.p == nil }
 func (o *objectPtr) Copy() Object     { return o }
 
@@ -1529,7 +1542,7 @@ type splatSequence struct {
 	s Sequence
 }
 
-func (o *splatSequence) String() string   { return "splat-sequence" }
 func (o *splatSequence) TypeName() string { return "<splat-sequence>" }
+func (o *splatSequence) String() string   { return "splat-sequence" }
 func (o *splatSequence) IsFalsy() bool    { return o.s == nil }
 func (o *splatSequence) Copy() Object     { return o }

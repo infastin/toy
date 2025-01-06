@@ -1,55 +1,56 @@
-package toy
+package toy_test
 
 import (
 	"context"
 	"testing"
+
+	"github.com/infastin/toy"
 )
 
 func TestEval(t *testing.T) {
-	eval := func(
-		expr string,
-		params map[string]Object,
-		expected Object,
-	) {
-		ctx := context.Background()
-		actual, err := Eval(ctx, expr, params)
-		expectNoError(t, err)
-		expectEqual(t, expected, actual)
-	}
+	expectEval(t, `undefined`, nil, toy.Undefined)
+	expectEval(t, `1`, nil, toy.Int(1))
+	expectEval(t, `19 + 23`, nil, toy.Int(42))
+	expectEval(t, `"foo bar"`, nil, toy.String("foo bar"))
+	expectEval(t, `[1, 2, 3][1]`, nil, toy.Int(2))
 
-	eval(`undefined`, nil, nil)
-	eval(`1`, nil, Int(1))
-	eval(`19 + 23`, nil, Int(42))
-	eval(`"foo bar"`, nil, String("foo bar"))
-	eval(`[1, 2, 3][1]`, nil, Int(2))
-
-	eval(
+	expectEval(t,
 		`5 + p`,
-		map[string]Object{
-			"p": Int(7),
+		map[string]toy.Object{
+			"p": toy.Int(7),
 		},
-		Int(12),
+		toy.Int(12),
 	)
-	eval(
+
+	expectEval(t,
 		`"seven is " + p`,
-		map[string]Object{
-			"p": Int(7),
+		map[string]toy.Object{
+			"p": toy.String("7"),
 		},
-		String("seven is 7"),
+		toy.String("seven is 7"),
 	)
-	eval(
+
+	expectEval(t,
 		`"" + a + b`,
-		map[string]Object{
-			"a": Int(7),
-			"b": String(" is seven"),
+		map[string]toy.Object{
+			"a": toy.String("7"),
+			"b": toy.String(" is seven"),
 		},
-		String("7 is seven"),
+		toy.String("7 is seven"),
 	)
-	eval(
+
+	expectEval(t,
 		`a ? "success" : "fail"`,
-		map[string]Object{
-			"a": Int(1),
+		map[string]toy.Object{
+			"a": toy.Int(1),
 		},
-		String("success"),
+		toy.String("success"),
 	)
+}
+
+func expectEval(t *testing.T, expr string, params map[string]toy.Object, expected toy.Object) {
+	ctx := context.Background()
+	actual, err := toy.Eval(ctx, expr, params)
+	expectNoError(t, err)
+	expectEqual(t, expected, actual)
 }

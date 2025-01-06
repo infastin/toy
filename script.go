@@ -104,6 +104,7 @@ func (s *Script) Compile() (*Compiled, error) {
 	// remove duplicates from constants
 	bytecode := c.Bytecode()
 	bytecode.RemoveDuplicates()
+	bytecode.RemoveUnused()
 
 	return &Compiled{
 		globalIndexes: globalIndexes,

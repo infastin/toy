@@ -25,15 +25,14 @@ func newCompiler() *compiler {
 	s := new(compiler)
 
 	replPrint := func(args ...toy.Object) (ret toy.Object, err error) {
-		var printArgs []string
-		for _, arg := range args {
-			if arg == toy.Undefined {
-				printArgs = append(printArgs, "<undefined>")
-			} else {
-				printArgs = append(printArgs, arg.String())
+		var b strings.Builder
+		for i, arg := range args {
+			if i != 0 {
+				b.WriteString(" ")
 			}
+			b.WriteString(arg.String())
 		}
-		s.output = strings.Join(printArgs, " ")
+		s.output = b.String()
 		return toy.Undefined, nil
 	}
 
@@ -490,6 +489,8 @@ func (m *model) handleUserInput(runes []rune) {
 			if m.line == len(m.input) {
 				m.input = append(m.input, nil)
 			}
+		case r == '\t':
+			buf = append(buf, ' ', ' ')
 		case unicode.IsPrint(r):
 			buf = append(buf, r)
 		}
@@ -560,6 +561,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.deleteBeforeCursor()
 		case "enter":
 			return m.onEnter()
+		case "tab":
+			m.handleUserInput([]rune{' ', ' '})
 		default:
 			m.handleUserInput(msg.Runes)
 		}

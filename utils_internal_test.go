@@ -1,11 +1,11 @@
-package toy_test
+package toy
 
 import (
 	"fmt"
 	"reflect"
 	"testing"
 
-	"github.com/infastin/toy"
+	"github.com/infastin/toy/parser"
 
 	"github.com/stretchr/testify/require"
 )
@@ -52,33 +52,33 @@ func expectEqual(t testing.TB, expected, actual any, msg ...any) {
 	expectSameType(t, expected, actual, msg...)
 
 	switch expected := expected.(type) {
-	case []toy.Object:
-		expectEqualObjects(t, expected, actual.([]toy.Object), msg...)
-	case *toy.Array:
-		expectEqualArray(t, expected, actual.(*toy.Array), msg...)
-	case *toy.Map:
-		expectEqualMap(t, expected, actual.(*toy.Map), msg...)
-	case toy.Tuple:
-		expectEqualTuple(t, expected, actual.(toy.Tuple), msg...)
-	case *toy.Error:
-		expectEqualError(t, expected, actual.(*toy.Error), msg...)
-	case *toy.CompiledFunction:
-		expectEqualCompiledFunction(t, expected, actual.(*toy.CompiledFunction), msg...)
-	case *toy.Bytecode:
-		expectEqualBytecode(t, expected, actual.(*toy.Bytecode), msg...)
+	case []Object:
+		expectEqualObjects(t, expected, actual.([]Object), msg...)
+	case *Array:
+		expectEqualArray(t, expected, actual.(*Array), msg...)
+	case *Map:
+		expectEqualMap(t, expected, actual.(*Map), msg...)
+	case Tuple:
+		expectEqualTuple(t, expected, actual.(Tuple), msg...)
+	case *Error:
+		expectEqualError(t, expected, actual.(*Error), msg...)
+	case *CompiledFunction:
+		expectEqualCompiledFunction(t, expected, actual.(*CompiledFunction), msg...)
+	case *Bytecode:
+		expectEqualBytecode(t, expected, actual.(*Bytecode), msg...)
 	default:
 		require.Equal(t, expected, actual, msg...)
 	}
 }
 
-func expectEqualObjects(t testing.TB, expected, actual []toy.Object, msg ...any) {
+func expectEqualObjects(t testing.TB, expected, actual []Object, msg ...any) {
 	expectEqual(t, len(expected), len(actual), msg...)
 	for i := 0; i < len(expected); i++ {
 		expectEqual(t, expected[i], actual[i], msg...)
 	}
 }
 
-func expectEqualArray(t testing.TB, expected, actual *toy.Array, msg ...any) {
+func expectEqualArray(t testing.TB, expected, actual *Array, msg ...any) {
 	expectEqual(t, expected.Mutable(), actual.Mutable(), msg...)
 	expectEqual(t, expected.Len(), actual.Len(), msg...)
 	for i := range expected.Len() {
@@ -86,7 +86,7 @@ func expectEqualArray(t testing.TB, expected, actual *toy.Array, msg ...any) {
 	}
 }
 
-func expectEqualMap(t testing.TB, expected, actual *toy.Map, msg ...any) {
+func expectEqualMap(t testing.TB, expected, actual *Map, msg ...any) {
 	expectEqual(t, expected.Mutable(), actual.Mutable(), msg...)
 	expectEqual(t, expected.Len(), actual.Len(), msg...)
 
@@ -98,14 +98,14 @@ func expectEqualMap(t testing.TB, expected, actual *toy.Map, msg ...any) {
 	}
 }
 
-func expectEqualTuple(t testing.TB, expected, actual toy.Tuple, msg ...any) {
+func expectEqualTuple(t testing.TB, expected, actual Tuple, msg ...any) {
 	expectEqual(t, expected.Len(), actual.Len(), msg...)
 	for i := range expected {
 		expectEqual(t, expected[i], actual[i], msg...)
 	}
 }
 
-func expectEqualError(t testing.TB, expected, actual *toy.Error, msg ...any) {
+func expectEqualError(t testing.TB, expected, actual *Error, msg ...any) {
 	expectEqual(t, expected.Message(), actual.Message(), msg...)
 	if expected.Cause() == nil {
 		expectNil(t, actual.Cause(), "expected nil, but got not nil")
@@ -114,14 +114,14 @@ func expectEqualError(t testing.TB, expected, actual *toy.Error, msg ...any) {
 	expectEqualError(t, expected.Cause(), actual.Cause(), msg...)
 }
 
-func expectEqualCompiledFunction(t testing.TB, expected, actual *toy.CompiledFunction, msg ...any) {
+func expectEqualCompiledFunction(t testing.TB, expected, actual *CompiledFunction, msg ...any) {
 	expectEqual(t, expected.Instructions(), actual.Instructions(), msg...)
 	expectEqual(t, expected.NumParameters(), actual.NumParameters(), msg...)
 	expectEqual(t, expected.VarArgs(), actual.VarArgs(), msg...)
 	expectEqual(t, expected.NumLocals(), actual.NumLocals(), msg...)
 }
 
-func expectEqualBytecode(t testing.TB, expected, actual *toy.Bytecode, msg ...any) {
+func expectEqualBytecode(t testing.TB, expected, actual *Bytecode, msg ...any) {
 	expectEqualCompiledFunction(t, expected.MainFunction, actual.MainFunction)
 	expectEqualObjects(t, expected.Constants, actual.Constants, msg...)
 }
@@ -135,119 +135,120 @@ func isNil(v any) bool {
 	return kind >= reflect.Chan && kind <= reflect.Slice && value.IsNil()
 }
 
-type ARR []any
-type IARR []any
-type MAP map[string]any
-type IMAP map[string]any
+func objectsArray(o ...Object) []Object {
+	return o
+}
 
-func makeMap(pairs ...any) *toy.Map {
-	out := new(toy.Map)
+func compiledFunction(numLocals, numParams int, varArgs bool, insts ...[]byte) *CompiledFunction {
+	return &CompiledFunction{
+		instructions:  concatInsts(insts...),
+		numLocals:     numLocals,
+		numParameters: numParams,
+		varArgs:       varArgs,
+	}
+}
+
+func concatInsts(instructions ...[]byte) []byte {
+	var concat []byte
+	for _, i := range instructions {
+		concat = append(concat, i...)
+	}
+	return concat
+}
+
+func bytecode(
+	instructions []byte,
+	constants []Object,
+) *Bytecode {
+	return &Bytecode{
+		FileSet:      parser.NewFileSet(),
+		MainFunction: &CompiledFunction{instructions: instructions},
+		Constants:    constants,
+	}
+}
+
+func makeMap(pairs ...any) *Map {
+	out := new(Map)
 	for i := 0; i < len(pairs); i += 2 {
 		key := pairs[i].(string)
-		out.IndexSet(toy.String(key), toObject(pairs[i+1])) //nolint:errcheck
+		out.IndexSet(String(key), toObject(pairs[i+1])) //nolint:errcheck
 	}
 	return out
 }
 
-func makeImmutableMap(pars ...any) *toy.Map {
-	return makeMap(pars...).AsImmutable().(*toy.Map)
+func makeImmutableMap(pars ...any) *Map {
+	return makeMap(pars...).AsImmutable().(*Map)
 }
 
-func makeArray(args ...any) *toy.Array {
-	var elems []toy.Object
+func makeArray(args ...any) *Array {
+	var elems []Object
 	for _, arg := range args {
 		elems = append(elems, toObject(arg))
 	}
-	return toy.NewArray(elems)
+	return NewArray(elems)
 }
 
-func makeImmutableArray(args ...any) *toy.Array {
-	return makeArray(args...).AsImmutable().(*toy.Array)
+func makeImmutableArray(args ...any) *Array {
+	return makeArray(args...).AsImmutable().(*Array)
 }
 
-func makeTuple(args ...any) toy.Tuple {
-	var tup toy.Tuple
+func makeTuple(args ...any) Tuple {
+	var tup Tuple
 	for _, arg := range args {
 		tup = append(tup, toObject(arg))
 	}
 	return tup
 }
 
-func toObject(v any) toy.Object {
+type ARR []any
+type IARR []any
+type MAP map[string]any
+type IMAP map[string]any
+
+func toObject(v any) Object {
 	switch v := v.(type) {
-	case toy.Object:
+	case Object:
 		return v
 	case string:
-		return toy.String(v)
+		return String(v)
 	case int64:
-		return toy.Int(v)
+		return Int(v)
 	case int:
-		return toy.Int(v)
+		return Int(v)
 	case bool:
-		return toy.Bool(v)
+		return Bool(v)
 	case rune:
-		return toy.Char(v)
+		return Char(v)
 	case byte: // for convenience
-		return toy.Char(v)
+		return Char(v)
 	case float64:
-		return toy.Float(v)
+		return Float(v)
 	case []byte:
-		return toy.Bytes(v)
+		return Bytes(v)
 	case ARR:
-		var elems []toy.Object
+		var elems []Object
 		for _, e := range v {
 			elems = append(elems, toObject(e))
 		}
-		return toy.NewArray(elems)
+		return NewArray(elems)
 	case IARR:
-		var elems []toy.Object
+		var elems []Object
 		for _, e := range v {
 			elems = append(elems, toObject(e))
 		}
-		return toy.NewArray(elems).AsImmutable()
+		return NewArray(elems).AsImmutable()
 	case MAP:
-		m := new(toy.Map)
+		m := new(Map)
 		for k, v := range v {
-			m.IndexSet(toy.String(k), toObject(v)) //nolint:errcheck
+			m.IndexSet(String(k), toObject(v)) //nolint:errcheck
 		}
 		return m
 	case IMAP:
-		m := new(toy.Map)
+		m := new(Map)
 		for k, v := range v {
-			m.IndexSet(toy.String(k), toObject(v)) //nolint:errcheck
+			m.IndexSet(String(k), toObject(v)) //nolint:errcheck
 		}
 		return m.AsImmutable()
-	case nil:
-		return toy.Undefined
 	}
 	panic(fmt.Errorf("unknown type: %T", v))
-}
-
-func objectZeroCopy(o toy.Object) toy.Object {
-	switch o.(type) {
-	case toy.Int:
-		return toy.Int(0)
-	case toy.Float:
-		return toy.Float(0)
-	case toy.Bool:
-		return toy.Bool(false)
-	case toy.Char:
-		return toy.Char(0)
-	case toy.String:
-		return toy.String("")
-	case *toy.Array:
-		return new(toy.Array)
-	case *toy.Map:
-		return new(toy.Map)
-	case toy.UndefinedType:
-		return toy.Undefined
-	case *toy.Error:
-		return &toy.Error{}
-	case toy.Bytes:
-		return toy.Bytes{}
-	case toy.Tuple:
-		return toy.Tuple{}
-	default:
-		panic(fmt.Errorf("unknown object type: %s", o.TypeName()))
-	}
 }

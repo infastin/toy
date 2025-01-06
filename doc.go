@@ -1,3 +1,3 @@
-// Toy is a small, dynamic, fast, secure script language for Go.
+// The Toy Language is a small, dynamic, fast, toy scripting language written in Go.
 
 package toy

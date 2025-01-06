@@ -11,6 +11,7 @@ import (
 
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/stdlib"
 )
 
 var (
@@ -100,6 +101,7 @@ func PrintTrace(inputData []byte, inputFile string) error {
 
 	bytecode := c.Bytecode()
 	bytecode.RemoveDuplicates()
+	bytecode.RemoveUnused()
 
 	var b strings.Builder
 
@@ -151,13 +153,20 @@ func PrintTrace(inputData []byte, inputFile string) error {
 // CompileAndRun compiles the source code and executes it.
 func CompileAndRun(inputData []byte, inputFile string) error {
 	script := toy.NewScript(inputData)
+
+	mods := toy.NewModuleMap()
+	mods.Add("fmt", stdlib.FmtModule)
+	script.SetImports(mods)
+
 	script.EnableFileImport(true)
 	if err := script.SetImportDir(filepath.Dir(inputFile)); err != nil {
 		return err
 	}
+
 	if _, err := script.Run(); err != nil {
 		return err
 	}
+
 	return nil
 }
 

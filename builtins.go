@@ -68,14 +68,22 @@ var (
 
 func builtinTypeName(args ...Object) (Object, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf("want 1 argument, got %d", len(args))
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
 	}
 	return String(args[0].TypeName()), nil
 }
 
 func builtinCopy(args ...Object) (Object, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf("want 1 argument, got %d", len(args))
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
 	}
 	return args[0].Copy(), nil
 }
@@ -105,12 +113,19 @@ func builtinAppend(args ...Object) (Object, error) {
 
 func builtinDelete(args ...Object) (Object, error) {
 	if len(args) < 2 {
-		return nil, fmt.Errorf("want at least 2 arguments, got %d", len(args))
+		return nil, &WrongNumArgumentsError{
+			WantMin: 2,
+			Got:     len(args),
+		}
 	}
 	switch x := args[0].(type) {
 	case *Array:
 		if len(args) > 3 {
-			return nil, fmt.Errorf("want at most 3 arguments, got %d", len(args))
+			return nil, &WrongNumArgumentsError{
+				WantMin: 2,
+				WantMax: 3,
+				Got:     len(args),
+			}
 		}
 		var (
 			start, stop int
@@ -145,7 +160,11 @@ func builtinDelete(args ...Object) (Object, error) {
 		return NewArray(deleted), nil
 	case *Map:
 		if len(args) > 2 {
-			return nil, fmt.Errorf("want at most 2 arguments, got %d", len(args))
+			return nil, &WrongNumArgumentsError{
+				WantMin: 2,
+				WantMax: 2,
+				Got:     len(args),
+			}
 		}
 		value, err := x.Delete(args[1])
 		if err != nil {
@@ -153,10 +172,10 @@ func builtinDelete(args ...Object) (Object, error) {
 		}
 		return value, nil
 	default:
-		return nil, &ErrInvalidArgumentType{
-			Name:     "collection",
-			Expected: "array or map",
-			Found:    x.TypeName(),
+		return nil, &InvalidArgumentTypeError{
+			Name: "collection",
+			Want: "array or map",
+			Got:  x.TypeName(),
 		}
 	}
 }
@@ -209,7 +228,10 @@ func builtinSplice(args ...Object) (Object, error) {
 
 func builtinInsert(args ...Object) (Object, error) {
 	if len(args) < 2 {
-		return nil, fmt.Errorf("want at least 2 arguments, got %d", len(args))
+		return nil, &WrongNumArgumentsError{
+			WantMin: 2,
+			Got:     len(args),
+		}
 	}
 	switch x := args[0].(type) {
 	case *Array:
@@ -231,7 +253,11 @@ func builtinInsert(args ...Object) (Object, error) {
 		return Undefined, nil
 	case *Map:
 		if len(args) != 3 {
-			return nil, fmt.Errorf("want 3 arguments, got %d", len(args))
+			return nil, &WrongNumArgumentsError{
+				WantMin: 2,
+				WantMax: 3,
+				Got:     len(args),
+			}
 		}
 		var index, value Object
 		if err := UnpackArgs(args[1:], "index", &index, "value", &value); err != nil {
@@ -242,17 +268,21 @@ func builtinInsert(args ...Object) (Object, error) {
 		}
 		return Undefined, nil
 	default:
-		return nil, &ErrInvalidArgumentType{
-			Name:     "collection",
-			Expected: "array or map",
-			Found:    x.TypeName(),
+		return nil, &InvalidArgumentTypeError{
+			Name: "collection",
+			Want: "array or map",
+			Got:  x.TypeName(),
 		}
 	}
 }
 
 func builtinClear(args ...Object) (Object, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf("want 1 argument, got %d", len(args))
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
 	}
 	switch x := args[0].(type) {
 	case *Array:
@@ -264,10 +294,10 @@ func builtinClear(args ...Object) (Object, error) {
 			return nil, err
 		}
 	default:
-		return nil, &ErrInvalidArgumentType{
-			Name:     "collection",
-			Expected: "array or map",
-			Found:    x.TypeName(),
+		return nil, &InvalidArgumentTypeError{
+			Name: "collection",
+			Want: "array or map",
+			Got:  x.TypeName(),
 		}
 	}
 	return Undefined, nil
@@ -303,15 +333,17 @@ func builtinRange(args ...Object) (Object, error) {
 	); err != nil {
 		return nil, err
 	}
-	if step < 0 {
+	if step <= 0 {
 		return nil, fmt.Errorf("invalid range step: must be > 0, got %d", step)
 	}
-	elems := make([]Object, 0, (stop-start)/step)
+	var elems []Object
 	if start <= stop {
+		elems = make([]Object, 0, (stop-start)/step)
 		for i := start; i < stop; i += step {
 			elems = append(elems, Int(i))
 		}
 	} else {
+		elems = make([]Object, 0, (start-stop)/step)
 		for i := start; i > stop; i -= step {
 			elems = append(elems, Int(i))
 		}
@@ -321,7 +353,10 @@ func builtinRange(args ...Object) (Object, error) {
 
 func builtinError(args ...Object) (ret Object, err error) {
 	if len(args) < 1 {
-		return nil, fmt.Errorf("want at least 1 argument, got %d", len(args))
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			Got:     len(args),
+		}
 	}
 	var cause *Error
 	if e, ok := args[0].(*Error); ok {
@@ -357,7 +392,11 @@ func builtinTuple(args ...Object) (ret Object, err error) {
 func builtinConvert[T Object](args ...Object) (Object, error) {
 	argsLen := len(args)
 	if argsLen == 0 || argsLen > 2 {
-		return nil, fmt.Errorf("want 1 or 2 arguments, got %d", len(args))
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 2,
+			Got:     len(args),
+		}
 	}
 	var v T
 	if err := Convert(&v, args[0]); err == nil {
@@ -371,7 +410,11 @@ func builtinConvert[T Object](args ...Object) (Object, error) {
 
 func builtinIs[T Object](args ...Object) (Object, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf("want at most 1 argument, got %d", len(args))
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
 	}
 	_, ok := args[0].(T)
 	return Bool(ok), nil
@@ -379,7 +422,11 @@ func builtinIs[T Object](args ...Object) (Object, error) {
 
 func builtinIsFunction(args ...Object) (Object, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf("want at most 1 argument, got %d", len(args))
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
 	}
 	switch args[0].(type) {
 	case *BuiltinFunction, *CompiledFunction:
@@ -390,7 +437,11 @@ func builtinIsFunction(args ...Object) (Object, error) {
 
 func builtinIsImmutable(args ...Object) (Object, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf("want at most 1 argument, got %d", len(args))
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
 	}
 	return Bool(!Mutable(args[0])), nil
 }

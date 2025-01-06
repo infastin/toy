@@ -191,11 +191,19 @@ func (s *Scanner) Scan() (
 		case '^':
 			tok = s.switch2(token.Xor, '=', token.XorAssign)
 		case '<':
-			tok = s.switch3(token.Less, '=', token.LessEq, '<', token.Shl)
-			tok = s.switch2(token.Shl, '=', token.ShlAssign)
+			if s.ch == '<' {
+				s.next()
+				tok = s.switch2(token.Shl, '=', token.ShlAssign)
+			} else {
+				tok = s.switch2(token.Less, '=', token.LessEq)
+			}
 		case '>':
-			tok = s.switch3(token.Greater, '=', token.GreaterEq, '<', token.Shr)
-			tok = s.switch2(token.Shr, '=', token.ShrAssign)
+			if s.ch == '>' {
+				s.next()
+				tok = s.switch2(token.Shr, '=', token.ShrAssign)
+			} else {
+				tok = s.switch2(token.Greater, '=', token.GreaterEq)
+			}
 		case '=':
 			tok = s.switch3(token.Assign, '=', token.Equal, '>', token.Arrow)
 		case '!':

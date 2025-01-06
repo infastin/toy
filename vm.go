@@ -308,19 +308,6 @@ func (v *VM) run() {
 			}
 			n := s.Len()
 
-			lowIdx := 0
-			if op&0x1 != 0 {
-				low := v.stack[v.sp-1]
-				v.sp--
-
-				if lowInt, ok := low.(Int); ok {
-					lowIdx = int(lowInt)
-				} else {
-					v.err = fmt.Errorf("invalid slice index type: %s", low.TypeName())
-					return
-				}
-			}
-
 			highIdx := n
 			if op&0x2 != 0 {
 				high := v.stack[v.sp-1]
@@ -330,6 +317,19 @@ func (v *VM) run() {
 					highIdx = int(highInt)
 				} else {
 					v.err = fmt.Errorf("invalid slice index type: %s", high.TypeName())
+					return
+				}
+			}
+
+			lowIdx := 0
+			if op&0x1 != 0 {
+				low := v.stack[v.sp-1]
+				v.sp--
+
+				if lowInt, ok := low.(Int); ok {
+					lowIdx = int(lowInt)
+				} else {
+					v.err = fmt.Errorf("invalid slice index type: %s", low.TypeName())
 					return
 				}
 			}
@@ -406,11 +406,16 @@ func (v *VM) run() {
 
 				if numArgs != callee.numParameters {
 					if callee.varArgs {
-						v.err = fmt.Errorf("want at least %d argument(s), got %d",
-							callee.numParameters-1, numArgs)
+						v.err = &WrongNumArgumentsError{
+							WantMin: callee.numParameters - 1,
+							Got:     numArgs,
+						}
 					} else {
-						v.err = fmt.Errorf("want %d argument(s), got %d",
-							callee.numParameters, numArgs)
+						v.err = &WrongNumArgumentsError{
+							WantMin: callee.numParameters,
+							WantMax: callee.numParameters,
+							Got:     numArgs,
+						}
 					}
 					return
 				}

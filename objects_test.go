@@ -1,143 +1,144 @@
-package toy
+package toy_test
 
 import (
 	"slices"
 	"testing"
 
+	"github.com/infastin/toy"
 	"github.com/infastin/toy/token"
 )
 
 func TestObject_TypeName(t *testing.T) {
-	var o Object = Int(0)
+	var o toy.Object = toy.Int(0)
 	expectEqual(t, "int", o.TypeName())
-	o = Float(0)
+	o = toy.Float(0)
 	expectEqual(t, "float", o.TypeName())
-	o = Char(0)
+	o = toy.Char(0)
 	expectEqual(t, "char", o.TypeName())
-	o = String("")
+	o = toy.String("")
 	expectEqual(t, "string", o.TypeName())
-	o = Bool(false)
+	o = toy.Bool(false)
 	expectEqual(t, "bool", o.TypeName())
-	o = &Array{}
+	o = &toy.Array{}
 	expectEqual(t, "array", o.TypeName())
-	o = &Map{}
+	o = &toy.Map{}
 	expectEqual(t, "map", o.TypeName())
-	o = &BuiltinFunction{Name: "fn"}
+	o = &toy.BuiltinFunction{Name: "fn"}
 	expectEqual(t, "builtin-function:fn", o.TypeName())
-	o = &CompiledFunction{}
+	o = &toy.CompiledFunction{}
 	expectEqual(t, "compiled-function", o.TypeName())
-	o = UndefinedType(0)
+	o = toy.UndefinedType(0)
 	expectEqual(t, "undefined", o.TypeName())
-	o = &Error{}
+	o = &toy.Error{}
 	expectEqual(t, "error", o.TypeName())
-	o = Bytes{}
+	o = toy.Bytes{}
 	expectEqual(t, "bytes", o.TypeName())
-	o = Tuple{}
+	o = toy.Tuple{}
 	expectEqual(t, "tuple", o.TypeName())
 }
 
 func TestObject_IsFalsy(t *testing.T) {
-	var o Object = Int(0)
+	var o toy.Object = toy.Int(0)
 	expectTrue(t, o.IsFalsy())
-	o = Int(1)
+	o = toy.Int(1)
 	expectFalse(t, o.IsFalsy())
-	o = Float(0)
+	o = toy.Float(0)
 	expectFalse(t, o.IsFalsy())
-	o = Float(1)
+	o = toy.Float(1)
 	expectFalse(t, o.IsFalsy())
-	o = Char(' ')
+	o = toy.Char(' ')
 	expectFalse(t, o.IsFalsy())
-	o = Char('T')
+	o = toy.Char('T')
 	expectFalse(t, o.IsFalsy())
-	o = String("")
+	o = toy.String("")
 	expectTrue(t, o.IsFalsy())
-	o = String(" ")
+	o = toy.String(" ")
 	expectFalse(t, o.IsFalsy())
-	o = &Array{}
+	o = &toy.Array{}
 	expectTrue(t, o.IsFalsy())
-	o = makeArray(Undefined)
+	o = makeArray(toy.Undefined)
 	expectFalse(t, o.IsFalsy())
-	o = &Map{}
+	o = &toy.Map{}
 	expectTrue(t, o.IsFalsy())
-	o = makeMap("a", Undefined)
+	o = makeMap("a", toy.Undefined)
 	expectFalse(t, o.IsFalsy())
-	o = &BuiltinFunction{}
+	o = &toy.BuiltinFunction{}
 	expectFalse(t, o.IsFalsy())
-	o = &CompiledFunction{}
+	o = &toy.CompiledFunction{}
 	expectFalse(t, o.IsFalsy())
-	o = UndefinedType(0)
+	o = toy.UndefinedType(0)
 	expectTrue(t, o.IsFalsy())
-	o = &Error{}
+	o = &toy.Error{}
 	expectTrue(t, o.IsFalsy())
-	o = Bytes{}
+	o = toy.Bytes{}
 	expectTrue(t, o.IsFalsy())
-	o = Bytes{1, 2}
+	o = toy.Bytes{1, 2}
 	expectFalse(t, o.IsFalsy())
-	o = Tuple{}
+	o = toy.Tuple{}
 	expectTrue(t, o.IsFalsy())
-	o = Tuple{Undefined}
+	o = toy.Tuple{toy.Undefined}
 	expectFalse(t, o.IsFalsy())
 }
 
 func TestObject_String(t *testing.T) {
-	var o Object = Int(0)
+	var o toy.Object = toy.Int(0)
 	expectEqual(t, "0", o.String())
-	o = Int(1)
+	o = toy.Int(1)
 	expectEqual(t, "1", o.String())
-	o = Float(0)
+	o = toy.Float(0)
 	expectEqual(t, "0", o.String())
-	o = Float(1)
+	o = toy.Float(1)
 	expectEqual(t, "1", o.String())
-	o = Char(' ')
+	o = toy.Char(' ')
 	expectEqual(t, "' '", o.String())
-	o = Char('T')
+	o = toy.Char('T')
 	expectEqual(t, "'T'", o.String())
-	o = String("")
+	o = toy.String("")
 	expectEqual(t, `""`, o.String())
-	o = String(" ")
+	o = toy.String(" ")
 	expectEqual(t, `" "`, o.String())
-	o = &Array{}
+	o = &toy.Array{}
 	expectEqual(t, "[]", o.String())
-	o = &Map{}
+	o = &toy.Map{}
 	expectEqual(t, "{}", o.String())
-	o = &Error{}
+	o = &toy.Error{}
 	expectEqual(t, "", o.String())
-	o = &Error{message: "error 1"}
+	o = toy.NewError("error 1")
 	expectEqual(t, "error 1", o.String())
-	o = UndefinedType(0)
+	o = toy.UndefinedType(0)
 	expectEqual(t, "<undefined>", o.String())
-	o = Bytes{}
+	o = toy.Bytes{}
 	expectEqual(t, "[]", o.String())
-	o = Bytes{'f', 'o', 'o'}
+	o = toy.Bytes{'f', 'o', 'o'}
 	expectEqual(t, "[102, 111, 111]", o.String())
-	o = Tuple{}
+	o = toy.Tuple{}
 	expectEqual(t, "", o.String())
 }
 
 func TestObject_BinaryOp(t *testing.T) {
-	var o Object = Char(0)
-	_, err := BinaryOp(token.Add, o, Undefined)
+	var o toy.Object = toy.Char(0)
+	_, err := toy.BinaryOp(token.Add, o, toy.Undefined)
 	expectError(t, err)
-	o = Bool(false)
-	_, err = BinaryOp(token.Add, o, Undefined)
+	o = toy.Bool(false)
+	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
 	expectError(t, err)
-	o = &Map{}
-	_, err = BinaryOp(token.Add, o, Undefined)
+	o = &toy.Map{}
+	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
 	expectError(t, err)
-	o = &BuiltinFunction{}
-	_, err = BinaryOp(token.Add, o, Undefined)
+	o = &toy.BuiltinFunction{}
+	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
 	expectError(t, err)
-	o = &CompiledFunction{}
-	_, err = BinaryOp(token.Add, o, Undefined)
+	o = &toy.CompiledFunction{}
+	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
 	expectError(t, err)
-	o = UndefinedType(0)
-	_, err = BinaryOp(token.Add, o, Undefined)
+	o = toy.UndefinedType(0)
+	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
 	expectError(t, err)
-	o = &Error{}
-	_, err = BinaryOp(token.Add, o, Undefined)
+	o = &toy.Error{}
+	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
 	expectError(t, err)
-	o = Tuple{}
-	_, err = BinaryOp(token.Add, o, Undefined)
+	o = toy.Tuple{}
+	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
 	expectError(t, err)
 }
 
@@ -150,13 +151,13 @@ func TestArray_BinaryOp(t *testing.T) {
 }
 
 func TestError_Compare(t *testing.T) {
-	err1 := &Error{message: "some error"}
+	err1 := toy.NewError("some error")
 	err2 := err1
 
 	testCompare(t, err1, token.Equal, err2, true)
 	testCompare(t, err2, token.Equal, err1, true)
 
-	err2 = &Error{message: "some error"}
+	err2 = toy.NewError("some error")
 
 	testCompare(t, err1, token.Equal, err2, false)
 	testCompare(t, err2, token.Equal, err1, false)
@@ -177,7 +178,7 @@ func TestFloat_BinaryOp(t *testing.T) {
 	for _, op := range ops {
 		for l := float64(-2); l <= 2.1; l += 0.4 {
 			for r := float64(-2); r <= 2.1; r += 0.4 {
-				testBinaryOp(t, Float(l), op.tok, Float(r), Float(op.fn(l, r)))
+				testBinaryOp(t, toy.Float(l), op.tok, toy.Float(r), toy.Float(op.fn(l, r)))
 			}
 		}
 	}
@@ -187,7 +188,7 @@ func TestFloat_BinaryOp(t *testing.T) {
 		for l := float64(-2); l <= 2.1; l += 0.4 {
 			for r := int64(-2); r <= 2; r++ {
 				if op.tok != token.Quo || r != 0 {
-					testBinaryOp(t, Float(l), op.tok, Int(r), Float(op.fn(l, float64(r))))
+					testBinaryOp(t, toy.Float(l), op.tok, toy.Int(r), toy.Float(op.fn(l, float64(r))))
 				}
 			}
 		}
@@ -211,7 +212,7 @@ func TestFloat_Compare(t *testing.T) {
 	for _, op := range ops {
 		for l := float64(-2); l <= 2.1; l += 0.4 {
 			for r := float64(-2); r <= 2.1; r += 0.4 {
-				testCompare(t, Float(l), op.tok, Float(r), op.fn(l, r))
+				testCompare(t, toy.Float(l), op.tok, toy.Float(r), op.fn(l, r))
 			}
 		}
 	}
@@ -220,7 +221,7 @@ func TestFloat_Compare(t *testing.T) {
 	for _, op := range ops {
 		for l := float64(-2); l <= 2.1; l += 0.4 {
 			for r := int64(-2); r <= 2; r++ {
-				testCompare(t, Float(l), op.tok, Int(r), op.fn(l, float64(r)))
+				testCompare(t, toy.Float(l), op.tok, toy.Int(r), op.fn(l, float64(r)))
 			}
 		}
 	}
@@ -241,7 +242,9 @@ func TestInt_BinaryOp(t *testing.T) {
 	for _, op := range iiOps {
 		for l := int64(-2); l <= 2; l++ {
 			for r := int64(-2); r <= 2; r++ {
-				testBinaryOp(t, Int(l), op.tok, Int(r), Int(op.fn(l, r)))
+				if op.tok != token.Quo || r != 0 {
+					testBinaryOp(t, toy.Int(l), op.tok, toy.Int(r), toy.Int(op.fn(l, r)))
+				}
 			}
 		}
 	}
@@ -275,7 +278,7 @@ func TestInt_BinaryOp(t *testing.T) {
 	for _, op := range bOps {
 		for _, tt := range bTests {
 			lhs, rhs := tt.lhs, tt.rhs
-			testBinaryOp(t, Int(lhs), op.tok, Int(rhs), Int(op.fn(lhs, rhs)))
+			testBinaryOp(t, toy.Int(lhs), op.tok, toy.Int(rhs), toy.Int(op.fn(lhs, rhs)))
 		}
 	}
 
@@ -284,14 +287,14 @@ func TestInt_BinaryOp(t *testing.T) {
 	// int << int
 	for _, lhs := range shTests {
 		for s := int64(0); s < 64; s++ {
-			testBinaryOp(t, Int(lhs), token.Shl, Int(s), Int(lhs<<s))
+			testBinaryOp(t, toy.Int(lhs), token.Shl, toy.Int(s), toy.Int(lhs<<s))
 		}
 	}
 
 	// int >> int
 	for _, lhs := range shTests {
 		for s := int64(0); s < 64; s++ {
-			testBinaryOp(t, Int(lhs), token.Shr, Int(s), Int(lhs<<s))
+			testBinaryOp(t, toy.Int(lhs), token.Shr, toy.Int(s), toy.Int(lhs>>s))
 		}
 	}
 
@@ -310,7 +313,7 @@ func TestInt_BinaryOp(t *testing.T) {
 		for l := int64(-2); l <= 2; l++ {
 			for r := float64(-2); r <= 2.1; r += 0.5 {
 				if op.tok != token.Quo || l != 0 {
-					testBinaryOp(t, Int(l), op.tok, Float(r), Float(op.fn(float64(l), r)))
+					testBinaryOp(t, toy.Int(l), op.tok, toy.Float(r), toy.Float(op.fn(float64(l), r)))
 				}
 			}
 		}
@@ -334,7 +337,7 @@ func TestInt_Compare(t *testing.T) {
 	for _, op := range iiOps {
 		for l := int64(-2); l <= 2; l++ {
 			for r := int64(-2); r <= 2; r++ {
-				testCompare(t, Int(l), op.tok, Int(r), op.fn(l, r))
+				testCompare(t, toy.Int(l), op.tok, toy.Int(r), op.fn(l, r))
 			}
 		}
 	}
@@ -355,19 +358,19 @@ func TestInt_Compare(t *testing.T) {
 	for _, op := range ifOps {
 		for l := int64(-2); l <= 2; l++ {
 			for r := float64(-2); r <= 2.1; r += 0.5 {
-				testCompare(t, Int(l), op.tok, Float(r), op.fn(float64(l), r))
+				testCompare(t, toy.Int(l), op.tok, toy.Float(r), op.fn(float64(l), r))
 			}
 		}
 	}
 }
 
 func TestMap_Index(t *testing.T) {
-	m := new(Map)
-	err := m.IndexSet(Int(1), String("abcdef"))
+	m := new(toy.Map)
+	err := m.IndexSet(toy.Int(1), toy.String("abcdef"))
 	expectNoError(t, err)
-	res, err := m.IndexGet(Int(1))
+	res, err := m.IndexGet(toy.Int(1))
 	expectNoError(t, err)
-	expectEqual(t, String("abcdef"), res)
+	expectEqual(t, toy.String("abcdef"), res)
 }
 
 func TestString_BinaryOp(t *testing.T) {
@@ -377,9 +380,9 @@ func TestString_BinaryOp(t *testing.T) {
 		for r := 0; r < len(rstr); r++ {
 			ls := lstr[l:]
 			rs := rstr[r:]
-			testBinaryOp(t, String(ls), token.Add, String(rs), String(ls+rs))
+			testBinaryOp(t, toy.String(ls), token.Add, toy.String(rs), toy.String(ls+rs))
 			rc := []rune(rstr)[r]
-			testBinaryOp(t, String(ls), token.Add, Char(rc), String(ls+string(rc)))
+			testBinaryOp(t, toy.String(ls), token.Add, toy.Char(rc), toy.String(ls+string(rc)))
 		}
 	}
 }
@@ -391,21 +394,21 @@ func TestBytes_BinaryOp(t *testing.T) {
 		for r := 0; r < len(rbytes); r++ {
 			lb := lbytes[l:]
 			rb := rbytes[r:]
-			testBinaryOp(t, Bytes(lb), token.Add, Bytes(rb), Bytes(slices.Concat(lb, rb)))
+			testBinaryOp(t, toy.Bytes(lb), token.Add, toy.Bytes(rb), toy.Bytes(slices.Concat(lb, rb)))
 		}
 	}
 }
 
-func testBinaryOp(t *testing.T, lhs Object, op token.Token, rhs Object, expected Object) {
+func testBinaryOp(t *testing.T, lhs toy.Object, op token.Token, rhs toy.Object, expected toy.Object) {
 	t.Helper()
-	actual, err := BinaryOp(op, lhs, rhs)
+	actual, err := toy.BinaryOp(op, lhs, rhs)
 	expectNoError(t, err)
 	expectEqual(t, expected, actual)
 }
 
-func testCompare(t *testing.T, lhs Object, op token.Token, rhs Object, expected bool) {
+func testCompare(t *testing.T, lhs toy.Object, op token.Token, rhs toy.Object, expected bool) {
 	t.Helper()
-	actual, err := Compare(op, lhs, rhs)
+	actual, err := toy.Compare(op, lhs, rhs)
 	expectNoError(t, err)
 	expectEqual(t, expected, actual)
 }

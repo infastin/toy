@@ -64,27 +64,40 @@ func Test_builtinLen(t *testing.T) {
 		},
 		{
 			name:    "no-args",
-			wantErr: errors.New("missing argument for 'value'"),
+			wantErr: &MissingArgumentError{Name: "value"},
 		},
 		{
 			name: "not-sized",
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "value",
-				Expected: "sized",
-				Found:    "int",
+			args: []Object{Int(0)},
+			wantErr: &InvalidArgumentTypeError{
+				Name: "value",
+				Want: "sized",
+				Got:  "int",
 			},
 		},
 		{
-			name:    "too-many-args",
-			args:    []Object{Tuple{}, Int(1), Int(2)},
-			wantErr: errors.New("want at most 1 argument(s), got %d"),
+			name: "too-many-args",
+			args: []Object{Tuple{}, Int(1), Int(2)},
+			wantErr: &WrongNumArgumentsError{
+				WantMin: 1,
+				WantMax: 1,
+				Got:     3,
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := builtinLen(tt.args...)
-			expectEqual(t, tt.wantErr, err, "builtinLen() error")
-			expectEqual(t, tt.want, got, "builtinLen() result")
+			if tt.wantErr != nil || err != nil {
+				expectNotNil(t, err, "builtinLen: expected an error")
+				expectNotNil(t, tt.wantErr, "builtinLen: encountered unexpected error")
+				expectEqual(t, tt.wantErr.Error(), err.Error(), "builtinLen: wrong error message")
+			}
+			if tt.want != nil || got != nil {
+				expectNotNil(t, got, "builtinLen: expected a result")
+				expectNotNil(t, tt.want, "builtinLen: got unexpected result")
+				expectEqual(t, tt.want, got, "builtinLen: wrong result")
+			}
 		})
 	}
 }
@@ -112,30 +125,38 @@ func Test_builtinAppend(t *testing.T) {
 		{
 			name:   "zero-non-empty-array",
 			args:   []Object{makeArray("not empty")},
-			want:   makeArray(),
-			target: makeArray(),
+			want:   makeArray("not empty"),
+			target: makeArray("not empty"),
 		},
 		{
 			name: "not array",
 			args: []Object{Int(1)},
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "arr",
-				Expected: "array",
-				Found:    "int",
+			wantErr: &InvalidArgumentTypeError{
+				Name: "arr",
+				Want: "array",
+				Got:  "int",
 			},
 		},
 		{
 			name:    "no args",
-			wantErr: errors.New("missing argument for 'arr'"),
+			wantErr: &MissingArgumentError{Name: "arr"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := builtinAppend(tt.args...)
-			expectEqual(t, tt.wantErr, err, "builtinAppend() error")
-			expectEqual(t, tt.want, got, "builtinAppend() result")
+			if tt.wantErr != nil || err != nil {
+				expectNotNil(t, err, "builtinAppend: expected an error")
+				expectNotNil(t, tt.wantErr, "builtinAppend: encountered unexpected error")
+				expectEqual(t, tt.wantErr.Error(), err.Error(), "builtinAppend: wrong error message")
+			}
+			if tt.want != nil || got != nil {
+				expectNotNil(t, got, "builtinAppend: expected a result")
+				expectNotNil(t, tt.want, "builtinAppend: got unexpected result")
+				expectEqual(t, tt.want, got, "builtinAppend: wrong result")
+			}
 			if tt.target != nil {
-				expectEqual(t, tt.target, tt.args[0], "builtinAppend() target")
+				expectEqual(t, tt.target, tt.args[0], "builtinAppend: incorrect target value")
 			}
 		})
 	}
@@ -152,24 +173,34 @@ func Test_builtinDelete(t *testing.T) {
 		{
 			name: "invalid-arg",
 			args: []Object{String(""), String("")},
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "collection",
-				Expected: "array or map",
-				Found:    "string",
+			wantErr: &InvalidArgumentTypeError{
+				Name: "collection",
+				Want: "array or map",
+				Got:  "string",
 			},
 		},
 		{
-			name:    "no-args",
-			wantErr: errors.New("want at least 2 arguments, got 0"),
+			name: "no-args",
+			wantErr: &WrongNumArgumentsError{
+				WantMin: 2,
+				Got:     0,
+			},
 		},
 		{
-			name:    "empty-args",
-			wantErr: errors.New("want at least 2 arguments, got 0"),
+			name: "empty-args",
+			wantErr: &WrongNumArgumentsError{
+				WantMin: 2,
+				Got:     0,
+			},
 		},
 		{
-			name:    "3-args",
-			args:    []Object{(*Map)(nil), String(""), String("")},
-			wantErr: errors.New("want at most 2 argument(s), got 3"),
+			name: "map-3-args",
+			args: []Object{(*Map)(nil), String(""), String("")},
+			wantErr: &WrongNumArgumentsError{
+				WantMin: 2,
+				WantMax: 2,
+				Got:     3,
+			},
 		},
 		{
 			name: "nil-map-empty-key",
@@ -177,9 +208,12 @@ func Test_builtinDelete(t *testing.T) {
 			want: Undefined,
 		},
 		{
-			name:    "nil-map-no-key",
-			args:    []Object{makeMap()},
-			wantErr: errors.New("want at least 2 arguments, got 1"),
+			name: "nil-map-no-key",
+			args: []Object{makeMap()},
+			wantErr: &WrongNumArgumentsError{
+				WantMin: 2,
+				Got:     1,
+			},
 		},
 		{
 			name:   "map-missing-key",
@@ -190,19 +224,23 @@ func Test_builtinDelete(t *testing.T) {
 		{
 			name:   "map-emptied",
 			args:   []Object{makeMap("key", "value"), String("key")},
-			want:   Undefined,
+			want:   String("value"),
 			target: makeMap(),
 		},
 		{
 			name:   "map-multi-keys",
 			args:   []Object{makeMap("key1", 9, "key2", 10), String("key1")},
-			want:   Undefined,
+			want:   Int(9),
 			target: makeMap("key2", 10),
 		},
 		{
-			name:    "array-4-args",
-			args:    []Object{(*Array)(nil), String(""), String(""), String("")},
-			wantErr: errors.New("want at most 3 argument(s), got 4"),
+			name: "array-4-args",
+			args: []Object{(*Array)(nil), String(""), String(""), String("")},
+			wantErr: &WrongNumArgumentsError{
+				WantMin: 2,
+				WantMax: 3,
+				Got:     4,
+			},
 		},
 		{
 			name:   "array-2-args",
@@ -212,26 +250,26 @@ func Test_builtinDelete(t *testing.T) {
 		},
 		{
 			name:   "array-3-args",
-			args:   []Object{makeArray(1, 2, 3, 4), Int(1), Int(2)},
+			args:   []Object{makeArray(1, 2, 3, 4), Int(1), Int(3)},
 			want:   makeArray(2, 3),
 			target: makeArray(1, 4),
 		},
 		{
 			name: "array-2-invalid-args",
 			args: []Object{makeArray(1, 2), String("")},
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "start",
-				Expected: "int",
-				Found:    "string",
+			wantErr: &InvalidArgumentTypeError{
+				Name: "start",
+				Want: "int",
+				Got:  "string",
 			},
 		},
 		{
 			name: "array-3-invalid-args",
 			args: []Object{makeArray(1, 2), Int(1), String("")},
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "stop",
-				Expected: "int",
-				Found:    "string",
+			wantErr: &InvalidArgumentTypeError{
+				Name: "stop",
+				Want: "int",
+				Got:  "string",
 			},
 		},
 		{
@@ -263,10 +301,18 @@ func Test_builtinDelete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := builtinDelete(tt.args...)
-			expectEqual(t, tt.wantErr, err, "builtinDelete() error")
-			expectEqual(t, tt.want, got, "builtinDelete() result")
+			if tt.wantErr != nil || err != nil {
+				expectNotNil(t, err, "builtinDelete: expected an error")
+				expectNotNil(t, tt.wantErr, "builtinDelete: encountered unexpected error")
+				expectEqual(t, tt.wantErr.Error(), err.Error(), "builtinDelete: wrong error message")
+			}
+			if tt.want != nil || got != nil {
+				expectNotNil(t, got, "builtinDelete: expected a result")
+				expectNotNil(t, tt.want, "builtinDelete: got unexpected result")
+				expectEqual(t, tt.want, got, "builtinDelete: wrong result")
+			}
 			if tt.target != nil {
-				expectEqual(t, tt.target, tt.args[0], "builtinDelete() target")
+				expectEqual(t, tt.target, tt.args[0], "builtinDelete: incorrect target value")
 			}
 		})
 	}
@@ -286,52 +332,52 @@ func Test_builtinSplice(t *testing.T) {
 		},
 		{
 			name: "invalid-args",
-			args: []Object{(*Map)(nil)},
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "arr",
-				Expected: "array",
-				Found:    "map",
+			args: []Object{new(Map)},
+			wantErr: &InvalidArgumentTypeError{
+				Name: "arr",
+				Want: "array",
+				Got:  "map",
 			},
 		},
 		{
 			name: "invalid-args",
-			args: []Object{(*Array)(nil), String("")},
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "start",
-				Expected: "int",
-				Found:    "string",
+			args: []Object{new(Array), String("")},
+			wantErr: &InvalidArgumentTypeError{
+				Name: "start",
+				Want: "int",
+				Got:  "string",
 			},
 		},
 		{
 			name:    "negative-index",
-			args:    []Object{(*Array)(nil), Int(-1)},
+			args:    []Object{new(Array), Int(-1)},
 			wantErr: errors.New("splice bounds out of range [-1:0]"),
 		},
 		{
 			name: "non-int-stop",
-			args: []Object{(*Array)(nil), Int(0), String("")},
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "stop",
-				Expected: "int",
-				Found:    "string",
+			args: []Object{new(Array), Int(0), String("")},
+			wantErr: &InvalidArgumentTypeError{
+				Name: "stop",
+				Want: "int",
+				Got:  "string",
 			},
 		},
 		{
 			name:    "negative-count",
 			args:    []Object{makeArray(0, 1, 2), Int(0), Int(-1)},
-			wantErr: errors.New("splice bounds out of range [0:-1] with len 3"),
+			wantErr: errors.New("invalid splice indices: 0 > -1"),
 		},
 		{
 			name:   "append",
 			args:   []Object{makeArray(0, 1, 2), Int(3), Int(3), String("b")},
 			want:   makeArray(),
-			target: makeArray(makeArray(0, 1, 2, "b")),
+			target: makeArray(0, 1, 2, "b"),
 		},
 		{
 			name:   "prepend",
 			args:   []Object{makeArray(0, 1, 2), Int(0), Int(0), String("b")},
 			want:   makeArray(),
-			target: makeArray(makeArray("b", 0, 1, 2)),
+			target: makeArray("b", 0, 1, 2),
 		},
 		{
 			name:   "insert-at-one",
@@ -377,10 +423,18 @@ func Test_builtinSplice(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := builtinSplice(tt.args...)
-			expectEqual(t, tt.wantErr, err, "builtinSplice() error")
-			expectEqual(t, tt.want, got, "builtinSplice() result")
+			if tt.wantErr != nil || err != nil {
+				expectNotNil(t, err, "builtinSplice: expected an error")
+				expectNotNil(t, tt.wantErr, "builtinSplice: encountered unexpected error")
+				expectEqual(t, tt.wantErr.Error(), err.Error(), "builtinSplice: wrong error message")
+			}
+			if tt.want != nil || got != nil {
+				expectNotNil(t, got, "builtinSplice: expected a result")
+				expectNotNil(t, tt.want, "builtinSplice: got unexpected result")
+				expectEqual(t, tt.want, got, "builtinSplice: wrong result")
+			}
 			if tt.target != nil {
-				expectEqual(t, tt.target, tt.args[0], "builtinSplice() target")
+				expectEqual(t, tt.target, tt.args[0], "builtinSplice: incorrect target value")
 			}
 		})
 	}
@@ -395,30 +449,45 @@ func Test_builtinInsert(t *testing.T) {
 		target  Object
 	}{
 		{
-			name: "invalid-argument",
+			name: "no-args",
+			wantErr: &WrongNumArgumentsError{
+				WantMin: 2,
+				Got:     0,
+			},
+		},
+		{
+			name: "one-arg",
 			args: []Object{Int(0)},
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "collection",
-				Expected: "array or map",
-				Found:    "int",
+			wantErr: &WrongNumArgumentsError{
+				WantMin: 2,
+				Got:     1,
+			},
+		},
+		{
+			name: "invalid-argument",
+			args: []Object{Int(0), Int(0)},
+			wantErr: &InvalidArgumentTypeError{
+				Name: "collection",
+				Want: "array or map",
+				Got:  "int",
 			},
 		},
 		{
 			name:   "array-prepend",
 			args:   []Object{makeArray(0, 1, 2), Int(0), String("b")},
-			want:   makeArray(),
-			target: makeArray(makeArray("b", 0, 1, 2)),
+			want:   Undefined,
+			target: makeArray("b", 0, 1, 2),
 		},
 		{
 			name:   "array-insert-at-one",
 			args:   []Object{makeArray(0, 1, 2), Int(1), String("c"), String("d")},
-			want:   makeArray(),
+			want:   Undefined,
 			target: makeArray(0, "c", "d", 1, 2),
 		},
 		{
 			name:   "array-append",
 			args:   []Object{makeArray(0, 1, 2), Int(3), String("c"), String("d")},
-			want:   makeArray(),
+			want:   Undefined,
 			target: makeArray(0, 1, 2, "c", "d"),
 		},
 		{
@@ -446,10 +515,18 @@ func Test_builtinInsert(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := builtinInsert(tt.args...)
-			expectEqual(t, tt.wantErr, err, "builtinInsert() error")
-			expectEqual(t, tt.want, got, "builtinInsert() result")
+			if tt.wantErr != nil || err != nil {
+				expectNotNil(t, err, "builtinInsert: expected an error")
+				expectNotNil(t, tt.wantErr, "builtinInsert: encountered unexpected error")
+				expectEqual(t, tt.wantErr.Error(), err.Error(), "builtinInsert: wrong error message")
+			}
+			if tt.want != nil || got != nil {
+				expectNotNil(t, got, "builtinInsert: expected a result")
+				expectNotNil(t, tt.want, "builtinInsert: got unexpected result")
+				expectEqual(t, tt.want, got, "builtinInsert: wrong result")
+			}
 			if tt.target != nil {
-				expectEqual(t, tt.target, tt.args[0], "builtinInsert() target")
+				expectEqual(t, tt.target, tt.args[0], "builtinInsert: incorrect target value")
 			}
 		})
 	}
@@ -464,21 +541,29 @@ func Test_builtinClear(t *testing.T) {
 		target  Object
 	}{
 		{
-			name:    "no-args",
-			wantErr: errors.New("want 1 arguments, got 0"),
+			name: "no-args",
+			wantErr: &WrongNumArgumentsError{
+				WantMin: 1,
+				WantMax: 1,
+				Got:     0,
+			},
 		},
 		{
-			name:    "too-many-args",
-			args:    []Object{makeArray(1), Int(1), Int(2)},
-			wantErr: errors.New("want 1 argument, got 3"),
+			name: "too-many-args",
+			args: []Object{makeArray(1), Int(1), Int(2)},
+			wantErr: &WrongNumArgumentsError{
+				WantMin: 1,
+				WantMax: 1,
+				Got:     3,
+			},
 		},
 		{
 			name: "invalid-argument",
 			args: []Object{Int(0)},
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "collection",
-				Expected: "array or map",
-				Found:    "int",
+			wantErr: &InvalidArgumentTypeError{
+				Name: "collection",
+				Want: "array or map",
+				Got:  "int",
 			},
 		},
 		{
@@ -507,10 +592,18 @@ func Test_builtinClear(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := builtinClear(tt.args...)
-			expectEqual(t, tt.wantErr, err, "builtinClear() error")
-			expectEqual(t, tt.want, got, "builtinClear() result")
+			if tt.wantErr != nil || err != nil {
+				expectNotNil(t, err, "builtinClear: expected an error")
+				expectNotNil(t, tt.wantErr, "builtinClear: encountered unexpected error")
+				expectEqual(t, tt.wantErr.Error(), err.Error(), "builtinClear: wrong error message")
+			}
+			if tt.want != nil || got != nil {
+				expectNotNil(t, got, "builtinClear: expected a result")
+				expectNotNil(t, tt.want, "builtinClear: got unexpected result")
+				expectEqual(t, tt.want, got, "builtinClear: wrong result")
+			}
 			if tt.target != nil {
-				expectEqual(t, tt.target, tt.args[0], "builtinClear() target")
+				expectEqual(t, tt.target, tt.args[0], "builtinClear: incorrect target value")
 			}
 		})
 	}
@@ -524,39 +617,43 @@ func Test_builtinRange(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "no args",
-			wantErr: errors.New("missing argument for 'start'"),
+			name:    "no-args",
+			wantErr: &MissingArgumentError{Name: "start"},
 		},
 		{
-			name:    "4 args",
-			args:    []Object{Int(0), Int(0), Int(0), Int(0)},
-			wantErr: errors.New("nant at most 3 argument(s), got 4"),
+			name: "4-args",
+			args: []Object{Int(0), Int(0), Int(0), Int(0)},
+			wantErr: &WrongNumArgumentsError{
+				WantMin: 1,
+				WantMax: 3,
+				Got:     4,
+			},
 		},
 		{
 			name: "invalid-start",
 			args: []Object{String("")},
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "start",
-				Expected: "int",
-				Found:    "string",
+			wantErr: &InvalidArgumentTypeError{
+				Name: "start",
+				Want: "int",
+				Got:  "string",
 			},
 		},
 		{
 			name: "invalid-stop",
 			args: []Object{Int(0), String("")},
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "stop",
-				Expected: "int",
-				Found:    "string",
+			wantErr: &InvalidArgumentTypeError{
+				Name: "stop",
+				Want: "int",
+				Got:  "string",
 			},
 		},
 		{
 			name: "invalid-stop",
 			args: []Object{Int(0), Int(0), String("")},
-			wantErr: &ErrInvalidArgumentType{
-				Name:     "step",
-				Expected: "int",
-				Found:    "string",
+			wantErr: &InvalidArgumentTypeError{
+				Name: "step",
+				Want: "int",
+				Got:  "string",
 			},
 		},
 		{
@@ -603,8 +700,16 @@ func Test_builtinRange(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := builtinRange(tt.args...)
-			expectEqual(t, tt.wantErr, err, "builtinRange() error")
-			expectEqual(t, tt.want, got, "builtinRange() result")
+			if tt.wantErr != nil || err != nil {
+				expectNotNil(t, err, "builtinRange: expected an error")
+				expectNotNil(t, tt.wantErr, "builtinRange: encountered unexpected error")
+				expectEqual(t, tt.wantErr.Error(), err.Error(), "builtinRange: wrong error message")
+			}
+			if tt.want != nil || got != nil {
+				expectNotNil(t, got, "builtinRange: expected a result")
+				expectNotNil(t, tt.want, "builtinRange: got unexpected result")
+				expectEqual(t, tt.want, got, "builtinRange: wrong result")
+			}
 		})
 	}
 }

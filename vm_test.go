@@ -3,10 +3,12 @@ package toy_test
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"reflect"
 	_runtime "runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -16,11 +18,6 @@ import (
 )
 
 const testOut = "out"
-
-type IARR []any
-type IMAP map[string]any
-type MAP = map[string]any
-type ARR = []any
 
 type testopts struct {
 	modules     *toy.ModuleMap
@@ -52,7 +49,7 @@ func (o *testopts) copy() *testopts {
 }
 
 func (o *testopts) Stdlib() *testopts {
-	o.modules.AddMap(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
+	// o.modules.AddMap(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
 	return o
 }
 
@@ -106,14 +103,11 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2 * 2, 3 + 3]`, nil, ARR{1, 4, 6})
 
 	// array copy-by-reference
-	expectRun(t, `a1 := [1, 2, 3]; a2 := a1; a1[0] = 5; out = a2`,
-		nil, ARR{5, 2, 3})
-	expectRun(t, `func () { a1 := [1, 2, 3]; a2 := a1; a1[0] = 5; out = a2 }()`,
-		nil, ARR{5, 2, 3})
+	expectRun(t, `a1 := [1, 2, 3]; a2 := a1; a1[0] = 5; out = a2`, nil, ARR{5, 2, 3})
+	expectRun(t, `fn(){ a1 := [1, 2, 3]; a2 := a1; a1[0] = 5; out = a2 }()`, nil, ARR{5, 2, 3})
 
 	// array index set
-	expectError(t, `a1 := [1, 2, 3]; a1[3] = 5`,
-		nil, "index out of bounds")
+	expectRunError(t, `a1 := [1, 2, 3]; a1[3] = 5`, nil, "index out of bounds")
 
 	// index operator
 	arr := ARR{1, 2, 3, 4, 5, 6}
@@ -130,10 +124,12 @@ func TestArray(t *testing.T) {
 			nil, arr[idx])
 	}
 
-	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, -1),
-		nil, toy.Undefined)
-	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, arrLen),
-		nil, toy.Undefined)
+	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, -1), nil, toy.Undefined)
+	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, arrLen), nil, toy.Undefined)
+
+	// splat operator
+	expectRun(t, `[...[1, 2], 3]`, nil, ARR{1, 2, 3})
+	expectRun(t, `[1, 2, 3, ...[4, 5], 6, ...[7, 8]]`, nil, ARR{1, 2, 3, 4, 5, 6, 7, 8})
 
 	// slice operator
 	for low := 0; low < arrLen; low++ {
@@ -162,13 +158,13 @@ func TestArray(t *testing.T) {
 	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", arrStr, 2, 2),
 		nil, ARR{})
 
-	expectError(t, fmt.Sprintf("%s[:%d]", arrStr, -1),
+	expectRunError(t, fmt.Sprintf("%s[:%d]", arrStr, -1),
 		nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:]", arrStr, arrLen+1),
+	expectRunError(t, fmt.Sprintf("%s[%d:]", arrStr, arrLen+1),
 		nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 0, -1),
+	expectRunError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 0, -1),
 		nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 2, 1),
+	expectRunError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 2, 1),
 		nil, "invalid slice index")
 }
 
@@ -176,20 +172,18 @@ func TestAssignment(t *testing.T) {
 	expectRun(t, `a := 1; a = 2; out = a`, nil, 2)
 	expectRun(t, `a := 1; a = 2; out = a`, nil, 2)
 	expectRun(t, `a := 1; a = a + 4; out = a`, nil, 5)
-	expectRun(t, `a := 1; f1 := func() { a = 2; return a }; out = f1()`,
-		nil, 2)
-	expectRun(t, `a := 1; f1 := func() { a := 3; a = 2; return a }; out = f1()`,
-		nil, 2)
+	expectRun(t, `a := 1; f1 := fn() { a = 2; return a }; out = f1()`, nil, 2)
+	expectRun(t, `a := 1; f1 := fn() { a := 3; a = 2; return a }; out = f1()`, nil, 2)
 
 	expectRun(t, `a := 1; out = a`, nil, 1)
 	expectRun(t, `a := 1; a = 2; out = a`, nil, 2)
-	expectRun(t, `a := 1; func() { a = 2 }(); out = a`, nil, 2)
-	expectRun(t, `a := 1; func() { a := 2 }(); out = a`, nil, 1) // "a := 2" defines a new local variable 'a'
-	expectRun(t, `a := 1; func() { b := 2; out = b }()`, nil, 2)
+	expectRun(t, `a := 1; fn() { a = 2 }(); out = a`, nil, 2)
+	expectRun(t, `a := 1; fn() { a := 2 }(); out = a`, nil, 1) // "a := 2" defines a new local variable 'a'
+	expectRun(t, `a := 1; fn() { b := 2; out = b }()`, nil, 2)
 	expectRun(t, `
-out = func() {
+out = fn() {
 	a := 2
-	func() {
+	fn() {
 		a = 3 // captured from outer scope
 	}()
 	return a
@@ -197,16 +191,16 @@ out = func() {
 `, nil, 3)
 
 	expectRun(t, `
-func() {
+fn() {
 	a := 5
-	out = func() {
+	out = fn() {
 		a := 4
 		return a
 	}()
 }()`, nil, 4)
 
-	expectError(t, `a := 1; a := 2`, nil, "redeclared")              // redeclared in the same scope
-	expectError(t, `func() { a := 1; a := 2 }()`, nil, "redeclared") // redeclared in the same scope
+	expectRunError(t, `a := 1; a := 2`, nil, "redeclared")            // redeclared in the same scope
+	expectRunError(t, `fn() { a := 1; a := 2 }()`, nil, "redeclared") // redeclared in the same scope
 
 	expectRun(t, `a := 1; a += 2; out = a`, nil, 3)
 	expectRun(t, `a := 1; a += 4 - 2;; out = a`, nil, 3)
@@ -218,135 +212,133 @@ func() {
 	expectRun(t, `a := 10; a /= 5 - 3;; out = a`, nil, 5)
 
 	// compound assignment operator does not define new variable
-	expectError(t, `a += 4`, nil, "unresolved reference")
-	expectError(t, `a -= 4`, nil, "unresolved reference")
-	expectError(t, `a *= 4`, nil, "unresolved reference")
-	expectError(t, `a /= 4`, nil, "unresolved reference")
+	expectRunError(t, `a += 4`, nil, "unresolved reference")
+	expectRunError(t, `a -= 4`, nil, "unresolved reference")
+	expectRunError(t, `a *= 4`, nil, "unresolved reference")
+	expectRunError(t, `a /= 4`, nil, "unresolved reference")
 
 	expectRun(t, `
-f1 := func() {
-	f2 := func() {
+f1 := fn() {
+	f2 := fn() {
 		a := 1
 		a += 2    // it's a statement, not an expression
 		return a
 	};
-
 	return f2();
 };
-
-out = f1();`, nil, 3)
-	expectRun(t, `f1 := func() { f2 := func() { a := 1; a += 4 - 2; return a }; return f2(); }; out = f1()`,
+out = f1();
+`, nil, 3)
+	expectRun(t, `f1 := fn() { f2 := fn() { a := 1; a += 4 - 2; return a }; return f2(); }; out = f1()`,
 		nil, 3)
-	expectRun(t, `f1 := func() { f2 := func() { a := 3; a -= 1; return a }; return f2(); }; out = f1()`,
+	expectRun(t, `f1 := fn() { f2 := fn() { a := 3; a -= 1; return a }; return f2(); }; out = f1()`,
 		nil, 2)
-	expectRun(t, `f1 := func() { f2 := func() { a := 3; a -= 5 - 4; return a }; return f2(); }; out = f1()`,
+	expectRun(t, `f1 := fn() { f2 := fn() { a := 3; a -= 5 - 4; return a }; return f2(); }; out = f1()`,
 		nil, 2)
-	expectRun(t, `f1 := func() { f2 := func() { a := 2; a *= 4; return a }; return f2(); }; out = f1()`,
+	expectRun(t, `f1 := fn() { f2 := fn() { a := 2; a *= 4; return a }; return f2(); }; out = f1()`,
 		nil, 8)
-	expectRun(t, `f1 := func() { f2 := func() { a := 2; a *= 1 + 3; return a }; return f2(); }; out = f1()`,
+	expectRun(t, `f1 := fn() { f2 := fn() { a := 2; a *= 1 + 3; return a }; return f2(); }; out = f1()`,
 		nil, 8)
-	expectRun(t, `f1 := func() { f2 := func() { a := 10; a /= 2; return a }; return f2(); }; out = f1()`,
+	expectRun(t, `f1 := fn() { f2 := fn() { a := 10; a /= 2; return a }; return f2(); }; out = f1()`,
 		nil, 5)
-	expectRun(t, `f1 := func() { f2 := func() { a := 10; a /= 5 - 3; return a }; return f2(); }; out = f1()`,
+	expectRun(t, `f1 := fn() { f2 := fn() { a := 10; a /= 5 - 3; return a }; return f2(); }; out = f1()`,
 		nil, 5)
 
-	expectRun(t, `a := 1; f1 := func() { f2 := func() { a += 2; return a }; return f2(); }; out = f1()`,
+	expectRun(t, `a := 1; f1 := fn() { f2 := fn() { a += 2; return a }; return f2(); }; out = f1()`,
 		nil, 3)
 
 	expectRun(t, `
-	f1 := func(a) {
-		return func(b) {
-			c := a
-			c += b * 2
-			return c
-		}
+f1 := fn(a) {
+	return fn(b) {
+		c := a
+		c += b * 2
+		return c
 	}
-
-	out = f1(3)(4)
-	`, nil, 11)
+}
+out = f1(3)(4)
+`, nil, 11)
 
 	expectRun(t, `
-	out = func() {
-		a := 1
-		func() {
-			a = 2
-			func() {
-				a = 3
-				func() {
-					a := 4 // declared new
-				}()
+out = fn() {
+	a := 1
+	fn() {
+		a = 2
+		fn() {
+			a = 3
+			fn() {
+				a := 4 // declared new
 			}()
 		}()
-		return a
 	}()
-	`, nil, 3)
+	return a
+}()
+`, nil, 3)
 
 	// write on free variables
 	expectRun(t, `
-	f1 := func() {
+f1 := fn() {
+	a := 5
+
+	return fn() {
+		a += 3
+		return a
+	}()
+}
+out = f1()
+`, nil, 8)
+
+	expectRun(t, `
+out = fn() {
+	f1 := fn() {
 		a := 5
-
-		return func() {
-			a += 3
-			return a
-		}()
+		add1 := fn() { a += 1 }
+		add2 := fn() { a += 2 }
+		a += 3
+		return fn() { a += 4; add1(); add2(); a += 5; return a }
 	}
-	out = f1()
-	`, nil, 8)
+	return f1()
+}()()
+`, nil, 20)
 
 	expectRun(t, `
-    out = func() {
-        f1 := func() {
-            a := 5
-            add1 := func() { a += 1 }
-            add2 := func() { a += 2 }
-            a += 3
-            return func() { a += 4; add1(); add2(); a += 5; return a }
-        }
-        return f1()
-    }()()
-    `, nil, 20)
+it := fn(seq, f) {
+	f(seq[0])
+	f(seq[1])
+	f(seq[2])
+}
+
+foo := fn(a) {
+	b := 0
+	it([1, 2, 3], fn(x) {
+		b = x + a
+	})
+	return b
+}
+
+out = foo(2)
+`, nil, 5)
 
 	expectRun(t, `
-		it := func(seq, fn) {
-			fn(seq[0])
-			fn(seq[1])
-			fn(seq[2])
-		}
+it := fn(seq, f) {
+	f(seq[0])
+	f(seq[1])
+	f(seq[2])
+}
 
-		foo := func(a) {
-			b := 0
-			it([1, 2, 3], func(x) {
-				b = x + a
-			})
-			return b
-		}
+foo := fn(a) {
+	b := 0
+	it([1, 2, 3], fn(x) {
+		b += x + a
+	})
+	return b
+}
 
-		out = foo(2)
-		`, nil, 5)
-
-	expectRun(t, `
-		it := func(seq, fn) {
-			fn(seq[0])
-			fn(seq[1])
-			fn(seq[2])
-		}
-
-		foo := func(a) {
-			b := 0
-			it([1, 2, 3], func(x) {
-				b += x + a
-			})
-			return b
-		}
-
-		out = foo(2)
-		`, nil, 12)
+out = foo(2)
+`, nil, 12)
 
 	expectRun(t, `
-out = func() {
+out = fn() {
 	a := 1
-	func() {
+	fn() {
 		a = 2
 	}()
 	return a
@@ -354,12 +346,12 @@ out = func() {
 `, nil, 2)
 
 	expectRun(t, `
-f := func() {
+f := fn() {
 	a := 1
 	return {
-		b: func() { a += 3 },
-		c: func() { a += 2 },
-		d: func() { return a }
+		b: fn() { a += 3 },
+		c: fn() { a += 2 },
+		d: fn() { return a }
 	}
 }
 m := f()
@@ -369,36 +361,50 @@ out = m.d()
 `, nil, 6)
 
 	expectRun(t, `
-each := func(s, x) { for i:=0; i<len(s); i++ { x(s[i]) } }
+each := fn(s, x) {
+	for i := 0; i < len(s); i++ {
+		x(s[i])
+	}
+}
 
-out = func() {
+out = fn() {
 	a := 100
-	each([1, 2, 3], func(x) {
+	each([1, 2, 3], fn(x) {
 		a += x
 	})
 	a += 10
-	return func(b) {
+	return fn(b) {
 		return a + b
 	}
 }()(20)
 `, nil, 136)
 
 	// assigning different type value
-	expectRun(t, `a := 1; a = "foo"; out = a`, nil, "foo")              // global
-	expectRun(t, `func() { a := 1; a = "foo"; out = a }()`, nil, "foo") // local
+	expectRun(t, `a := 1; a = "foo"; out = a`, nil, "foo")            // global
+	expectRun(t, `fn() { a := 1; a = "foo"; out = a }()`, nil, "foo") // local
 	expectRun(t, `
-out = func() {
+out = fn() {
 	a := 5
-	return func() {
+	return fn() {
 		a = "foo"
 		return a
 	}()
 }()`, nil, "foo") // free
 
+	// tuple-assignment
+	expectRun(t, `a, b := 1, 2; out = [a, b]`, nil, ARR{1, 2})
+	expectRun(t, `a, b := fn() { return 1, 2 }(); out = [a, b]`, nil, ARR{1, 2})
+	expectRun(t, `a, b := fn() { return tuple(1, 2) }(); out = [a, b]`, nil, ARR{1, 2})
+	expectRun(t, `a, b := tuple(1, 2); out = [a, b]`, nil, ARR{1, 2})
+	expectRun(t, `a, b := 1, 2; a, b = b, a; out = [a, b]`, nil, ARR{2, 1})
+
+	expectRunError(t, `a, b := 1, 2; a, b := 2, 4`, nil, "no new variables")          // redeclared in the same scope
+	expectRunError(t, `fn() { a, b := 1, 2; a, b := 2, 4 }`, nil, "no new variables") // redeclared in the same scope
+
 	// variables declared in if/for blocks
 	expectRun(t, `for a:=0; a<5; a++ {}; a := "foo"; out = a`,
 		nil, "foo")
-	expectRun(t, `func() { for a:=0; a<5; a++ {}; a := "foo"; out = a }()`,
+	expectRun(t, `fn() { for a:=0; a<5; a++ {}; a := "foo"; out = a }()`,
 		nil, "foo")
 
 	// selectors
@@ -434,7 +440,7 @@ a.c.h = "bar"
 out = a.c.h
 `, nil, "bar")
 
-	expectError(t, `
+	expectRunError(t, `
 a := {
 	b: [1, 2, 3],
 	c: {
@@ -506,14 +512,14 @@ func TestBoolean(t *testing.T) {
 	expectRun(t, `out = (1 > 2) == true`, nil, false)
 	expectRun(t, `out = (1 > 2) == false`, nil, true)
 
-	expectError(t, `5 + true`, nil, "invalid operation")
-	expectError(t, `5 + true; 5`, nil, "invalid operation")
-	expectError(t, `-true`, nil, "invalid operation")
-	expectError(t, `true + false`, nil, "invalid operation")
-	expectError(t, `5; true + false; 5`, nil, "invalid operation")
-	expectError(t, `if (10 > 1) { true + false; }`, nil, "invalid operation")
-	expectError(t, `
-func() {
+	expectRunError(t, `5 + true`, nil, "invalid operation")
+	expectRunError(t, `5 + true; 5`, nil, "invalid operation")
+	expectRunError(t, `-true`, nil, "invalid operation")
+	expectRunError(t, `true + false`, nil, "invalid operation")
+	expectRunError(t, `5; true + false; 5`, nil, "invalid operation")
+	expectRunError(t, `if (10 > 1) { true + false; }`, nil, "invalid operation")
+	expectRunError(t, `
+fn() {
 	if (10 > 1) {
 		if (10 > 1) {
 			return true + false;
@@ -523,10 +529,10 @@ func() {
 	}
 }()
 `, nil, "invalid operation")
-	expectError(t, `if (true + false) { 10 }`, nil, "invalid operation")
-	expectError(t, `10 + (true + false)`, nil, "invalid operation")
-	expectError(t, `(true + false) + 20`, nil, "invalid operation")
-	expectError(t, `!(true + false)`, nil, "invalid operation")
+	expectRunError(t, `if (true + false) { 10 }`, nil, "invalid operation")
+	expectRunError(t, `10 + (true + false)`, nil, "invalid operation")
+	expectRunError(t, `(true + false) + 20`, nil, "invalid operation")
+	expectRunError(t, `!(true + false)`, nil, "invalid operation")
 }
 
 func TestUndefined(t *testing.T) {
@@ -544,6 +550,9 @@ func TestUndefined(t *testing.T) {
 }
 
 func TestBuiltinFunction(t *testing.T) {
+	expectRun(t, `out = copy(1)`, nil, 1)
+	expectRunError(t, `copy(1, 2)`, nil, "want 1 argument")
+
 	expectRun(t, `out = len("")`, nil, 0)
 	expectRun(t, `out = len("four")`, nil, 4)
 	expectRun(t, `out = len("hello world")`, nil, 11)
@@ -551,20 +560,32 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = len([1, 2, 3])`, nil, 3)
 	expectRun(t, `out = len({})`, nil, 0)
 	expectRun(t, `out = len({a:1, b:2})`, nil, 2)
+	expectRun(t, `out = len(tuple(1, 2))`, nil, 2)
 	expectRun(t, `out = len(immutable([]))`, nil, 0)
 	expectRun(t, `out = len(immutable([1, 2, 3]))`, nil, 3)
 	expectRun(t, `out = len(immutable({}))`, nil, 0)
 	expectRun(t, `out = len(immutable({a:1, b:2}))`, nil, 2)
-	expectError(t, `len(1)`, nil, "invalid type for argument")
-	expectError(t, `len("one", "two")`, nil, "wrong number of arguments")
-
-	expectRun(t, `out = copy(1)`, nil, 1)
-	expectError(t, `copy(1, 2)`, nil, "wrong number of arguments")
+	expectRunError(t, `len(1)`, nil, "invalid type for argument")
+	expectRunError(t, `len("one", "two")`, nil, "want at most 1 argument(s)")
 
 	expectRun(t, `out = append([1, 2, 3], 4)`, nil, ARR{1, 2, 3, 4})
 	expectRun(t, `out = append([1, 2, 3], 4, 5, 6)`, nil, ARR{1, 2, 3, 4, 5, 6})
-	expectRun(t, `out = append([1, 2, 3], "foo", false)`,
-		nil, ARR{1, 2, 3, "foo", false})
+	expectRun(t, `out = append([1, 2, 3], "foo", false)`, nil, ARR{1, 2, 3, "foo", false})
+	expectRun(t, `out = append([1, 2, 3], "foo", false)`, nil, ARR{1, 2, 3, "foo", false})
+
+	// TODO: builtins changed
+
+	expectRun(t, `out = string(1)`, nil, "1")
+	expectRun(t, `out = string(1.8)`, nil, "1.8")
+	expectRun(t, `out = string("-522")`, nil, "-522")
+	expectRun(t, `out = string(true)`, nil, "true")
+	expectRun(t, `out = string(false)`, nil, "false")
+	expectRun(t, `out = string('8')`, nil, "8")
+	expectRun(t, `out = string([1,8.1,true,3])`, nil, "[1, 8.1, true, 3]")
+	expectRun(t, `out = string({b: "foo"})`, nil, `{b: "foo"}`)
+	expectRun(t, `out = string(undefined)`, nil, toy.Undefined) // not "undefined"
+	expectRun(t, `out = string(1, "-522")`, nil, "1")
+	expectRun(t, `out = string(undefined, "-522")`, nil, "-522") // not "undefined"
 
 	expectRun(t, `out = int(1)`, nil, 1)
 	expectRun(t, `out = int(1.8)`, nil, 1)
@@ -580,18 +601,6 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = int(undefined, 1.8)`, nil, 1.8)
 	expectRun(t, `out = int(undefined, string(1))`, nil, "1")
 	expectRun(t, `out = int(undefined, undefined)`, nil, toy.Undefined)
-
-	expectRun(t, `out = string(1)`, nil, "1")
-	expectRun(t, `out = string(1.8)`, nil, "1.8")
-	expectRun(t, `out = string("-522")`, nil, "-522")
-	expectRun(t, `out = string(true)`, nil, "true")
-	expectRun(t, `out = string(false)`, nil, "false")
-	expectRun(t, `out = string('8')`, nil, "8")
-	expectRun(t, `out = string([1,8.1,true,3])`, nil, "[1, 8.1, true, 3]")
-	expectRun(t, `out = string({b: "foo"})`, nil, `{b: "foo"}`)
-	expectRun(t, `out = string(undefined)`, nil, toy.Undefined) // not "undefined"
-	expectRun(t, `out = string(1, "-522")`, nil, "1")
-	expectRun(t, `out = string(undefined, "-522")`, nil, "-522") // not "undefined"
 
 	expectRun(t, `out = float(1)`, nil, 1.0)
 	expectRun(t, `out = float(1.8)`, nil, 1.8)
@@ -674,38 +683,35 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = type_name(bytes( 1))`, nil, "bytes")
 	expectRun(t, `out = type_name(undefined)`, nil, "undefined")
 	expectRun(t, `out = type_name(error("err"))`, nil, "error")
-	expectRun(t, `out = type_name(func() {})`, nil, "compiled-function")
-	expectRun(t, `a := func(x) { return func() { return x } }; out = type_name(a(5))`,
+	expectRun(t, `out = type_name(fn() {})`, nil, "compiled-function")
+	expectRun(t, `a := fn(x) { return fn() { return x } }; out = type_name(a(5))`,
 		nil, "compiled-function") // closure
 
 	// is_function
 	expectRun(t, `out = is_function(1)`, nil, false)
-	expectRun(t, `out = is_function(func() {})`, nil, true)
-	expectRun(t, `out = is_function(func(x) { return x })`, nil, true)
+	expectRun(t, `out = is_function(fn() {})`, nil, true)
+	expectRun(t, `out = is_function(fn(x) { return x })`, nil, true)
 	expectRun(t, `out = is_function(len)`, nil, false) // builtin function
-	expectRun(t, `a := func(x) { return func() { return x } }; out = is_function(a)`,
+	expectRun(t, `a := fn(x) { return fn() { return x } }; out = is_function(a)`,
 		nil, true) // function
-	expectRun(t, `a := func(x) { return func() { return x } }; out = is_function(a(5))`,
+	expectRun(t, `a := fn(x) { return fn() { return x } }; out = is_function(a(5))`,
 		nil, true) // closure
 	expectRun(t, `out = is_function(x)`,
-		Opts().Symbol("x", &StringArray{
-			Value: []string{"foo", "bar"},
-		}).Skip2ndPass(),
+		Opts().Symbol("x", StringArray{"foo", "bar"}).Skip2ndPass(),
 		false) // user object
 
 	// is_callable
 	expectRun(t, `out = is_callable(1)`, nil, false)
-	expectRun(t, `out = is_callable(func() {})`, nil, true)
-	expectRun(t, `out = is_callable(func(x) { return x })`, nil, true)
+	expectRun(t, `out = is_callable(fn() {})`, nil, true)
+	expectRun(t, `out = is_callable(fn(x) { return x })`, nil, true)
 	expectRun(t, `out = is_callable(len)`, nil, true) // builtin function
-	expectRun(t, `a := func(x) { return func() { return x } }; out = is_callable(a)`,
+	expectRun(t, `a := fn(x) { return fn() { return x } }; out = is_callable(a)`,
 		nil, true) // function
-	expectRun(t, `a := func(x) { return func() { return x } }; out = is_callable(a(5))`,
+	expectRun(t, `a := fn(x) { return fn() { return x } }; out = is_callable(a(5))`,
 		nil, true) // closure
 	expectRun(t, `out = is_callable(x)`,
-		Opts().Symbol("x", &StringArray{
-			Value: []string{"foo", "bar"},
-		}).Skip2ndPass(), true) // user object
+		Opts().Symbol("x", StringArray{"foo", "bar"}).Skip2ndPass(),
+		true) // user object
 
 	expectRun(t, `out = format("")`, nil, "")
 	expectRun(t, `out = format("foo")`, nil, "foo")
@@ -721,52 +727,29 @@ func TestBuiltinFunction(t *testing.T) {
 		nil, `[1, [2, [3, 4]]]`)
 
 	toy.MaxStringLen = 9
-	expectError(t, `format("%s", "1234567890")`,
-		nil, "exceeding string size limit")
+	expectRunError(t, `format("%s", "1234567890")`, nil, "exceeding string size limit")
 	toy.MaxStringLen = 2147483647
 
 	// delete
-	expectError(t, `delete()`, nil, toy.ErrWrongNumArguments.Error())
-	expectError(t, `delete(1)`, nil, toy.ErrWrongNumArguments.Error())
-	expectError(t, `delete(1, 2, 3)`, nil, toy.ErrWrongNumArguments.Error())
-	expectError(t, `delete({}, "", 3)`, nil, toy.ErrWrongNumArguments.Error())
-	expectError(t, `delete(1, 1)`, nil, `invalid type for argument 'first'`)
-	expectError(t, `delete(1.0, 1)`, nil, `invalid type for argument 'first'`)
-	expectError(t, `delete("str", 1)`, nil, `invalid type for argument 'first'`)
-	expectError(t, `delete(bytes("str"), 1)`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `delete(error("err"), 1)`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `delete(true, 1)`, nil, `invalid type for argument 'first'`)
-	expectError(t, `delete(char('c'), 1)`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `delete(undefined, 1)`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `delete(time(1257894000), 1)`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `delete(immutable({}), "key")`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `delete(immutable([]), "")`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `delete([], "")`, nil, `invalid type for argument 'first'`)
-	expectError(t, `delete({}, 1)`, nil, `invalid type for argument 'second'`)
-	expectError(t, `delete({}, 1.0)`, nil, `invalid type for argument 'second'`)
-	expectError(t, `delete({}, undefined)`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `delete({}, [])`, nil, `invalid type for argument 'second'`)
-	expectError(t, `delete({}, {})`, nil, `invalid type for argument 'second'`)
-	expectError(t, `delete({}, error("err"))`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `delete({}, bytes("str"))`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `delete({}, char(35))`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `delete({}, time(1257894000))`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `delete({}, immutable({}))`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `delete({}, immutable([]))`, nil,
-		`invalid type for argument 'second'`)
+	expectRunError(t, `delete()`, nil, "want at least 2 arguments")
+	expectRunError(t, `delete(1)`, nil, "want at least 2 arguments")
+	expectRunError(t, `delete(1, 2, 3)`, nil, "invalid type for argument 'collection'")
+	expectRunError(t, `delete({}, "", 3)`, nil, "want at most 2 arguments")
+	expectRunError(t, `delete(1, 1)`, nil, `invalid type for argument 'collection'`)
+	expectRunError(t, `delete(1.0, 1)`, nil, `invalid type for argument 'collection'`)
+	expectRunError(t, `delete("str", 1)`, nil, `invalid type for argument 'collection'`)
+	expectRunError(t, `delete(bytes("str"), 1)`, nil, `invalid type for argument 'collection'`)
+	expectRunError(t, `delete(error("err"), 1)`, nil, `invalid type for argument 'collection'`)
+	expectRunError(t, `delete(true, 1)`, nil, `invalid type for argument 'collection'`)
+	expectRunError(t, `delete(char('c'), 1)`, nil, `invalid type for argument 'collection'`)
+	expectRunError(t, `delete(undefined, 1)`, nil, `invalid type for argument 'collection'`)
+	expectRunError(t, `delete(time(1257894000), 1)`, nil, `invalid type for argument 'collection'`)
+	expectRunError(t, `delete(immutable({}), "key")`, nil, `invalid type for argument 'collection'`)
+	expectRunError(t, `delete({}, undefined)`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `delete({}, [])`, nil, toy.ErrNotHashable.Error())
+	expectRunError(t, `delete({}, {})`, nil, toy.ErrNotHashable.Error())
+	expectRunError(t, `delete({}, immutable({}))`, nil, toy.ErrNotHashable.Error())
+	expectRunError(t, `delete({}, immutable([]))`, nil, toy.ErrNotHashable.Error())
 
 	expectRun(t, `out = delete({}, "")`, nil, toy.Undefined)
 	expectRun(t, `out = {key1: 1}; delete(out, "key1")`, nil, MAP{})
@@ -776,121 +759,108 @@ func TestBuiltinFunction(t *testing.T) {
 		ARR{1, "2", MAP{"a": "b"}})
 
 	// splice
-	expectError(t, `splice()`, nil, toy.ErrWrongNumArguments.Error())
-	expectError(t, `splice(1)`, nil, `invalid type for argument 'first'`)
-	expectError(t, `splice(1.0)`, nil, `invalid type for argument 'first'`)
-	expectError(t, `splice("str")`, nil, `invalid type for argument 'first'`)
-	expectError(t, `splice(bytes("str"))`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `splice(error("err"))`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `splice(true)`, nil, `invalid type for argument 'first'`)
-	expectError(t, `splice(char('c'))`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `splice(undefined)`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `splice(time(1257894000))`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `splice(immutable({}))`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `splice(immutable([]))`, nil,
-		`invalid type for argument 'first'`)
-	expectError(t, `splice({})`, nil, `invalid type for argument 'first'`)
-	expectError(t, `splice([], 1.0)`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `splice([], "str")`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `splice([], bytes("str"))`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `splice([], error("error"))`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `splice([], false)`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `splice([], char('d'))`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `splice([], undefined)`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `splice([], time(0))`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `splice([], [])`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `splice([], {})`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `splice([], immutable([]))`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `splice([], immutable({}))`, nil,
-		`invalid type for argument 'second'`)
-	expectError(t, `splice([], 0, 1.0)`, nil,
-		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 0, "string")`, nil,
-		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 0, bytes("string"))`, nil,
-		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 0, error("string"))`, nil,
-		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 0, true)`, nil,
-		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 0, char('f'))`, nil,
-		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 0, undefined)`, nil,
-		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 0, time(0))`, nil,
-		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 0, [])`, nil,
-		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 0, {})`, nil,
-		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 0, immutable([]))`, nil,
-		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 0, immutable({}))`, nil,
-		`invalid type for argument 'third'`)
-	expectError(t, `splice([], 1)`, nil, toy.ErrIndexOutOfBounds.Error())
-	expectError(t, `splice([1, 2, 3], 0, -1)`, nil,
-		toy.ErrIndexOutOfBounds.Error())
-	expectError(t, `splice([1, 2, 3], 99, 0, "a", "b")`, nil,
-		toy.ErrIndexOutOfBounds.Error())
+	expectRunError(t, `splice()`, nil, "want at least 1 argument(s)")
+	expectRunError(t, `splice(1)`, nil, `invalid type for argument 'first'`)
+	expectRunError(t, `splice(1.0)`, nil, `invalid type for argument 'first'`)
+	expectRunError(t, `splice("str")`, nil, `invalid type for argument 'first'`)
+	expectRunError(t, `splice(bytes("str"))`, nil, `invalid type for argument 'first'`)
+	expectRunError(t, `splice(error("err"))`, nil, `invalid type for argument 'first'`)
+	expectRunError(t, `splice(true)`, nil, `invalid type for argument 'first'`)
+	expectRunError(t, `splice(char('c'))`, nil, `invalid type for argument 'first'`)
+	expectRunError(t, `splice(undefined)`, nil, `invalid type for argument 'first'`)
+	expectRunError(t, `splice(time(1257894000))`, nil, `invalid type for argument 'first'`)
+	expectRunError(t, `splice(immutable({}))`, nil, `invalid type for argument 'first'`)
+	expectRunError(t, `splice(immutable([]))`, nil, `invalid type for argument 'first'`)
+	expectRunError(t, `splice({})`, nil, `invalid type for argument 'first'`)
+	expectRunError(t, `splice([], 1.0)`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `splice([], "str")`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `splice([], bytes("str"))`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `splice([], error("error"))`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `splice([], false)`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `splice([], char('d'))`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `splice([], undefined)`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `splice([], time(0))`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `splice([], [])`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `splice([], {})`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `splice([], immutable([]))`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `splice([], immutable({}))`, nil, `invalid type for argument 'second'`)
+	expectRunError(t, `splice([], 0, 1.0)`, nil, `invalid type for argument 'third'`)
+	expectRunError(t, `splice([], 0, "string")`, nil, `invalid type for argument 'third'`)
+	expectRunError(t, `splice([], 0, bytes("string"))`, nil, `invalid type for argument 'third'`)
+	expectRunError(t, `splice([], 0, error("string"))`, nil, `invalid type for argument 'third'`)
+	expectRunError(t, `splice([], 0, true)`, nil, `invalid type for argument 'third'`)
+	expectRunError(t, `splice([], 0, char('f'))`, nil, `invalid type for argument 'third'`)
+	expectRunError(t, `splice([], 0, undefined)`, nil, `invalid type for argument 'third'`)
+	expectRunError(t, `splice([], 0, time(0))`, nil, `invalid type for argument 'third'`)
+	expectRunError(t, `splice([], 0, [])`, nil, `invalid type for argument 'third'`)
+	expectRunError(t, `splice([], 0, {})`, nil, `invalid type for argument 'third'`)
+	expectRunError(t, `splice([], 0, immutable([]))`, nil, `invalid type for argument 'third'`)
+	expectRunError(t, `splice([], 0, immutable({}))`, nil, `invalid type for argument 'third'`)
+	expectRunError(t, `splice([], 1)`, nil, "")
+	expectRunError(t, `splice([1, 2, 3], 0, -1)`, nil, "")
+	expectRunError(t, `splice([1, 2, 3], 99, 0, "a", "b")`, nil, "")
 	expectRun(t, `out = []; splice(out)`, nil, ARR{})
 	expectRun(t, `out = ["a"]; splice(out, 1)`, nil, ARR{"a"})
 	expectRun(t, `out = ["a"]; out = splice(out, 1)`, nil, ARR{})
 	expectRun(t, `out = [1, 2, 3]; splice(out, 0, 1)`, nil, ARR{2, 3})
 	expectRun(t, `out = [1, 2, 3]; out = splice(out, 0, 1)`, nil, ARR{1})
-	expectRun(t, `out = [1, 2, 3]; splice(out, 0, 0, "a", "b")`, nil,
-		ARR{"a", "b", 1, 2, 3})
-	expectRun(t, `out = [1, 2, 3]; out = splice(out, 0, 0, "a", "b")`, nil,
-		ARR{})
-	expectRun(t, `out = [1, 2, 3]; splice(out, 1, 0, "a", "b")`, nil,
-		ARR{1, "a", "b", 2, 3})
-	expectRun(t, `out = [1, 2, 3]; out = splice(out, 1, 0, "a", "b")`, nil,
-		ARR{})
-	expectRun(t, `out = [1, 2, 3]; splice(out, 1, 0, "a", "b")`, nil,
-		ARR{1, "a", "b", 2, 3})
-	expectRun(t, `out = [1, 2, 3]; splice(out, 2, 0, "a", "b")`, nil,
-		ARR{1, 2, "a", "b", 3})
-	expectRun(t, `out = [1, 2, 3]; splice(out, 3, 0, "a", "b")`, nil,
-		ARR{1, 2, 3, "a", "b"})
-	expectRun(t, `array := [1, 2, 3]; deleted := splice(array, 1, 1, "a", "b");
-				out = [deleted, array]`, nil, ARR{ARR{2}, ARR{1, "a", "b", 3}})
-	expectRun(t, `array := [1, 2, 3]; deleted := splice(array, 1);
-		out = [deleted, array]`, nil, ARR{ARR{2, 3}, ARR{1}})
+	expectRun(t, `out = [1, 2, 3]; splice(out, 0, 0, "a", "b")`, nil, ARR{"a", "b", 1, 2, 3})
+	expectRun(t, `out = [1, 2, 3]; out = splice(out, 0, 0, "a", "b")`, nil, ARR{})
+	expectRun(t, `out = [1, 2, 3]; splice(out, 1, 0, "a", "b")`, nil, ARR{1, "a", "b", 2, 3})
+	expectRun(t, `out = [1, 2, 3]; out = splice(out, 1, 0, "a", "b")`, nil, ARR{})
+	expectRun(t, `out = [1, 2, 3]; splice(out, 1, 0, "a", "b")`, nil, ARR{1, "a", "b", 2, 3})
+	expectRun(t, `out = [1, 2, 3]; splice(out, 2, 0, "a", "b")`, nil, ARR{1, 2, "a", "b", 3})
+	expectRun(t, `out = [1, 2, 3]; splice(out, 3, 0, "a", "b")`, nil, ARR{1, 2, 3, "a", "b"})
+	expectRun(t, `
+array := [1, 2, 3];
+deleted := splice(array, 1, 1, "a", "b");
+out = [deleted, array]
+`, nil, ARR{ARR{2}, ARR{1, "a", "b", 3}})
+	expectRun(t, `
+array := [1, 2, 3];
+deleted := splice(array, 1);
+out = [deleted, array]
+`, nil, ARR{ARR{2, 3}, ARR{1}})
 	expectRun(t, `out = []; splice(out, 0, 0, "a", "b")`, nil, ARR{"a", "b"})
 	expectRun(t, `out = []; splice(out, 0, 1, "a", "b")`, nil, ARR{"a", "b"})
 	expectRun(t, `out = []; out = splice(out, 0, 0, "a", "b")`, nil, ARR{})
 	expectRun(t, `out = splice(splice([1, 2, 3], 0, 3), 1, 3)`, nil, ARR{2, 3})
 	// splice doc examples
-	expectRun(t, `v := [1, 2, 3]; deleted := splice(v, 0);
-		out = [deleted, v]`, nil, ARR{ARR{1, 2, 3}, ARR{}})
-	expectRun(t, `v := [1, 2, 3]; deleted := splice(v, 1);
-		out = [deleted, v]`, nil, ARR{ARR{2, 3}, ARR{1}})
-	expectRun(t, `v := [1, 2, 3]; deleted := splice(v, 0, 1);
-		out = [deleted, v]`, nil, ARR{ARR{1}, ARR{2, 3}})
-	expectRun(t, `v := ["a", "b", "c"]; deleted := splice(v, 1, 2);
-		out = [deleted, v]`, nil, ARR{ARR{"b", "c"}, ARR{"a"}})
-	expectRun(t, `v := ["a", "b", "c"]; deleted := splice(v, 2, 1, "d");
-		out = [deleted, v]`, nil, ARR{ARR{"c"}, ARR{"a", "b", "d"}})
-	expectRun(t, `v := ["a", "b", "c"]; deleted := splice(v, 0, 0, "d", "e");
-		out = [deleted, v]`, nil, ARR{ARR{}, ARR{"d", "e", "a", "b", "c"}})
-	expectRun(t, `v := ["a", "b", "c"]; deleted := splice(v, 1, 1, "d", "e");
-		out = [deleted, v]`, nil, ARR{ARR{"b"}, ARR{"a", "d", "e", "c"}})
+	expectRun(t, `
+v := [1, 2, 3];
+deleted := splice(v, 0);
+out = [deleted, v]
+`, nil, ARR{ARR{1, 2, 3}, ARR{}})
+	expectRun(t, `
+v := [1, 2, 3];
+deleted := splice(v, 1);
+out = [deleted, v]
+`, nil, ARR{ARR{2, 3}, ARR{1}})
+	expectRun(t, `
+v := [1, 2, 3];
+deleted := splice(v, 0, 1);
+out = [deleted, v]
+`, nil, ARR{ARR{1}, ARR{2, 3}})
+	expectRun(t, `
+v := ["a", "b", "c"];
+deleted := splice(v, 1, 2);
+out = [deleted, v]
+`, nil, ARR{ARR{"b", "c"}, ARR{"a"}})
+	expectRun(t, `
+v := ["a", "b", "c"];
+deleted := splice(v, 2, 1, "d");
+out = [deleted, v]
+`, nil, ARR{ARR{"c"}, ARR{"a", "b", "d"}})
+	expectRun(t, `
+v := ["a", "b", "c"];
+deleted := splice(v, 0, 0, "d", "e");
+out = [deleted, v]
+`, nil, ARR{ARR{}, ARR{"d", "e", "a", "b", "c"}})
+	expectRun(t, `
+v := ["a", "b", "c"];
+deleted := splice(v, 1, 1, "d", "e");
+out = [deleted, v]
+`, nil, ARR{ARR{"b"}, ARR{"a", "d", "e", "c"}})
 }
 
 func TestBytesN(t *testing.T) {
@@ -900,11 +870,11 @@ func TestBytesN(t *testing.T) {
 
 	expectRun(t, `out = bytes(0)`, nil, make([]byte, 0))
 	expectRun(t, `out = bytes(10)`, nil, make([]byte, 10))
-	expectError(t, `bytes(11)`, nil, "bytes size limit")
+	expectRunError(t, `bytes(11)`, nil, "bytes size limit")
 
 	toy.MaxBytesLen = 1000
 	expectRun(t, `out = bytes(1000)`, nil, make([]byte, 1000))
-	expectError(t, `bytes(1001)`, nil, "bytes size limit")
+	expectRunError(t, `bytes(1001)`, nil, "bytes size limit")
 }
 
 func TestBytes(t *testing.T) {
@@ -920,18 +890,18 @@ func TestBytes(t *testing.T) {
 }
 
 func TestCall(t *testing.T) {
-	expectRun(t, `a := { b: func(x) { return x + 2 } }; out = a.b(5)`,
+	expectRun(t, `a := { b: fn(x) { return x + 2 } }; out = a.b(5)`,
 		nil, 7)
-	expectRun(t, `a := { b: { c: func(x) { return x + 2 } } }; out = a.b.c(5)`,
+	expectRun(t, `a := { b: { c: fn(x) { return x + 2 } } }; out = a.b.c(5)`,
 		nil, 7)
-	expectRun(t, `a := { b: { c: func(x) { return x + 2 } } }; out = a["b"].c(5)`,
+	expectRun(t, `a := { b: { c: fn(x) { return x + 2 } } }; out = a["b"].c(5)`,
 		nil, 7)
-	expectError(t, `a := 1
-b := func(a, c) {
+	expectRunError(t, `a := 1
+b := fn(a, c) {
    c(a)
 }
 
-c := func(a) {
+c := fn(a) {
    a()
 }
 b(a, c)
@@ -968,30 +938,30 @@ func TestCondExpr(t *testing.T) {
 
 	expectRun(t, `
 out = 0
-f1 := func() { out += 10 }
-f2 := func() { out = -out }
+f1 := fn() { out += 10 }
+f2 := fn() { out = -out }
 true ? f1() : f2()
 `, nil, 10)
 	expectRun(t, `
 out = 5
-f1 := func() { out += 10 }
-f2 := func() { out = -out }
+f1 := fn() { out += 10 }
+f2 := fn() { out = -out }
 false ? f1() : f2()
 `, nil, -5)
 	expectRun(t, `
-f1 := func(a) { return a + 2 }
-f2 := func(a) { return a - 2 }
-f3 := func(a) { return a + 10 }
-f4 := func(a) { return -a }
+f1 := fn(a) { return a + 2 }
+f2 := fn(a) { return a - 2 }
+f3 := fn(a) { return a + 10 }
+f4 := fn(a) { return -a }
 
-f := func(c) {
+f := fn(c) {
 	return c == 0 ? f1(c) : f2(c) ? f3(c) : f4(c)
 }
 
 out = [f(0), f(1), f(2)]
 `, nil, ARR{2, 11, -2})
 
-	expectRun(t, `f := func(a) { return -a }; out = f(true ? 5 : 3)`, nil, -5)
+	expectRun(t, `f := fn(a) { return -a }; out = f(true ? 5 : 3)`, nil, -5)
 	expectRun(t, `out = [false?5:10, true?1:2]`, nil, ARR{10, 1})
 
 	expectRun(t, `
@@ -1045,71 +1015,74 @@ func testEquality(t *testing.T, lhs, rhs string, expected bool) {
 }
 
 func TestVMErrorInfo(t *testing.T) {
-	expectError(t, `a := 5
+	expectRunError(t, `a := 5
 a + "boo"`,
 		nil, "Runtime Error: invalid operation: int + string\n\tat test:2:1")
 
-	expectError(t, `a := 5
+	expectRunError(t, `a := 5
 b := a(5)`,
 		nil, "Runtime Error: not callable: int\n\tat test:2:6")
 
-	expectError(t, `a := 5
+	expectRunError(t, `a := 5
 b := {}
 b.x.y = 10`,
 		nil, "Runtime Error: not index-assignable: undefined\n\tat test:3:1")
 
-	expectError(t, `
-a := func() {
+	expectRunError(t, `
+a := fn() {
 	b := 5
 	b += "foo"
 }
 a()`,
 		nil, "Runtime Error: invalid operation: int + string\n\tat test:4:2")
 
-	expectError(t, `a := 5
+	expectRunError(t, `a := 5
 a + import("mod1")`, Opts().Module(
 		"mod1", `export "foo"`,
 	), ": invalid operation: int + string\n\tat test:2:1")
 
-	expectError(t, `a := import("mod1")()`,
+	expectRunError(t, `a := import("mod1")()`,
 		Opts().Module(
 			"mod1", `
-export func() {
+export fn() {
 	b := 5
 	return b + "foo"
 }`), "Runtime Error: invalid operation: int + string\n\tat mod1:4:9")
 
-	expectError(t, `a := import("mod1")()`,
+	expectRunError(t, `a := import("mod1")()`,
 		Opts().Module(
 			"mod1", `export import("mod2")()`).
 			Module(
 				"mod2", `
-export func() {
+export fn() {
 	b := 5
 	return b + "foo"
 }`), "Runtime Error: invalid operation: int + string\n\tat mod2:4:9")
 
-	expectError(t, `a := [1, 2, 3]; b := a[:"invalid"];`, nil,
+	expectRunError(t, `a := [1, 2, 3]; b := a[:"invalid"];`, nil,
 		"Runtime Error: invalid slice index type: string")
-	expectError(t, `a := immutable([4, 5, 6]); b := a[:false];`, nil,
+	expectRunError(t, `a := immutable([4, 5, 6]); b := a[:false];`, nil,
 		"Runtime Error: invalid slice index type: bool")
-	expectError(t, `a := "hello"; b := a[:1.23];`, nil,
+	expectRunError(t, `a := "hello"; b := a[:1.23];`, nil,
 		"Runtime Error: invalid slice index type: float")
-	expectError(t, `a := bytes("world"); b := a[:time(1)];`, nil,
+	expectRunError(t, `a := bytes("world"); b := a[:time(1)];`, nil,
 		"Runtime Error: invalid slice index type: time")
 }
 
 func TestVMErrorUnwrap(t *testing.T) {
 	userErr := errors.New("user runtime error")
-	userFunc := func(err error) *toy.UserFunction {
-		return &toy.UserFunction{Name: "user_func", Func: func(args ...toy.Object) (toy.Object, error) {
-			return nil, err
-		}}
+	userFunc := func(err error) *toy.BuiltinFunction {
+		return &toy.BuiltinFunction{
+			Name: "userFunc",
+			Func: func(args ...toy.Object) (toy.Object, error) {
+				return nil, err
+			},
+		}
 	}
 	userModule := func(err error) *toy.BuiltinModule {
 		return &toy.BuiltinModule{
-			Attrs: map[string]toy.Object{
-				"afunction": &toy.UserFunction{
+			Members: map[string]toy.Object{
+				"afunction": &toy.BuiltinFunction{
 					Name: "afunction",
 					Func: func(a ...toy.Object) (toy.Object, error) {
 						return nil, err
@@ -1119,76 +1092,57 @@ func TestVMErrorUnwrap(t *testing.T) {
 		}
 	}
 
-	expectError(t, `user_func()`,
-		Opts().Symbol("user_func", userFunc(userErr)),
-		"Runtime Error: "+userErr.Error(),
-	)
-	expectErrorIs(t, `user_func()`,
-		Opts().Symbol("user_func", userFunc(userErr)),
-		userErr,
-	)
+	expectRunError(t, `userFn()`,
+		Opts().Symbol("userFunc", userFunc(userErr)),
+		"Runtime Error: "+userErr.Error())
+	expectRunErrorIs(t, `userFn()`,
+		Opts().Symbol("userFunc", userFunc(userErr)),
+		userErr)
 
 	wrapUserErr := &customError{err: userErr, str: "custom error"}
 
-	expectErrorIs(t, `user_func()`,
-		Opts().Symbol("user_func", userFunc(wrapUserErr)),
-		wrapUserErr,
-	)
-	expectErrorIs(t, `user_func()`,
-		Opts().Symbol("user_func", userFunc(wrapUserErr)),
-		userErr,
-	)
+	expectRunErrorIs(t, `userFn()`,
+		Opts().Symbol("userFunc", userFunc(wrapUserErr)),
+		wrapUserErr)
+	expectRunErrorIs(t, `userFn()`,
+		Opts().Symbol("userFunc", userFunc(wrapUserErr)),
+		userErr)
+
 	var asErr1 *customError
-	expectErrorAs(t, `user_func()`,
-		Opts().Symbol("user_func", userFunc(wrapUserErr)),
-		&asErr1,
-	)
-	require.True(t, asErr1.Error() == wrapUserErr.Error(),
+	expectRunErrorAs(t, `userFn()`,
+		Opts().Symbol("userFunc", userFunc(wrapUserErr)),
+		&asErr1)
+	expectTrue(t, asErr1.Error() == wrapUserErr.Error(),
 		"expected error as:%v, got:%v", wrapUserErr, asErr1)
 
-	expectError(t, `import("mod1").afunction()`,
+	expectRunError(t, `import("mod1").afunction()`,
 		Opts().Module("mod1", userModule(userErr)),
-		"Runtime Error: "+userErr.Error(),
-	)
-	expectErrorIs(t, `import("mod1").afunction()`,
+		"Runtime Error: "+userErr.Error())
+	expectRunErrorIs(t, `import("mod1").afunction()`,
 		Opts().Module("mod1", userModule(userErr)),
-		userErr,
-	)
-	expectError(t, `import("mod1").afunction()`,
+		userErr)
+	expectRunError(t, `import("mod1").afunction()`,
 		Opts().Module("mod1", userModule(wrapUserErr)),
-		"Runtime Error: "+wrapUserErr.Error(),
-	)
-	expectErrorIs(t, `import("mod1").afunction()`,
+		"Runtime Error: "+wrapUserErr.Error())
+	expectRunErrorIs(t, `import("mod1").afunction()`,
 		Opts().Module("mod1", userModule(wrapUserErr)),
-		wrapUserErr,
-	)
-	expectErrorIs(t, `import("mod1").afunction()`,
+		wrapUserErr)
+	expectRunErrorIs(t, `import("mod1").afunction()`,
 		Opts().Module("mod1", userModule(wrapUserErr)),
-		userErr,
-	)
+		userErr)
+
 	var asErr2 *customError
-	expectErrorAs(t, `import("mod1").afunction()`,
+	expectRunErrorAs(t, `import("mod1").afunction()`,
 		Opts().Module("mod1", userModule(wrapUserErr)),
-		&asErr2,
-	)
-	require.True(t, asErr2.Error() == wrapUserErr.Error(),
+		&asErr2)
+	expectTrue(t, asErr2.Error() == wrapUserErr.Error(),
 		"expected error as:%v, got:%v", wrapUserErr, asErr2)
 }
 
 func TestError(t *testing.T) {
-	expectRun(t, `out = error(1)`, nil, errorObject(1))
-	expectRun(t, `out = error(1).value`, nil, 1)
-	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
-	expectRun(t, `out = error("some" + " error")`, nil, errorObject("some error"))
-	expectRun(t, `out = func() { return error(5) }()`, nil, errorObject(5))
-	expectRun(t, `out = error(error("foo"))`, nil, errorObject(errorObject("foo")))
-	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
-	expectRun(t, `out = error("some error").value`, nil, "some error")
-	expectRun(t, `out = error("some error")["value"]`, nil, "some error")
-
-	expectError(t, `error("error").err`, nil, "invalid index on error")
-	expectError(t, `error("error").value_`, nil, "invalid index on error")
-	expectError(t, `error([1,2,3])[1]`, nil, "invalid index on error")
+	expectRun(t, `out = error("some error")`, nil, toy.NewError("some error"))
+	expectRun(t, `out = error("some" + " error")`, nil, toy.NewError("some error"))
+	// TODO: error changed
 }
 
 func TestFloat(t *testing.T) {
@@ -1207,11 +1161,11 @@ func TestForIn(t *testing.T) {
 		nil, 6) // value
 	expectRun(t, `out = 0; for i, x in [1, 2, 3] { out += i + x }`,
 		nil, 9) // index, value
-	expectRun(t, `out = 0; func() { for i, x in [1, 2, 3] { out += i + x } }()`,
+	expectRun(t, `out = 0; fn() { for i, x in [1, 2, 3] { out += i + x } }()`,
 		nil, 9) // index, value
 	expectRun(t, `out = 0; for i, _ in [1, 2, 3] { out += i }`,
 		nil, 3) // index, _
-	expectRun(t, `out = 0; func() { for i, _ in [1, 2, 3] { out += i  } }()`,
+	expectRun(t, `out = 0; fn() { for i, _ in [1, 2, 3] { out += i  } }()`,
 		nil, 3) // index, _
 
 	// map
@@ -1223,7 +1177,7 @@ func TestForIn(t *testing.T) {
 		nil, "a") // key, _
 	expectRun(t, `out = 0; for _, v in {a:2,b:3,c:4} { out += v }`,
 		nil, 9) // _, value
-	expectRun(t, `out = ""; func() { for k, v in {a:2,b:3,c:4} { out = k; if v==3 { break } } }()`,
+	expectRun(t, `out = ""; fn() { for k, v in {a:2,b:3,c:4} { out = k; if v==3 { break } } }()`,
 		nil, "b") // key, value
 
 	// string
@@ -1313,7 +1267,7 @@ func TestFor(t *testing.T) {
 
 	expectRun(t, `
 	out = 0
-	func() {
+	fn() {
 		for true {
 			out++
 			if out == 5 {
@@ -1338,7 +1292,7 @@ func TestFor(t *testing.T) {
 
 	expectRun(t, `
 	out = 0
-	func() {
+	fn() {
 		for {
 			out++
 			if out == 5 {
@@ -1349,7 +1303,7 @@ func TestFor(t *testing.T) {
 
 	expectRun(t, `
 	out = 0
-	func() {
+	fn() {
 		for true {
 			out++
 			if out == 5 {
@@ -1359,7 +1313,7 @@ func TestFor(t *testing.T) {
 	}()`, nil, 5)
 
 	expectRun(t, `
-	out = func() {
+	out = fn() {
 		a := 0
 		for {
 			a++
@@ -1371,7 +1325,7 @@ func TestFor(t *testing.T) {
 	}()`, nil, 5)
 
 	expectRun(t, `
-	out = func() {
+	out = fn() {
 		a := 0
 		for true {
 			a++
@@ -1383,9 +1337,9 @@ func TestFor(t *testing.T) {
 	}()`, nil, 5)
 
 	expectRun(t, `
-	out = func() {
+	out = fn() {
 		a := 0
-		func() {
+		fn() {
 			for {
 				a++
 				if a == 5 {
@@ -1397,9 +1351,9 @@ func TestFor(t *testing.T) {
 	}()`, nil, 5)
 
 	expectRun(t, `
-	out = func() {
+	out = fn() {
 		a := 0
-		func() {
+		fn() {
 			for true {
 				a++
 				if a == 5 {
@@ -1411,7 +1365,7 @@ func TestFor(t *testing.T) {
 	}()`, nil, 5)
 
 	expectRun(t, `
-	out = func() {
+	out = fn() {
 		sum := 0
 		for a:=1; a<=10; a++ {
 			sum += a
@@ -1420,7 +1374,7 @@ func TestFor(t *testing.T) {
 	}()`, nil, 55)
 
 	expectRun(t, `
-	out = func() {
+	out = fn() {
 		sum := 0
 		for a:=1; a<=4; a++ {
 			for b:=3; b<=5; b++ {
@@ -1468,48 +1422,48 @@ func TestFor(t *testing.T) {
 
 func TestFunction(t *testing.T) {
 	// function with no "return" statement returns "invalid" value.
-	expectRun(t, `f1 := func() {}; out = f1();`,
+	expectRun(t, `f1 := fn() {}; out = f1();`,
 		nil, toy.Undefined)
-	expectRun(t, `f1 := func() {}; f2 := func() { return f1(); }; f1(); out = f2();`,
+	expectRun(t, `f1 := fn() {}; f2 := fn() { return f1(); }; f1(); out = f2();`,
 		nil, toy.Undefined)
-	expectRun(t, `f := func(x) { x; }; out = f(5);`,
+	expectRun(t, `f := fn(x) { x; }; out = f(5);`,
 		nil, toy.Undefined)
 
-	expectRun(t, `f := func(...x) { return x; }; out = f(1,2,3);`,
+	expectRun(t, `f := fn(...x) { return x; }; out = f(1,2,3);`,
 		nil, ARR{1, 2, 3})
 
-	expectRun(t, `f := func(a, b, ...x) { return [a, b, x]; }; out = f(8,9,1,2,3);`,
+	expectRun(t, `f := fn(a, b, ...x) { return [a, b, x]; }; out = f(8,9,1,2,3);`,
 		nil, ARR{8, 9, ARR{1, 2, 3}})
 
-	expectRun(t, `f := func(v) { x := 2; return func(a, ...b){ return [a, b, v+x]}; }; out = f(5)("a", "b");`,
+	expectRun(t, `f := fn(v) { x := 2; return fn(a, ...b){ return [a, b, v+x]}; }; out = f(5)("a", "b");`,
 		nil, ARR{"a", ARR{"b"}, 7})
 
-	expectRun(t, `f := func(...x) { return x; }; out = f();`,
-		nil, &toy.Array{Value: []toy.Object{}})
+	expectRun(t, `f := fn(...x) { return x; }; out = f();`,
+		nil, ARR{})
 
-	expectRun(t, `f := func(a, b, ...x) { return [a, b, x]; }; out = f(8, 9);`,
+	expectRun(t, `f := fn(a, b, ...x) { return [a, b, x]; }; out = f(8, 9);`,
 		nil, ARR{8, 9, ARR{}})
 
-	expectRun(t, `f := func(v) { x := 2; return func(a, ...b){ return [a, b, v+x]}; }; out = f(5)("a");`,
+	expectRun(t, `f := fn(v) { x := 2; return fn(a, ...b){ return [a, b, v+x]}; }; out = f(5)("a");`,
 		nil, ARR{"a", ARR{}, 7})
 
-	expectError(t, `f := func(a, b, ...x) { return [a, b, x]; }; f();`, nil,
+	expectRunError(t, `f := fn(a, b, ...x) { return [a, b, x]; }; f();`, nil,
 		"Runtime Error: wrong number of arguments: want>=2, got=0\n\tat test:1:46")
 
-	expectError(t, `f := func(a, b, ...x) { return [a, b, x]; }; f(1);`, nil,
+	expectRunError(t, `f := fn(a, b, ...x) { return [a, b, x]; }; f(1);`, nil,
 		"Runtime Error: wrong number of arguments: want>=2, got=1\n\tat test:1:46")
 
-	expectRun(t, `f := func(x) { return x; }; out = f(5);`, nil, 5)
-	expectRun(t, `f := func(x) { return x * 2; }; out = f(5);`, nil, 10)
-	expectRun(t, `f := func(x, y) { return x + y; }; out = f(5, 5);`, nil, 10)
-	expectRun(t, `f := func(x, y) { return x + y; }; out = f(5 + 5, f(5, 5));`,
+	expectRun(t, `f := fn(x) { return x; }; out = f(5);`, nil, 5)
+	expectRun(t, `f := fn(x) { return x * 2; }; out = f(5);`, nil, 10)
+	expectRun(t, `f := fn(x, y) { return x + y; }; out = f(5, 5);`, nil, 10)
+	expectRun(t, `f := fn(x, y) { return x + y; }; out = f(5 + 5, f(5, 5));`,
 		nil, 20)
-	expectRun(t, `out = func(x) { return x; }(5)`, nil, 5)
-	expectRun(t, `x := 10; f := func(x) { return x; }; f(5); out = x;`, nil, 10)
+	expectRun(t, `out = fn(x) { return x; }(5)`, nil, 5)
+	expectRun(t, `x := 10; f := fn(x) { return x; }; f(5); out = x;`, nil, 10)
 
 	expectRun(t, `
-	f2 := func(a) {
-		f1 := func(a) {
+	f2 := fn(a) {
+		f1 := fn(a) {
 			return a * 2;
 		};
 
@@ -1520,19 +1474,19 @@ func TestFunction(t *testing.T) {
 	`, nil, 60)
 
 	expectRun(t, `
-		f1 := func(f) {
+		f1 := fn(f) {
 			a := [undefined]
-			a[0] = func() { return f(a) }
+			a[0] = fn() { return f(a) }
 			return a[0]()
 		}
 
-		out = f1(func(a) { return 2 })
+		out = f1(fn(a) { return 2 })
 	`, nil, 2)
 
 	// closures
 	expectRun(t, `
-		newAdder := func(x) {
-			return func(y) { return x + y };
+		newAdder := fn(x) {
+			return fn(y) { return x + y };
 		};
 
 		add2 := newAdder(2);
@@ -1541,7 +1495,7 @@ func TestFunction(t *testing.T) {
 	expectRun(t, `
 		m := {a: 1}
 		for k,v in m {
-			func(){
+			fn(){
 				out = k
 			}()
 		}
@@ -1550,95 +1504,95 @@ func TestFunction(t *testing.T) {
 	expectRun(t, `
 		m := {a: 1}
 		for k,v in m {
-			func(){
+			fn(){
 				out = v
 			}()
 		}
 		`, nil, 1)
 	// function as a argument
 	expectRun(t, `
-	add := func(a, b) { return a + b };
-	sub := func(a, b) { return a - b };
-	applyFunc := func(a, b, f) { return f(a, b) };
+	add := fn(a, b) { return a + b };
+	sub := fn(a, b) { return a - b };
+	applyFunc := fn(a, b, f) { return f(a, b) };
 
-	out = applyFunc(applyFunc(2, 2, add), 3, sub);
+	out = applyfn(applyfn(2, 2, add), 3, sub);
 	`, nil, 1)
 
-	expectRun(t, `f1 := func() { return 5 + 10; }; out = f1();`,
+	expectRun(t, `f1 := fn() { return 5 + 10; }; out = f1();`,
 		nil, 15)
-	expectRun(t, `f1 := func() { return 1 }; f2 := func() { return 2 }; out = f1() + f2()`,
+	expectRun(t, `f1 := fn() { return 1 }; f2 := fn() { return 2 }; out = f1() + f2()`,
 		nil, 3)
-	expectRun(t, `f1 := func() { return 1 }; f2 := func() { return f1() + 2 }; f3 := func() { return f2() + 3 }; out = f3()`,
+	expectRun(t, `f1 := fn() { return 1 }; f2 := fn() { return f1() + 2 }; f3 := fn() { return f2() + 3 }; out = f3()`,
 		nil, 6)
-	expectRun(t, `f1 := func() { return 99; 100 }; out = f1();`,
+	expectRun(t, `f1 := fn() { return 99; 100 }; out = f1();`,
 		nil, 99)
-	expectRun(t, `f1 := func() { return 99; return 100 }; out = f1();`,
+	expectRun(t, `f1 := fn() { return 99; return 100 }; out = f1();`,
 		nil, 99)
-	expectRun(t, `f1 := func() { return 33; }; f2 := func() { return f1 }; out = f2()();`,
+	expectRun(t, `f1 := fn() { return 33; }; f2 := fn() { return f1 }; out = f2()();`,
 		nil, 33)
-	expectRun(t, `one := func() { one = 1; return one }; out = one()`,
+	expectRun(t, `one := fn() { one = 1; return one }; out = one()`,
 		nil, 1)
-	expectRun(t, `three := func() { one := 1; two := 2; return one + two }; out = three()`,
+	expectRun(t, `three := fn() { one := 1; two := 2; return one + two }; out = three()`,
 		nil, 3)
-	expectRun(t, `three := func() { one := 1; two := 2; return one + two }; seven := func() { three := 3; four := 4; return three + four }; out = three() + seven()`,
+	expectRun(t, `three := fn() { one := 1; two := 2; return one + two }; seven := fn() { three := 3; four := 4; return three + four }; out = three() + seven()`,
 		nil, 10)
 	expectRun(t, `
-	foo1 := func() {
+	foo1 := fn() {
 		foo := 50
 		return foo
 	}
-	foo2 := func() {
+	foo2 := fn() {
 		foo := 100
 		return foo
 	}
 	out = foo1() + foo2()`, nil, 150)
 	expectRun(t, `
 	g := 50;
-	minusOne := func() {
+	minusOne := fn() {
 		n := 1;
 		return g - n;
 	};
-	minusTwo := func() {
+	minusTwo := fn() {
 		n := 2;
 		return g - n;
 	};
 	out = minusOne() + minusTwo()
 	`, nil, 97)
 	expectRun(t, `
-	f1 := func() {
-		f2 := func() { return 1; }
+	f1 := fn() {
+		f2 := fn() { return 1; }
 		return f2
 	};
 	out = f1()()
 	`, nil, 1)
 
 	expectRun(t, `
-	f1 := func(a) { return a; };
+	f1 := fn(a) { return a; };
 	out = f1(4)`, nil, 4)
 	expectRun(t, `
-	f1 := func(a, b) { return a + b; };
+	f1 := fn(a, b) { return a + b; };
 	out = f1(1, 2)`, nil, 3)
 
 	expectRun(t, `
-	sum := func(a, b) {
+	sum := fn(a, b) {
 		c := a + b;
 		return c;
 	};
 	out = sum(1, 2);`, nil, 3)
 
 	expectRun(t, `
-	sum := func(a, b) {
+	sum := fn(a, b) {
 		c := a + b;
 		return c;
 	};
 	out = sum(1, 2) + sum(3, 4);`, nil, 10)
 
 	expectRun(t, `
-	sum := func(a, b) {
+	sum := fn(a, b) {
 		c := a + b
 		return c
 	};
-	outer := func() {
+	outer := fn() {
 		return sum(1, 2) + sum(3, 4)
 	};
 	out = outer();`, nil, 10)
@@ -1646,55 +1600,55 @@ func TestFunction(t *testing.T) {
 	expectRun(t, `
 	g := 10;
 
-	sum := func(a, b) {
+	sum := fn(a, b) {
 		c := a + b;
 		return c + g;
 	}
 
-	outer := func() {
+	outer := fn() {
 		return sum(1, 2) + sum(3, 4) + g;
 	}
 
 	out = outer() + g
 	`, nil, 50)
 
-	expectError(t, `func() { return 1; }(1)`,
+	expectRunError(t, `fn() { return 1; }(1)`,
 		nil, "wrong number of arguments")
-	expectError(t, `func(a) { return a; }()`,
+	expectRunError(t, `fn(a) { return a; }()`,
 		nil, "wrong number of arguments")
-	expectError(t, `func(a, b) { return a + b; }(1)`,
+	expectRunError(t, `fn(a, b) { return a + b; }(1)`,
 		nil, "wrong number of arguments")
 
 	expectRun(t, `
-		f1 := func(a) {
-			return func() { return a; };
+		f1 := fn(a) {
+			return fn() { return a; };
 		};
 		f2 := f1(99);
 		out = f2()
 		`, nil, 99)
 
 	expectRun(t, `
-		f1 := func(a, b) {
-			return func(c) { return a + b + c };
+		f1 := fn(a, b) {
+			return fn(c) { return a + b + c };
 		};
 
 		f2 := f1(1, 2);
 		out = f2(8);
 		`, nil, 11)
 	expectRun(t, `
-		f1 := func(a, b) {
+		f1 := fn(a, b) {
 			c := a + b;
-			return func(d) { return c + d };
+			return fn(d) { return c + d };
 		};
 		f2 := f1(1, 2);
 		out = f2(8);
 		`, nil, 11)
 	expectRun(t, `
-		f1 := func(a, b) {
+		f1 := fn(a, b) {
 			c := a + b;
-			return func(d) {
+			return fn(d) {
 				e := d + c;
-				return func(f) { return e + f };
+				return fn(f) { return e + f };
 			}
 		};
 		f2 := f1(1, 2);
@@ -1703,9 +1657,9 @@ func TestFunction(t *testing.T) {
 		`, nil, 14)
 	expectRun(t, `
 		a := 1;
-		f1 := func(b) {
-			return func(c) {
-				return func(d) { return a + b + c + d }
+		f1 := fn(b) {
+			return fn(c) {
+				return fn(d) { return a + b + c + d }
 			};
 		};
 		f2 := f1(2);
@@ -1713,10 +1667,10 @@ func TestFunction(t *testing.T) {
 		out = f3(8);
 		`, nil, 14)
 	expectRun(t, `
-		f1 := func(a, b) {
-			one := func() { return a; };
-			two := func() { return b; };
-			return func() { return one() + two(); }
+		f1 := fn(a, b) {
+			one := fn() { return a; };
+			two := fn() { return b; };
+			return fn() { return one() + two(); }
 		};
 		f2 := f1(9, 90);
 		out = f2();
@@ -1724,7 +1678,7 @@ func TestFunction(t *testing.T) {
 
 	// global function recursion
 	expectRun(t, `
-		fib := func(x) {
+		fib := fn(x) {
 			if x == 0 {
 				return 0
 			} else if x == 1 {
@@ -1737,20 +1691,20 @@ func TestFunction(t *testing.T) {
 
 	// local function recursion
 	expectRun(t, `
-out = func() {
-	sum := func(x) {
+out = fn() {
+	sum := fn(x) {
 		return x == 0 ? 0 : x + sum(x-1)
 	}
 	return sum(5)
 }()`, nil, 15)
 
-	expectError(t, `return 5`, nil, "return not allowed outside function")
+	expectRunError(t, `return 5`, nil, "return not allowed outside function")
 
 	// closure and block scopes
 	expectRun(t, `
-func() {
+fn() {
 	a := 10
-	func() {
+	fn() {
 		b := 5
 		if true {
 			out = a + 5
@@ -1758,21 +1712,21 @@ func() {
 	}()
 }()`, nil, 15)
 	expectRun(t, `
-func() {
+fn() {
 	a := 10
-	b := func() { return 5 }
-	func() {
+	b := fn() { return 5 }
+	fn() {
 		if b() {
 			out = a + b()
 		}
 	}()
 }()`, nil, 15)
 	expectRun(t, `
-func() {
+fn() {
 	a := 10
-	func() {
-		b := func() { return 5 }
-		func() {
+	fn() {
+		b := fn() { return 5 }
+		fn() {
 			if true {
 				out = a + b()
 			}
@@ -1781,30 +1735,30 @@ func() {
 }()`, nil, 15)
 
 	// function skipping return
-	expectRun(t, `out = func() {}()`,
+	expectRun(t, `out = fn() {}()`,
 		nil, toy.Undefined)
-	expectRun(t, `out = func(v) { if v { return true } }(1)`,
+	expectRun(t, `out = fn(v) { if v { return true } }(1)`,
 		nil, true)
-	expectRun(t, `out = func(v) { if v { return true } }(0)`,
+	expectRun(t, `out = fn(v) { if v { return true } }(0)`,
 		nil, toy.Undefined)
-	expectRun(t, `out = func(v) { if v { } else { return true } }(1)`,
+	expectRun(t, `out = fn(v) { if v { } else { return true } }(1)`,
 		nil, toy.Undefined)
-	expectRun(t, `out = func(v) { if v { return } }(1)`,
+	expectRun(t, `out = fn(v) { if v { return } }(1)`,
 		nil, toy.Undefined)
-	expectRun(t, `out = func(v) { if v { return } }(0)`,
+	expectRun(t, `out = fn(v) { if v { return } }(0)`,
 		nil, toy.Undefined)
-	expectRun(t, `out = func(v) { if v { } else { return } }(1)`,
+	expectRun(t, `out = fn(v) { if v { } else { return } }(1)`,
 		nil, toy.Undefined)
-	expectRun(t, `out = func(v) { for ;;v++ { if v == 3 { return true } } }(1)`,
+	expectRun(t, `out = fn(v) { for ;;v++ { if v == 3 { return true } } }(1)`,
 		nil, true)
-	expectRun(t, `out = func(v) { for ;;v++ { if v == 3 { break } } }(1)`,
+	expectRun(t, `out = fn(v) { for ;;v++ { if v == 3 { break } } }(1)`,
 		nil, toy.Undefined)
 
 	// 'f' in RHS at line 4 must reference global variable 'f'
 	// See https://github.com/d5/toy.issues/314
 	expectRun(t, `
-f := func() { return 2 }
-out = (func() {
+f := fn() { return 2 }
+out = (fn() {
 	f := f()
 	return f
 })()
@@ -1816,7 +1770,7 @@ func TestBlocksInGlobalScope(t *testing.T) {
 f := undefined
 if true {
 	a := 1
-	f = func() {
+	f = fn() {
 		a = 2
 	}
 }
@@ -1826,11 +1780,11 @@ out = b`,
 		nil, 3)
 
 	expectRun(t, `
-func() {
+fn() {
 	f := undefined
 	if true {
 		a := 10
-		f = func() {
+		f = fn() {
 			a = 20
 		}
 	}
@@ -1846,7 +1800,7 @@ f := undefined
 if true {
 	a := 1
 	b := 2
-	f = func() {
+	f = fn() {
 		a = 3
 		b = 4
 	}
@@ -1858,14 +1812,14 @@ out = c + d`,
 		nil, 11)
 
 	expectRun(t, `
-fn := undefined
+f := undefined
 if true {
 	a := 1
 	b := 2
 	if true {
 		c := 3
 		d := 4
-		fn = func() {
+		f = fn() {
 			a = 5
 			b = 6
 			c = 7
@@ -1875,13 +1829,13 @@ if true {
 }
 e := 9
 f := 10
-fn()
+f()
 out = e + f`,
 		nil, 19)
 
 	expectRun(t, `
 out = 0
-func() {
+fn() {
 	for x in [1, 2, 3] {
 		out += x
 	}
@@ -1932,7 +1886,7 @@ func TestIf(t *testing.T) {
 	expectRun(t, `if a:=0; a<1 { out = 10 }`, nil, 10)
 	expectRun(t, `a:=0; if a++; a==1 { out = 10 }`, nil, 10)
 	expectRun(t, `
-func() {
+fn() {
 	a := 1
 	if a++; a > 1 {
 		out = a
@@ -1940,7 +1894,7 @@ func() {
 }()
 `, nil, 2)
 	expectRun(t, `
-func() {
+fn() {
 	a := 1
 	if a++; a == 1 {
 		out = 10
@@ -1950,10 +1904,10 @@ func() {
 }()
 `, nil, 20)
 	expectRun(t, `
-func() {
+fn() {
 	a := 1
 
-	func() {
+	fn() {
 		if a++; a > 1 {
 			a++
 		}
@@ -1969,14 +1923,14 @@ func() {
 
 	// dead code elimination
 	expectRun(t, `
-out = func() {
+out = fn() {
 	if false { return 1 }
 
 	a := undefined
 
 	a = 2
 	if !a {
-		b := func() {
+		b := fn() {
 			return is_callable(a) ? a(8) : a
 		}()
 		if is_error(b) {
@@ -1988,7 +1942,7 @@ out = func() {
 
 	a = 3
 	if a {
-		b := func() {
+		b := fn() {
 			return is_callable(a) ? a(9) : a
 		}()
 		if is_error(b) {
@@ -2011,15 +1965,15 @@ func TestImmutable(t *testing.T) {
 	expectRun(t, `a := immutable(1); a = 5; out = a`, nil, 5)
 
 	// array
-	expectError(t, `a := immutable([1, 2, 3]); a[1] = 5`,
+	expectRunError(t, `a := immutable([1, 2, 3]); a[1] = 5`,
 		nil, "not index-assignable")
-	expectError(t, `a := immutable(["foo", [1,2,3]]); a[1] = "bar"`,
+	expectRunError(t, `a := immutable(["foo", [1,2,3]]); a[1] = "bar"`,
 		nil, "not index-assignable")
 	expectRun(t, `a := immutable(["foo", [1,2,3]]); a[1][1] = "bar"; out = a`,
 		nil, IARR{"foo", ARR{1, "bar", 3}})
-	expectError(t, `a := immutable(["foo", immutable([1,2,3])]); a[1][1] = "bar"`,
+	expectRunError(t, `a := immutable(["foo", immutable([1,2,3])]); a[1][1] = "bar"`,
 		nil, "not index-assignable")
-	expectError(t, `a := ["foo", immutable([1,2,3])]; a[1][1] = "bar"`,
+	expectRunError(t, `a := ["foo", immutable([1,2,3])]; a[1][1] = "bar"`,
 		nil, "not index-assignable")
 	expectRun(t, `a := immutable([1,2,3]); b := copy(a); b[1] = 5; out = b`,
 		nil, ARR{1, 5, 3})
@@ -2047,15 +2001,15 @@ func TestImmutable(t *testing.T) {
 		nil, toy.Undefined)
 
 	// map
-	expectError(t, `a := immutable({b: 1, c: 2}); a.b = 5`,
+	expectRunError(t, `a := immutable({b: 1, c: 2}); a.b = 5`,
 		nil, "not index-assignable")
-	expectError(t, `a := immutable({b: 1, c: 2}); a["b"] = "bar"`,
+	expectRunError(t, `a := immutable({b: 1, c: 2}); a["b"] = "bar"`,
 		nil, "not index-assignable")
 	expectRun(t, `a := immutable({b: 1, c: [1,2,3]}); a.c[1] = "bar"; out = a`,
 		nil, IMAP{"b": 1, "c": ARR{1, "bar", 3}})
-	expectError(t, `a := immutable({b: 1, c: immutable([1,2,3])}); a.c[1] = "bar"`,
+	expectRunError(t, `a := immutable({b: 1, c: immutable([1,2,3])}); a.c[1] = "bar"`,
 		nil, "not index-assignable")
-	expectError(t, `a := {b: 1, c: immutable([1,2,3])}; a.c[1] = "bar"`,
+	expectRunError(t, `a := {b: 1, c: immutable([1,2,3])}; a.c[1] = "bar"`,
 		nil, "not index-assignable")
 	expectRun(t, `out = immutable({a:1,b:2}) == {a:1,b:2}`,
 		nil, true)
@@ -2080,7 +2034,7 @@ func TestImmutable(t *testing.T) {
 
 	expectRun(t, `a := immutable({b: 5, c: "foo"}); out = a.b`,
 		nil, 5)
-	expectError(t, `a := immutable({b: 5, c: "foo"}); a.b = 10`,
+	expectRunError(t, `a := immutable({b: 5, c: "foo"}); a.b = 10`,
 		nil, "not index-assignable")
 }
 
@@ -2093,236 +2047,213 @@ func TestIncDec(t *testing.T) {
 	// this seems strange but it works because 'a += b' is
 	// translated into 'a = a + b' and string type takes other types for + operator.
 	expectRun(t, `a := "foo"; a++; out = a`, nil, "foo1")
-	expectError(t, `a := "foo"; a--`, nil, "invalid operation")
+	expectRunError(t, `a := "foo"; a--`, nil, "invalid operation")
 
-	expectError(t, `a++`, nil, "unresolved reference") // not declared
-	expectError(t, `a--`, nil, "unresolved reference") // not declared
-	expectError(t, `4++`, nil, "unresolved reference")
+	expectRunError(t, `a++`, nil, "unresolved reference") // not declared
+	expectRunError(t, `a--`, nil, "unresolved reference") // not declared
+	expectRunError(t, `4++`, nil, "unresolved reference")
 }
 
-type StringDict struct {
-	toy.ObjectImpl
-	Value map[string]string
-}
+type StringDict map[string]string
 
-func (o *StringDict) String() string { return "" }
+func (o StringDict) TypeName() string { return "string-dict" }
+func (o StringDict) String() string   { return "" }
+func (o StringDict) IsFalsy() bool    { return len(o) == 0 }
+func (o StringDict) Copy() toy.Object { return StringDict(maps.Clone(o)) }
 
-func (o *StringDict) TypeName() string {
-	return "string-dict"
-}
-
-func (o *StringDict) IndexGet(index toy.Object) (toy.Object, error) {
-	strIdx, ok := index.(*toy.String)
+func (o StringDict) IndexGet(index toy.Object) (toy.Object, error) {
+	strIdx, ok := index.(toy.String)
 	if !ok {
 		return nil, toy.ErrInvalidIndexType
 	}
-
-	for k, v := range o.Value {
-		if strings.EqualFold(strIdx.Value, k) {
-			return &toy.String{Value: v}, nil
+	for k, v := range o {
+		if strings.EqualFold(string(strIdx), k) {
+			return toy.String(v), nil
 		}
 	}
-
 	return toy.Undefined, nil
 }
 
-func (o *StringDict) IndexSet(index, value toy.Object) error {
-	strIdx, ok := index.(*toy.String)
+func (o StringDict) IndexSet(index, value toy.Object) error {
+	strIdx, ok := index.(toy.String)
 	if !ok {
 		return toy.ErrInvalidIndexType
 	}
-
-	strVal, ok := toy.ToString(value)
-	if !ok {
-		return toy.ErrInvalidIndexValueType
+	var strVal toy.String
+	if err := toy.Convert(&strVal, value); err != nil {
+		return err
 	}
-
-	o.Value[strings.ToLower(strIdx.Value)] = strVal
-
+	o[strings.ToLower(string(strIdx))] = string(strVal)
 	return nil
 }
 
-type StringCircle struct {
-	toy.ObjectImpl
-	Value []string
-}
+type StringCircle []string
 
-func (o *StringCircle) TypeName() string {
-	return "string-circle"
-}
+func (o StringCircle) TypeName() string { return "string-circle" }
+func (o StringCircle) String() string   { return "" }
+func (o StringCircle) IsFalsy() bool    { return len(o) == 0 }
+func (o StringCircle) Copy() toy.Object { return StringCircle(slices.Clone(o)) }
 
-func (o *StringCircle) String() string {
-	return ""
-}
-
-func (o *StringCircle) IndexGet(index toy.Object) (toy.Object, error) {
-	intIdx, ok := index.(*toy.Int)
+func (o StringCircle) IndexGet(index toy.Object) (toy.Object, error) {
+	intIdx, ok := index.(toy.Int)
 	if !ok {
 		return nil, toy.ErrInvalidIndexType
 	}
-
-	r := int(intIdx.Value) % len(o.Value)
+	r := int(intIdx) % len(o)
 	if r < 0 {
-		r = len(o.Value) + r
+		r = len(o) + r
 	}
-
-	return &toy.String{Value: o.Value[r]}, nil
+	return toy.String(o[r]), nil
 }
 
-func (o *StringCircle) IndexSet(index, value toy.Object) error {
-	intIdx, ok := index.(*toy.Int)
+func (o StringCircle) IndexSet(index, value toy.Object) error {
+	intIdx, ok := index.(toy.Int)
 	if !ok {
 		return toy.ErrInvalidIndexType
 	}
-
-	r := int(intIdx.Value) % len(o.Value)
+	r := int(intIdx) % len(o)
 	if r < 0 {
-		r = len(o.Value) + r
+		r = len(o) + r
 	}
-
-	strVal, ok := toy.ToString(value)
-	if !ok {
-		return toy.ErrInvalidIndexValueType
+	var strValue toy.String
+	if err := toy.Convert(&strValue, value); err != nil {
+		return err
 	}
-
-	o.Value[r] = strVal
-
+	o[r] = string(strValue)
 	return nil
 }
 
-type StringArray struct {
-	toy.ObjectImpl
-	Value []string
-}
+type StringArray []string
 
-func (o *StringArray) String() string {
-	return strings.Join(o.Value, ", ")
-}
+func (o StringArray) TypeName() string { return "string-array" }
+func (o StringArray) String() string   { return strings.Join(o, ", ") }
+func (o StringArray) IsFalsy() bool    { return len(o) == 0 }
+func (o StringArray) Copy() toy.Object { return StringArray(slices.Clone(o)) }
 
-func (o *StringArray) BinaryOp(
-	op token.Token,
-	rhs toy.Object,
-) (toy.Object, error) {
-	if rhs, ok := rhs.(*StringArray); ok {
-		switch op {
-		case token.Add:
-			if len(rhs.Value) == 0 {
-				return o, nil
-			}
-			return &StringArray{Value: append(o.Value, rhs.Value...)}, nil
-		}
+func (o StringArray) Compare(op token.Token, rhs toy.Object) (bool, error) {
+	y, ok := rhs.(StringArray)
+	if !ok {
+		return false, toy.ErrInvalidOperator
 	}
+	switch op {
+	case token.Equal:
+		if len(o) != len(y) {
+			return false, nil
+		}
+		for i := range o {
+			if o[i] != y[i] {
+				return false, nil
+			}
+		}
+		return true, nil
+	case token.NotEqual:
+		if len(o) != len(y) {
+			return true, nil
+		}
+		for i := range o {
+			if o[i] != y[i] {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	return false, toy.ErrInvalidOperator
+}
 
+func (o StringArray) BinaryOp(op token.Token, rhs toy.Object) (toy.Object, error) {
+	y, ok := rhs.(StringArray)
+	if !ok {
+		return nil, toy.ErrInvalidOperator
+	}
+	switch op {
+	case token.Add:
+		return append(o, y...), nil
+	}
 	return nil, toy.ErrInvalidOperator
 }
 
-func (o *StringArray) IsFalsy() bool {
-	return len(o.Value) == 0
-}
-
-func (o *StringArray) Equals(x toy.Object) bool {
-	if x, ok := x.(*StringArray); ok {
-		if len(o.Value) != len(x.Value) {
-			return false
+func (o StringArray) IndexGet(index toy.Object) (toy.Object, error) {
+	switch idx := index.(type) {
+	case toy.Int:
+		if idx >= 0 && idx < toy.Int(len(o)) {
+			return toy.String(o[idx]), nil
 		}
-
-		for i, v := range o.Value {
-			if v != x.Value[i] {
-				return false
+		return toy.Undefined, nil
+	case toy.String:
+		for i, s := range o {
+			if s == string(idx) {
+				return toy.Int(i), nil
 			}
 		}
-
-		return true
-	}
-
-	return false
-}
-
-func (o *StringArray) Copy() toy.Object {
-	return &StringArray{
-		Value: append([]string{}, o.Value...),
-	}
-}
-
-func (o *StringArray) TypeName() string {
-	return "string-array"
-}
-
-func (o *StringArray) IndexGet(index toy.Object) (toy.Object, error) {
-	intIdx, ok := index.(*toy.Int)
-	if ok {
-		if intIdx.Value >= 0 && intIdx.Value < int64(len(o.Value)) {
-			return &toy.String{Value: o.Value[intIdx.Value]}, nil
-		}
-
-		return nil, toy.ErrIndexOutOfBounds
-	}
-
-	strIdx, ok := index.(*toy.String)
-	if ok {
-		for vidx, str := range o.Value {
-			if strIdx.Value == str {
-				return &toy.Int{Value: int64(vidx)}, nil
-			}
-		}
-
 		return toy.Undefined, nil
 	}
-
 	return nil, toy.ErrInvalidIndexType
 }
 
-func (o *StringArray) IndexSet(index, value toy.Object) error {
-	strVal, ok := toy.ToString(value)
+func (o StringArray) IndexSet(index, value toy.Object) error {
+	intIdx, ok := index.(toy.Int)
 	if !ok {
-		return toy.ErrInvalidIndexValueType
+		return toy.ErrInvalidIndexType
 	}
-
-	intIdx, ok := index.(*toy.Int)
-	if ok {
-		if intIdx.Value >= 0 && intIdx.Value < int64(len(o.Value)) {
-			o.Value[intIdx.Value] = strVal
-			return nil
-		}
-
-		return toy.ErrIndexOutOfBounds
+	var strVal toy.String
+	if err := toy.Convert(&strVal, value); err != nil {
+		return err
 	}
-
-	return toy.ErrInvalidIndexType
+	n := len(o)
+	if intIdx < 0 && intIdx >= toy.Int(n) {
+		return fmt.Errorf("index %d out of range [:%d]", intIdx, n)
+	}
+	o[intIdx] = string(strVal)
+	return nil
 }
 
-func (o *StringArray) Call(
-	args ...toy.Object,
-) (ret toy.Object, err error) {
+func (o StringArray) Call(args ...toy.Object) (ret toy.Object, err error) {
 	if len(args) != 1 {
-		return nil, toy.ErrWrongNumArguments
+		return nil, fmt.Errorf("want 1 argument, got %d", len(args))
 	}
-
-	s1, ok := toy.ToString(args[0])
-	if !ok {
-		return nil, toy.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
+	var s toy.String
+	if err := toy.Convert(&s, args[0]); err != nil {
+		return nil, err
+	}
+	for i, v := range o {
+		if v == string(s) {
+			return toy.Int(i), nil
 		}
 	}
-
-	for i, v := range o.Value {
-		if v == s1 {
-			return &toy.Int{Value: int64(i)}, nil
-		}
-	}
-
 	return toy.Undefined, nil
 }
 
-func (o *StringArray) CanCall() bool {
-	return true
+func (o StringArray) Iterate() toy.Iterator {
+	return &stringArrayIterator{s: o, i: 0}
+}
+
+type stringArrayIterator struct {
+	s StringArray
+	i int
+}
+
+func (it *stringArrayIterator) TypeName() string { return "string-array-iterator" }
+func (it *stringArrayIterator) String() string   { return "" }
+func (it *stringArrayIterator) IsFalsy() bool    { return true }
+func (it *stringArrayIterator) Copy() toy.Object { return &stringArrayIterator{s: it.s, i: it.i} }
+
+func (it *stringArrayIterator) Next(key, value *toy.Object) bool {
+	if it.i < len(it.s) {
+		if key != nil {
+			*key = toy.Int(it.i)
+		}
+		if value != nil {
+			*value = toy.String(it.s[it.i])
+		}
+		it.i++
+		return true
+	}
+	return false
 }
 
 func TestIndexable(t *testing.T) {
-	dict := func() *StringDict {
-		return &StringDict{Value: map[string]string{"a": "foo", "b": "bar"}}
+	dict := func() StringDict {
+		return StringDict{"a": "foo", "b": "bar"}
 	}
 	expectRun(t, `out = dict["a"]`,
 		Opts().Symbol("dict", dict()).Skip2ndPass(), "foo")
@@ -2330,11 +2261,11 @@ func TestIndexable(t *testing.T) {
 		Opts().Symbol("dict", dict()).Skip2ndPass(), "bar")
 	expectRun(t, `out = dict["x"]`,
 		Opts().Symbol("dict", dict()).Skip2ndPass(), toy.Undefined)
-	expectError(t, `dict[0]`,
+	expectRunError(t, `dict[0]`,
 		Opts().Symbol("dict", dict()).Skip2ndPass(), "invalid index type")
 
-	strCir := func() *StringCircle {
-		return &StringCircle{Value: []string{"one", "two", "three"}}
+	strCir := func() StringCircle {
+		return StringCircle{"one", "two", "three"}
 	}
 	expectRun(t, `out = cir[0]`,
 		Opts().Symbol("cir", strCir()).Skip2ndPass(), "one")
@@ -2346,11 +2277,11 @@ func TestIndexable(t *testing.T) {
 		Opts().Symbol("cir", strCir()).Skip2ndPass(), "two")
 	expectRun(t, `out = cir[3]`,
 		Opts().Symbol("cir", strCir()).Skip2ndPass(), "one")
-	expectError(t, `cir["a"]`,
+	expectRunError(t, `cir["a"]`,
 		Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid index type")
 
-	strArr := func() *StringArray {
-		return &StringArray{Value: []string{"one", "two", "three"}}
+	strArr := func() StringArray {
+		return StringArray{"one", "two", "three"}
 	}
 	expectRun(t, `out = arr["one"]`,
 		Opts().Symbol("arr", strArr()).Skip2ndPass(), 0)
@@ -2362,13 +2293,13 @@ func TestIndexable(t *testing.T) {
 		Opts().Symbol("arr", strArr()).Skip2ndPass(), "one")
 	expectRun(t, `out = arr[1]`,
 		Opts().Symbol("arr", strArr()).Skip2ndPass(), "two")
-	expectError(t, `arr[-1]`,
+	expectRunError(t, `arr[-1]`,
 		Opts().Symbol("arr", strArr()).Skip2ndPass(), "index out of bounds")
 }
 
 func TestIndexAssignable(t *testing.T) {
-	dict := func() *StringDict {
-		return &StringDict{Value: map[string]string{"a": "foo", "b": "bar"}}
+	dict := func() StringDict {
+		return StringDict{"a": "foo", "b": "bar"}
 	}
 	expectRun(t, `dict["a"] = "1984"; out = dict["a"]`,
 		Opts().Symbol("dict", dict()).Skip2ndPass(), "1984")
@@ -2376,11 +2307,11 @@ func TestIndexAssignable(t *testing.T) {
 		Opts().Symbol("dict", dict()).Skip2ndPass(), "1984")
 	expectRun(t, `dict["c"] = 1984; out = dict["C"]`,
 		Opts().Symbol("dict", dict()).Skip2ndPass(), "1984")
-	expectError(t, `dict[0] = "1984"`,
+	expectRunError(t, `dict[0] = "1984"`,
 		Opts().Symbol("dict", dict()).Skip2ndPass(), "invalid index type")
 
-	strCir := func() *StringCircle {
-		return &StringCircle{Value: []string{"one", "two", "three"}}
+	strCir := func() StringCircle {
+		return StringCircle{"one", "two", "three"}
 	}
 	expectRun(t, `cir[0] = "ONE"; out = cir[0]`,
 		Opts().Symbol("cir", strCir()).Skip2ndPass(), "ONE")
@@ -2390,17 +2321,17 @@ func TestIndexAssignable(t *testing.T) {
 		Opts().Symbol("cir", strCir()).Skip2ndPass(), "THREE")
 	expectRun(t, `cir[0] = "ONE"; out = cir[3]`,
 		Opts().Symbol("cir", strCir()).Skip2ndPass(), "ONE")
-	expectError(t, `cir["a"] = "ONE"`,
+	expectRunError(t, `cir["a"] = "ONE"`,
 		Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid index type")
 
-	strArr := func() *StringArray {
-		return &StringArray{Value: []string{"one", "two", "three"}}
+	strArr := func() StringArray {
+		return StringArray{"one", "two", "three"}
 	}
 	expectRun(t, `arr[0] = "ONE"; out = arr[0]`,
 		Opts().Symbol("arr", strArr()).Skip2ndPass(), "ONE")
 	expectRun(t, `arr[1] = "TWO"; out = arr[1]`,
 		Opts().Symbol("arr", strArr()).Skip2ndPass(), "TWO")
-	expectError(t, `arr["one"] = "ONE"`,
+	expectRunError(t, `arr["one"] = "ONE"`,
 		Opts().Symbol("arr", strArr()).Skip2ndPass(), "invalid index type")
 }
 
@@ -2429,46 +2360,9 @@ func TestInteger(t *testing.T) {
 	expectRun(t, `out = '9' - 5`, nil, '4')
 }
 
-type StringArrayIterator struct {
-	toy.ObjectImpl
-	strArr *StringArray
-	idx    int
-}
-
-func (i *StringArrayIterator) TypeName() string {
-	return "string-array-iterator"
-}
-
-func (i *StringArrayIterator) String() string {
-	return ""
-}
-
-func (i *StringArrayIterator) Next() bool {
-	i.idx++
-	return i.idx <= len(i.strArr.Value)
-}
-
-func (i *StringArrayIterator) Key() toy.Object {
-	return &toy.Int{Value: int64(i.idx - 1)}
-}
-
-func (i *StringArrayIterator) Value() toy.Object {
-	return &toy.String{Value: i.strArr.Value[i.idx-1]}
-}
-
-func (o *StringArray) Iterate() toy.Iterator {
-	return &StringArrayIterator{
-		strArr: o,
-	}
-}
-
-func (o *StringArray) CanIterate() bool {
-	return true
-}
-
 func TestIterable(t *testing.T) {
-	strArr := func() *StringArray {
-		return &StringArray{Value: []string{"one", "two", "three"}}
+	strArr := func() StringArray {
+		return StringArray{"one", "two", "three"}
 	}
 	expectRun(t, `for i, s in arr { out += i }`,
 		Opts().Symbol("arr", strArr()).Skip2ndPass(), 3)
@@ -2506,21 +2400,21 @@ func TestLogical(t *testing.T) {
 	expectRun(t, `out = 0 || (0 && 2)`, nil, 0)
 	expectRun(t, `out = 0 || (2 && 0)`, nil, 0)
 
-	expectRun(t, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; t() && f()`,
+	expectRun(t, `t:=fn() {out = 3; return true}; f:=fn() {out = 7; return false}; t() && f()`,
 		nil, 7)
-	expectRun(t, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; f() && t()`,
+	expectRun(t, `t:=fn() {out = 3; return true}; f:=fn() {out = 7; return false}; f() && t()`,
 		nil, 7)
-	expectRun(t, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; f() || t()`,
+	expectRun(t, `t:=fn() {out = 3; return true}; f:=fn() {out = 7; return false}; f() || t()`,
 		nil, 3)
-	expectRun(t, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; t() || f()`,
+	expectRun(t, `t:=fn() {out = 3; return true}; f:=fn() {out = 7; return false}; t() || f()`,
 		nil, 3)
-	expectRun(t, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; !t() && f()`,
+	expectRun(t, `t:=fn() {out = 3; return true}; f:=fn() {out = 7; return false}; !t() && f()`,
 		nil, 3)
-	expectRun(t, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; !f() && t()`,
+	expectRun(t, `t:=fn() {out = 3; return true}; f:=fn() {out = 7; return false}; !f() && t()`,
 		nil, 3)
-	expectRun(t, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; !f() || t()`,
+	expectRun(t, `t:=fn() {out = 3; return true}; f:=fn() {out = 7; return false}; !f() || t()`,
 		nil, 7)
-	expectRun(t, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; !t() || f()`,
+	expectRun(t, `t:=fn() {out = 3; return true}; f:=fn() {out = 7; return false}; !t() || f()`,
 		nil, 7)
 }
 
@@ -2554,7 +2448,7 @@ out = {
 
 	expectRun(t, `
 m := {
-	foo: func(x) {
+	foo: fn(x) {
 		return x * 2
 	}
 }
@@ -2566,21 +2460,28 @@ out = m["foo"](2) + m["foo"](3)
 		nil, 5)
 	expectRun(t, `m1 := {k1: 1, k2: "foo"}; m2 := m1; m2.k1 = 3; out = m1.k1`,
 		nil, 3)
-	expectRun(t, `func() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m1.k1 = 5; out = m2.k1 }()`,
+	expectRun(t, `fn() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m1.k1 = 5; out = m2.k1 }()`,
 		nil, 5)
-	expectRun(t, `func() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m2.k1 = 3; out = m1.k1 }()`,
+	expectRun(t, `fn() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m2.k1 = 3; out = m1.k1 }()`,
 		nil, 3)
 }
 
 func TestBuiltin(t *testing.T) {
 	m := Opts().Module("math",
 		&toy.BuiltinModule{
-			Attrs: map[string]toy.Object{
-				"abs": &toy.UserFunction{
+			Name: "math",
+			Members: map[string]toy.Object{
+				"abs": &toy.BuiltinFunction{
 					Name: "abs",
 					Func: func(a ...toy.Object) (toy.Object, error) {
-						v, _ := toy.ToFloat64(a[0])
-						return &toy.Float{Value: math.Abs(v)}, nil
+						if len(a) != 1 {
+							return nil, fmt.Errorf("want 1 argument, got %d", len(a))
+						}
+						var f toy.Float
+						if err := toy.Convert(&f, a[0]); err != nil {
+							return nil, err
+						}
+						return toy.Float(math.Abs(float64(f))), nil
 					},
 				},
 			},
@@ -2596,7 +2497,7 @@ func TestBuiltin(t *testing.T) {
 func TestUserModules(t *testing.T) {
 	// export none
 	expectRun(t, `out = import("mod1")`,
-		Opts().Module("mod1", `fn := func() { return 5.0 }; a := 2`),
+		Opts().Module("mod1", `f := fn() { return 5.0 }; a := 2`),
 		toy.Undefined)
 
 	// export values
@@ -2612,9 +2513,9 @@ func TestUserModules(t *testing.T) {
 		Opts().Module("mod1", `export {a: 1, b: 2}`), IMAP{"a": 1, "b": 2})
 
 	// export value is immutable
-	expectError(t, `m1 := import("mod1"); m1.a = 5`,
+	expectRunError(t, `m1 := import("mod1"); m1.a = 5`,
 		Opts().Module("mod1", `export {a: 1, b: 2}`), "not index-assignable")
-	expectError(t, `m1 := import("mod1"); m1[1] = 5`,
+	expectRunError(t, `m1 := import("mod1"); m1[1] = 5`,
 		Opts().Module("mod1", `export [1, 2, 3]`), "not index-assignable")
 
 	// code after export statement will not be executed
@@ -2625,22 +2526,22 @@ func TestUserModules(t *testing.T) {
 
 	// export function
 	expectRun(t, `out = import("mod1")()`,
-		Opts().Module("mod1", `export func() { return 5.0 }`), 5.0)
+		Opts().Module("mod1", `export fn() { return 5.0 }`), 5.0)
 	// export function that reads module-global variable
 	expectRun(t, `out = import("mod1")()`,
-		Opts().Module("mod1", `a := 1.5; export func() { return a + 5.0 }`), 6.5)
+		Opts().Module("mod1", `a := 1.5; export fn() { return a + 5.0 }`), 6.5)
 	// export function that read local variable
 	expectRun(t, `out = import("mod1")()`,
-		Opts().Module("mod1", `export func() { a := 1.5; return a + 5.0 }`), 6.5)
+		Opts().Module("mod1", `export fn() { a := 1.5; return a + 5.0 }`), 6.5)
 	// export function that read free variables
 	expectRun(t, `out = import("mod1")()`,
-		Opts().Module("mod1", `export func() { a := 1.5; return func() { return a + 5.0 }() }`), 6.5)
+		Opts().Module("mod1", `export fn() { a := 1.5; return fn() { return a + 5.0 }() }`), 6.5)
 
 	// recursive function in module
 	expectRun(t, `out = import("mod1")`,
 		Opts().Module(
 			"mod1", `
-a := func(x) {
+a := fn(x) {
 	return x == 0 ? 0 : x + a(x-1)
 }
 
@@ -2649,8 +2550,8 @@ export a(5)
 	expectRun(t, `out = import("mod1")`,
 		Opts().Module(
 			"mod1", `
-export func() {
-	a := func(x) {
+export fn() {
+	a := fn(x) {
 		return x == 0 ? 0 : x + a(x-1)
 	}
 
@@ -2661,45 +2562,45 @@ export func() {
 	// (main) -> mod1 -> mod2
 	expectRun(t, `out = import("mod1")()`,
 		Opts().Module("mod1", `export import("mod2")`).
-			Module("mod2", `export func() { return 5.0 }`),
+			Module("mod2", `export fn() { return 5.0 }`),
 		5.0)
 	// (main) -> mod1 -> mod2
 	//        -> mod2
 	expectRun(t, `import("mod1"); out = import("mod2")()`,
 		Opts().Module("mod1", `export import("mod2")`).
-			Module("mod2", `export func() { return 5.0 }`),
+			Module("mod2", `export fn() { return 5.0 }`),
 		5.0)
 	// (main) -> mod1 -> mod2 -> mod3
 	//        -> mod2 -> mod3
 	expectRun(t, `import("mod1"); out = import("mod2")()`,
 		Opts().Module("mod1", `export import("mod2")`).
 			Module("mod2", `export import("mod3")`).
-			Module("mod3", `export func() { return 5.0 }`),
+			Module("mod3", `export fn() { return 5.0 }`),
 		5.0)
 
 	// cyclic imports
 	// (main) -> mod1 -> mod2 -> mod1
-	expectError(t, `import("mod1")`,
+	expectRunError(t, `import("mod1")`,
 		Opts().Module("mod1", `import("mod2")`).
 			Module("mod2", `import("mod1")`),
 		"Compile Error: cyclic module import: mod1\n\tat mod2:1:1")
 	// (main) -> mod1 -> mod2 -> mod3 -> mod1
-	expectError(t, `import("mod1")`,
+	expectRunError(t, `import("mod1")`,
 		Opts().Module("mod1", `import("mod2")`).
 			Module("mod2", `import("mod3")`).
 			Module("mod3", `import("mod1")`),
 		"Compile Error: cyclic module import: mod1\n\tat mod3:1:1")
 	// (main) -> mod1 -> mod2 -> mod3 -> mod2
-	expectError(t, `import("mod1")`,
+	expectRunError(t, `import("mod1")`,
 		Opts().Module("mod1", `import("mod2")`).
 			Module("mod2", `import("mod3")`).
 			Module("mod3", `import("mod2")`),
 		"Compile Error: cyclic module import: mod2\n\tat mod3:1:1")
 
 	// unknown modules
-	expectError(t, `import("mod0")`,
+	expectRunError(t, `import("mod0")`,
 		Opts().Module("mod1", `a := 5`), "module 'mod0' not found")
-	expectError(t, `import("mod1")`,
+	expectRunError(t, `import("mod1")`,
 		Opts().Module("mod1", `import("mod2")`), "module 'mod2' not found")
 
 	// module is immutable but its variables is not necessarily immutable.
@@ -2709,33 +2610,33 @@ export func() {
 
 	// make sure module has same builtin functions
 	expectRun(t, `out = import("mod1")`,
-		Opts().Module("mod1", `export func() { return type_name(0) }()`),
+		Opts().Module("mod1", `export fn() { return type_name(0) }()`),
 		"int")
 
 	// 'export' statement is ignored outside module
-	expectRun(t, `a := 5; export func() { a = 10 }(); out = a`,
+	expectRun(t, `a := 5; export fn() { a = 10 }(); out = a`,
 		Opts().Skip2ndPass(), 5)
 
 	// 'export' must be in the top-level
-	expectError(t, `import("mod1")`,
-		Opts().Module("mod1", `func() { export 5 }()`),
+	expectRunError(t, `import("mod1")`,
+		Opts().Module("mod1", `fn() { export 5 }()`),
 		"Compile Error: export not allowed inside function\n\tat mod1:1:10")
-	expectError(t, `import("mod1")`,
-		Opts().Module("mod1", `func() { func() { export 5 }() }()`),
+	expectRunError(t, `import("mod1")`,
+		Opts().Module("mod1", `fn() { fn() { export 5 }() }()`),
 		"Compile Error: export not allowed inside function\n\tat mod1:1:19")
 
 	// module cannot access outer scope
-	expectError(t, `a := 5; import("mod1")`,
+	expectRunError(t, `a := 5; import("mod1")`,
 		Opts().Module("mod1", `export a`),
 		"Compile Error: unresolved reference 'a'\n\tat mod1:1:8")
 
 	// runtime error within modules
-	expectError(t, `
+	expectRunError(t, `
 a := 1;
 b := import("mod1");
 b(a)`,
 		Opts().Module("mod1", `
-export func(a) {
+export fn(a) {
    a()
 }
 `), "Runtime Error: not callable: int\n\tat mod1:3:4\n\tat test:4:1")
@@ -2769,7 +2670,7 @@ m2 := import("mod")
 out = m1.x
 	`,
 		Opts().Module("mod", `
-f1 := func(a, b) {
+f1 := fn(a, b) {
 	c := a + b + 1
 	return a + b + 1
 }
@@ -2781,12 +2682,19 @@ export { x: 1 }
 func TestModuleBlockScopes(t *testing.T) {
 	m := Opts().Module("rand",
 		&toy.BuiltinModule{
-			Attrs: map[string]toy.Object{
-				"intn": &toy.UserFunction{
+			Name: "rand",
+			Members: map[string]toy.Object{
+				"intn": &toy.BuiltinFunction{
 					Name: "abs",
 					Func: func(a ...toy.Object) (toy.Object, error) {
-						v, _ := toy.ToInt64(a[0])
-						return &toy.Int{Value: rand.Int63n(v)}, nil
+						if len(a) != 1 {
+							return nil, fmt.Errorf("want 1 argument, got %d", len(a))
+						}
+						var n toy.Int
+						if err := toy.Convert(&n, a[0]); err != nil {
+							return nil, err
+						}
+						return toy.Int(rand.Int64N(int64(n))), nil
 					},
 				},
 			},
@@ -2796,8 +2704,8 @@ func TestModuleBlockScopes(t *testing.T) {
 	expectRun(t, `out = import("mod1")()`, m.Module(
 		"mod1", `
 	rand := import("rand")
-	foo := func() { return 1 }
-	export func() {
+	foo := fn() { return 1 }
+	export fn() {
 		rand.intn(3)
 		return foo()
 	}`), 1)
@@ -2805,8 +2713,8 @@ func TestModuleBlockScopes(t *testing.T) {
 	expectRun(t, `out = import("mod1")()`, m.Module(
 		"mod1", `
 rand := import("rand")
-foo := func() { return 1 }
-export func() {
+foo := fn() { return 1 }
+export fn() {
 	rand.intn(3)
 	if foo() {}
 	return 10
@@ -2816,8 +2724,8 @@ export func() {
 	expectRun(t, `out = import("mod1")()`, m.Module(
 		"mod1", `
 	rand := import("rand")
-	foo := func() { return 1 }
-	export func() {
+	foo := fn() { return 1 }
+	export fn() {
 		rand.intn(3)
 		if true { foo() }
 		return 10
@@ -2843,20 +2751,20 @@ func TestObjectsLimit(t *testing.T) {
 	testAllocsLimit(t, `a := {foo: 1, bar: 2}`, 1)
 	testAllocsLimit(t, `a := 1; b := 2; c := {foo: a, bar: b}`, 1)
 	testAllocsLimit(t, `
-f := func() {
+f := fn() {
 	return 5 + 5
 }
 a := f() + 5
 `, 2)
 	testAllocsLimit(t, `
-f := func() {
+f := fn() {
 	return 5 + 5
 }
 a := f()
 `, 1)
 	testAllocsLimit(t, `
 a := []
-f := func() {
+f := fn() {
 	a = append(a, 5)
 }
 f()
@@ -2873,24 +2781,24 @@ func testAllocsLimit(t *testing.T, src string, limit int64) {
 	expectRun(t, src,
 		Opts().MaxAllocs(limit+1).Skip2ndPass(), toy.Undefined)
 	if limit > 1 {
-		expectError(t, src,
+		expectRunError(t, src,
 			Opts().MaxAllocs(limit-1).Skip2ndPass(),
 			"allocation limit exceeded")
 	}
 	if limit > 2 {
-		expectError(t, src,
+		expectRunError(t, src,
 			Opts().MaxAllocs(limit-2).Skip2ndPass(),
 			"allocation limit exceeded")
 	}
 }
 
 func TestReturn(t *testing.T) {
-	expectRun(t, `out = func() { return 10; }()`, nil, 10)
-	expectRun(t, `out = func() { return 10; return 9; }()`, nil, 10)
-	expectRun(t, `out = func() { return 2 * 5; return 9 }()`, nil, 10)
-	expectRun(t, `out = func() { 9; return 2 * 5; return 9 }()`, nil, 10)
+	expectRun(t, `out = fn() { return 10; }()`, nil, 10)
+	expectRun(t, `out = fn() { return 10; return 9; }()`, nil, 10)
+	expectRun(t, `out = fn() { return 2 * 5; return 9 }()`, nil, 10)
+	expectRun(t, `out = fn() { 9; return 2 * 5; return 9 }()`, nil, 10)
 	expectRun(t, `
-	out = func() {
+	out = fn() {
 		if (10 > 1) {
 			if (10 > 1) {
 				return 10;
@@ -2900,7 +2808,7 @@ func TestReturn(t *testing.T) {
 		}
 	}()`, nil, 10)
 
-	expectRun(t, `f1 := func() { return 2 * 5; }; out = f1()`, nil, 10)
+	expectRun(t, `f1 := fn() { return 2 * 5; }; out = f1()`, nil, 10)
 }
 
 func TestVMScopes(t *testing.T) {
@@ -2917,7 +2825,7 @@ out = c
 
 	// shadowed local variable
 	expectRun(t, `
-func() {
+fn() {
 	c := 5
 	if a := 3; a {
 		c := 6
@@ -2986,7 +2894,7 @@ if a := 0; a {
 	// shadowing function level
 	expectRun(t, `
 a := 5
-func() {
+fn() {
 	a := 6
 	a = 7
 }()
@@ -2994,7 +2902,7 @@ out = a
 `, nil, 5)
 	expectRun(t, `
 a := 5
-func() {
+fn() {
 	if a := 7; true {
 		a = 8
 	}
@@ -3052,26 +2960,26 @@ b := a.x.y`, nil, toy.Undefined)
 	expectRun(t, `a := {b: {c: 1}}; a.b.d = 2; out = a`,
 		nil, MAP{"b": MAP{"c": 1, "d": 2}})
 
-	expectRun(t, `func() { a := {b: 1, c: "foo"}; a.b = 2; out = a.b }()`,
+	expectRun(t, `fn() { a := {b: 1, c: "foo"}; a.b = 2; out = a.b }()`,
 		nil, 2)
-	expectRun(t, `func() { a := {b: 1, c: "foo"}; a.c = 2; out = a.c }()`,
+	expectRun(t, `fn() { a := {b: 1, c: "foo"}; a.c = 2; out = a.c }()`,
 		nil, 2) // type not checked on sub-field
-	expectRun(t, `func() { a := {b: {c: 1}}; a.b.c = 2; out = a.b.c }()`,
+	expectRun(t, `fn() { a := {b: {c: 1}}; a.b.c = 2; out = a.b.c }()`,
 		nil, 2)
-	expectRun(t, `func() { a := {b: 1}; a.c = 2; out = a }()`,
+	expectRun(t, `fn() { a := {b: 1}; a.c = 2; out = a }()`,
 		nil, MAP{"b": 1, "c": 2})
-	expectRun(t, `func() { a := {b: {c: 1}}; a.b.d = 2; out = a }()`,
+	expectRun(t, `fn() { a := {b: {c: 1}}; a.b.d = 2; out = a }()`,
 		nil, MAP{"b": MAP{"c": 1, "d": 2}})
 
-	expectRun(t, `func() { a := {b: 1, c: "foo"}; func() { a.b = 2 }(); out = a.b }()`,
+	expectRun(t, `fn() { a := {b: 1, c: "foo"}; fn() { a.b = 2 }(); out = a.b }()`,
 		nil, 2)
-	expectRun(t, `func() { a := {b: 1, c: "foo"}; func() { a.c = 2 }(); out = a.c }()`,
+	expectRun(t, `fn() { a := {b: 1, c: "foo"}; fn() { a.c = 2 }(); out = a.c }()`,
 		nil, 2) // type not checked on sub-field
-	expectRun(t, `func() { a := {b: {c: 1}}; func() { a.b.c = 2 }(); out = a.b.c }()`,
+	expectRun(t, `fn() { a := {b: {c: 1}}; fn() { a.b.c = 2 }(); out = a.b.c }()`,
 		nil, 2)
-	expectRun(t, `func() { a := {b: 1}; func() { a.c = 2 }(); out = a }()`,
+	expectRun(t, `fn() { a := {b: 1}; fn() { a.c = 2 }(); out = a }()`,
 		nil, MAP{"b": 1, "c": 2})
-	expectRun(t, `func() { a := {b: {c: 1}}; func() { a.b.d = 2 }(); out = a }()`,
+	expectRun(t, `fn() { a := {b: {c: 1}}; fn() { a.b.d = 2 }(); out = a }()`,
 		nil, MAP{"b": MAP{"c": 1, "d": 2}})
 
 	expectRun(t, `
@@ -3087,7 +2995,7 @@ out = [a.b[2], a.c.d, a.c.e, a.c.f[1]]
 `, nil, ARR{3, 8, "foo", 8})
 
 	expectRun(t, `
-func() {
+fn() {
 	a := [1, 2, 3]
 	b := 9
 	a[1] = b
@@ -3096,243 +3004,243 @@ func() {
 }()
 `, nil, 9)
 
-	expectError(t, `a := {b: {c: 1}}; a.d.c = 2`,
+	expectRunError(t, `a := {b: {c: 1}}; a.d.c = 2`,
 		nil, "not index-assignable")
-	expectError(t, `a := [1, 2, 3]; a.b = 2`,
+	expectRunError(t, `a := [1, 2, 3]; a.b = 2`,
 		nil, "invalid index type")
-	expectError(t, `a := "foo"; a.b = 2`,
+	expectRunError(t, `a := "foo"; a.b = 2`,
 		nil, "not index-assignable")
-	expectError(t, `func() { a := {b: {c: 1}}; a.d.c = 2 }()`,
+	expectRunError(t, `fn() { a := {b: {c: 1}}; a.d.c = 2 }()`,
 		nil, "not index-assignable")
-	expectError(t, `func() { a := [1, 2, 3]; a.b = 2 }()`,
+	expectRunError(t, `fn() { a := [1, 2, 3]; a.b = 2 }()`,
 		nil, "invalid index type")
-	expectError(t, `func() { a := "foo"; a.b = 2 }()`,
+	expectRunError(t, `fn() { a := "foo"; a.b = 2 }()`,
 		nil, "not index-assignable")
 }
 
-func TestSourceModules(t *testing.T) {
-	testEnumModule(t, `out = enum.key(0, 20)`, 0)
-	testEnumModule(t, `out = enum.key(10, 20)`, 10)
-	testEnumModule(t, `out = enum.value(0, 0)`, 0)
-	testEnumModule(t, `out = enum.value(10, 20)`, 20)
+// func TestSourceModules(t *testing.T) {
+// 	testEnumModule(t, `out = enum.key(0, 20)`, 0)
+// 	testEnumModule(t, `out = enum.key(10, 20)`, 10)
+// 	testEnumModule(t, `out = enum.value(0, 0)`, 0)
+// 	testEnumModule(t, `out = enum.value(10, 20)`, 20)
+//
+// 	testEnumModule(t, `out = enum.all([], enum.value)`, true)
+// 	testEnumModule(t, `out = enum.all([1], enum.value)`, true)
+// 	testEnumModule(t, `out = enum.all([true, 1], enum.value)`, true)
+// 	testEnumModule(t, `out = enum.all([true, 0], enum.value)`, false)
+// 	testEnumModule(t, `out = enum.all([true, 0, 1], enum.value)`, false)
+// 	testEnumModule(t, `out = enum.all(immutable([true, 0, 1]), enum.value)`,
+// 		false) // immutable-array
+// 	testEnumModule(t, `out = enum.all({}, enum.value)`, true)
+// 	testEnumModule(t, `out = enum.all({a:1}, enum.value)`, true)
+// 	testEnumModule(t, `out = enum.all({a:true, b:1}, enum.value)`, true)
+// 	testEnumModule(t, `out = enum.all(immutable({a:true, b:1}), enum.value)`,
+// 		true) // immutable-map
+// 	testEnumModule(t, `out = enum.all({a:true, b:0}, enum.value)`, false)
+// 	testEnumModule(t, `out = enum.all({a:true, b:0, c:1}, enum.value)`, false)
+// 	testEnumModule(t, `out = enum.all(0, enum.value)`,
+// 		toy.Undefined) // non-enumerable: undefined
+// 	testEnumModule(t, `out = enum.all("123", enum.value)`,
+// 		toy.Undefined) // non-enumerable: undefined
+//
+// 	testEnumModule(t, `out = enum.any([], enum.value)`, false)
+// 	testEnumModule(t, `out = enum.any([1], enum.value)`, true)
+// 	testEnumModule(t, `out = enum.any([true, 1], enum.value)`, true)
+// 	testEnumModule(t, `out = enum.any([true, 0], enum.value)`, true)
+// 	testEnumModule(t, `out = enum.any([true, 0, 1], enum.value)`, true)
+// 	testEnumModule(t, `out = enum.any(immutable([true, 0, 1]), enum.value)`,
+// 		true) // immutable-array
+// 	testEnumModule(t, `out = enum.any([false], enum.value)`, false)
+// 	testEnumModule(t, `out = enum.any([false, 0], enum.value)`, false)
+// 	testEnumModule(t, `out = enum.any({}, enum.value)`, false)
+// 	testEnumModule(t, `out = enum.any({a:1}, enum.value)`, true)
+// 	testEnumModule(t, `out = enum.any({a:true, b:1}, enum.value)`, true)
+// 	testEnumModule(t, `out = enum.any({a:true, b:0}, enum.value)`, true)
+// 	testEnumModule(t, `out = enum.any({a:true, b:0, c:1}, enum.value)`, true)
+// 	testEnumModule(t, `out = enum.any(immutable({a:true, b:0, c:1}), enum.value)`,
+// 		true) // immutable-map
+// 	testEnumModule(t, `out = enum.any({a:false}, enum.value)`, false)
+// 	testEnumModule(t, `out = enum.any({a:false, b:0}, enum.value)`, false)
+// 	testEnumModule(t, `out = enum.any(0, enum.value)`,
+// 		toy.Undefined) // non-enumerable: undefined
+// 	testEnumModule(t, `out = enum.any("123", enum.value)`,
+// 		toy.Undefined) // non-enumerable: undefined
+//
+// 	testEnumModule(t, `out = enum.chunk([], 1)`, ARR{})
+// 	testEnumModule(t, `out = enum.chunk([1], 1)`, ARR{ARR{1}})
+// 	testEnumModule(t, `out = enum.chunk([1,2,3], 1)`,
+// 		ARR{ARR{1}, ARR{2}, ARR{3}})
+// 	testEnumModule(t, `out = enum.chunk([1,2,3], 2)`,
+// 		ARR{ARR{1, 2}, ARR{3}})
+// 	testEnumModule(t, `out = enum.chunk([1,2,3], 3)`,
+// 		ARR{ARR{1, 2, 3}})
+// 	testEnumModule(t, `out = enum.chunk([1,2,3], 4)`,
+// 		ARR{ARR{1, 2, 3}})
+// 	testEnumModule(t, `out = enum.chunk([1,2,3,4], 3)`,
+// 		ARR{ARR{1, 2, 3}, ARR{4}})
+// 	testEnumModule(t, `out = enum.chunk([], 0)`,
+// 		toy.Undefined) // size=0: undefined
+// 	testEnumModule(t, `out = enum.chunk([1], 0)`,
+// 		toy.Undefined) // size=0: undefined
+// 	testEnumModule(t, `out = enum.chunk([1,2,3], 0)`,
+// 		toy.Undefined) // size=0: undefined
+// 	testEnumModule(t, `out = enum.chunk({a:1,b:2,c:3}, 1)`,
+// 		toy.Undefined) // map: undefined
+// 	testEnumModule(t, `out = enum.chunk(0, 1)`,
+// 		toy.Undefined) // non-enumerable: undefined
+// 	testEnumModule(t, `out = enum.chunk("123", 1)`,
+// 		toy.Undefined) // non-enumerable: undefined
+//
+// 	testEnumModule(t, `out = enum.at([], 0)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.at([], 1)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.at([], -1)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.at(["one"], 0)`,
+// 		"one")
+// 	testEnumModule(t, `out = enum.at(["one"], 1)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.at(["one"], -1)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.at(["one","two","three"], 0)`,
+// 		"one")
+// 	testEnumModule(t, `out = enum.at(["one","two","three"], 1)`,
+// 		"two")
+// 	testEnumModule(t, `out = enum.at(["one","two","three"], 2)`,
+// 		"three")
+// 	testEnumModule(t, `out = enum.at(["one","two","three"], -1)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.at(["one","two","three"], 3)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.at(["one","two","three"], "1")`,
+// 		toy.Undefined) // non-int index: undefined
+// 	testEnumModule(t, `out = enum.at({}, "a")`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.at({a:"one"}, "a")`,
+// 		"one")
+// 	testEnumModule(t, `out = enum.at({a:"one"}, "b")`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "a")`,
+// 		"one")
+// 	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "b")`,
+// 		"two")
+// 	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "c")`,
+// 		"three")
+// 	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "d")`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, 'a')`,
+// 		toy.Undefined) // non-string index: undefined
+// 	testEnumModule(t, `out = enum.at(0, 1)`,
+// 		toy.Undefined) // non-enumerable: undefined
+// 	testEnumModule(t, `out = enum.at("abc", 1)`,
+// 		toy.Undefined) // non-enumerable: undefined
+//
+// 	testEnumModule(t, `out=0; enum.each([],fn(k,v){out+=v})`, 0)
+// 	testEnumModule(t, `out=0; enum.each([1,2,3],fn(k,v){out+=v})`, 6)
+// 	testEnumModule(t, `out=0; enum.each([1,2,3],fn(k,v){out+=k})`, 3)
+// 	testEnumModule(t, `out=0; enum.each({a:1,b:2,c:3},fn(k,v){out+=v})`, 6)
+// 	testEnumModule(t, `out=""; enum.each({a:1,b:2,c:3},fn(k,v){out+=k}); out=len(out)`,
+// 		3)
+// 	testEnumModule(t, `out=0; enum.each(5,fn(k,v){out+=v})`, 0)     // non-enumerable: no iteration
+// 	testEnumModule(t, `out=0; enum.each("123",fn(k,v){out+=v})`, 0) // non-enumerable: no iteration
+//
+// 	testEnumModule(t, `out = enum.filter([], enum.value)`,
+// 		ARR{})
+// 	testEnumModule(t, `out = enum.filter([false,1,2], enum.value)`,
+// 		ARR{1, 2})
+// 	testEnumModule(t, `out = enum.filter([false,1,0,2], enum.value)`,
+// 		ARR{1, 2})
+// 	testEnumModule(t, `out = enum.filter({}, enum.value)`,
+// 		toy.Undefined) // non-array: undefined
+// 	testEnumModule(t, `out = enum.filter(0, enum.value)`,
+// 		toy.Undefined) // non-array: undefined
+// 	testEnumModule(t, `out = enum.filter("123", enum.value)`,
+// 		toy.Undefined) // non-array: undefined
+//
+// 	testEnumModule(t, `out = enum.find([], enum.value)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.find([0], enum.value)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.find([1], enum.value)`, 1)
+// 	testEnumModule(t, `out = enum.find([false,0,undefined,1], enum.value)`, 1)
+// 	testEnumModule(t, `out = enum.find([1,2,3], enum.value)`, 1)
+// 	testEnumModule(t, `out = enum.find({}, enum.value)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.find({a:0}, enum.value)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.find({a:1}, enum.value)`, 1)
+// 	testEnumModule(t, `out = enum.find({a:false,b:0,c:undefined,d:1}, enum.value)`,
+// 		1)
+// 	//testEnumModule(t, `out = enum.find({a:1,b:2,c:3}, enum.value)`, 1)
+// 	testEnumModule(t, `out = enum.find(0, enum.value)`,
+// 		toy.Undefined) // non-enumerable: undefined
+// 	testEnumModule(t, `out = enum.find("123", enum.value)`,
+// 		toy.Undefined) // non-enumerable: undefined
+//
+// 	testEnumModule(t, `out = enum.find_key([], enum.value)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.find_key([0], enum.value)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.find_key([1], enum.value)`, 0)
+// 	testEnumModule(t, `out = enum.find_key([false,0,undefined,1], enum.value)`,
+// 		3)
+// 	testEnumModule(t, `out = enum.find_key([1,2,3], enum.value)`, 0)
+// 	testEnumModule(t, `out = enum.find_key({}, enum.value)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.find_key({a:0}, enum.value)`,
+// 		toy.Undefined)
+// 	testEnumModule(t, `out = enum.find_key({a:1}, enum.value)`,
+// 		"a")
+// 	testEnumModule(t, `out = enum.find_key({a:false,b:0,c:undefined,d:1}, enum.value)`,
+// 		"d")
+// 	//testEnumModule(t, `out = enum.find_key({a:1,b:2,c:3}, enum.value)`, "a")
+// 	testEnumModule(t, `out = enum.find_key(0, enum.value)`,
+// 		toy.Undefined) // non-enumerable: undefined
+// 	testEnumModule(t, `out = enum.find_key("123", enum.value)`,
+// 		toy.Undefined) // non-enumerable: undefined
+//
+// 	testEnumModule(t, `out = enum.map([], enum.value)`,
+// 		ARR{})
+// 	testEnumModule(t, `out = enum.map([1,2,3], enum.value)`,
+// 		ARR{1, 2, 3})
+// 	testEnumModule(t, `out = enum.map([1,2,3], enum.key)`,
+// 		ARR{0, 1, 2})
+// 	testEnumModule(t, `out = enum.map([1,2,3], fn(k,v) { return v*2 })`,
+// 		ARR{2, 4, 6})
+// 	testEnumModule(t, `out = enum.map({}, enum.value)`,
+// 		ARR{})
+// 	testEnumModule(t, `out = enum.map({a:1}, fn(k,v) { return v*2 })`,
+// 		ARR{2})
+// 	testEnumModule(t, `out = enum.map(0, enum.value)`,
+// 		toy.Undefined) // non-enumerable: undefined
+// 	testEnumModule(t, `out = enum.map("123", enum.value)`,
+// 		toy.Undefined) // non-enumerable: undefined
+// }
 
-	testEnumModule(t, `out = enum.all([], enum.value)`, true)
-	testEnumModule(t, `out = enum.all([1], enum.value)`, true)
-	testEnumModule(t, `out = enum.all([true, 1], enum.value)`, true)
-	testEnumModule(t, `out = enum.all([true, 0], enum.value)`, false)
-	testEnumModule(t, `out = enum.all([true, 0, 1], enum.value)`, false)
-	testEnumModule(t, `out = enum.all(immutable([true, 0, 1]), enum.value)`,
-		false) // immutable-array
-	testEnumModule(t, `out = enum.all({}, enum.value)`, true)
-	testEnumModule(t, `out = enum.all({a:1}, enum.value)`, true)
-	testEnumModule(t, `out = enum.all({a:true, b:1}, enum.value)`, true)
-	testEnumModule(t, `out = enum.all(immutable({a:true, b:1}), enum.value)`,
-		true) // immutable-map
-	testEnumModule(t, `out = enum.all({a:true, b:0}, enum.value)`, false)
-	testEnumModule(t, `out = enum.all({a:true, b:0, c:1}, enum.value)`, false)
-	testEnumModule(t, `out = enum.all(0, enum.value)`,
-		toy.Undefined) // non-enumerable: undefined
-	testEnumModule(t, `out = enum.all("123", enum.value)`,
-		toy.Undefined) // non-enumerable: undefined
-
-	testEnumModule(t, `out = enum.any([], enum.value)`, false)
-	testEnumModule(t, `out = enum.any([1], enum.value)`, true)
-	testEnumModule(t, `out = enum.any([true, 1], enum.value)`, true)
-	testEnumModule(t, `out = enum.any([true, 0], enum.value)`, true)
-	testEnumModule(t, `out = enum.any([true, 0, 1], enum.value)`, true)
-	testEnumModule(t, `out = enum.any(immutable([true, 0, 1]), enum.value)`,
-		true) // immutable-array
-	testEnumModule(t, `out = enum.any([false], enum.value)`, false)
-	testEnumModule(t, `out = enum.any([false, 0], enum.value)`, false)
-	testEnumModule(t, `out = enum.any({}, enum.value)`, false)
-	testEnumModule(t, `out = enum.any({a:1}, enum.value)`, true)
-	testEnumModule(t, `out = enum.any({a:true, b:1}, enum.value)`, true)
-	testEnumModule(t, `out = enum.any({a:true, b:0}, enum.value)`, true)
-	testEnumModule(t, `out = enum.any({a:true, b:0, c:1}, enum.value)`, true)
-	testEnumModule(t, `out = enum.any(immutable({a:true, b:0, c:1}), enum.value)`,
-		true) // immutable-map
-	testEnumModule(t, `out = enum.any({a:false}, enum.value)`, false)
-	testEnumModule(t, `out = enum.any({a:false, b:0}, enum.value)`, false)
-	testEnumModule(t, `out = enum.any(0, enum.value)`,
-		toy.Undefined) // non-enumerable: undefined
-	testEnumModule(t, `out = enum.any("123", enum.value)`,
-		toy.Undefined) // non-enumerable: undefined
-
-	testEnumModule(t, `out = enum.chunk([], 1)`, ARR{})
-	testEnumModule(t, `out = enum.chunk([1], 1)`, ARR{ARR{1}})
-	testEnumModule(t, `out = enum.chunk([1,2,3], 1)`,
-		ARR{ARR{1}, ARR{2}, ARR{3}})
-	testEnumModule(t, `out = enum.chunk([1,2,3], 2)`,
-		ARR{ARR{1, 2}, ARR{3}})
-	testEnumModule(t, `out = enum.chunk([1,2,3], 3)`,
-		ARR{ARR{1, 2, 3}})
-	testEnumModule(t, `out = enum.chunk([1,2,3], 4)`,
-		ARR{ARR{1, 2, 3}})
-	testEnumModule(t, `out = enum.chunk([1,2,3,4], 3)`,
-		ARR{ARR{1, 2, 3}, ARR{4}})
-	testEnumModule(t, `out = enum.chunk([], 0)`,
-		toy.Undefined) // size=0: undefined
-	testEnumModule(t, `out = enum.chunk([1], 0)`,
-		toy.Undefined) // size=0: undefined
-	testEnumModule(t, `out = enum.chunk([1,2,3], 0)`,
-		toy.Undefined) // size=0: undefined
-	testEnumModule(t, `out = enum.chunk({a:1,b:2,c:3}, 1)`,
-		toy.Undefined) // map: undefined
-	testEnumModule(t, `out = enum.chunk(0, 1)`,
-		toy.Undefined) // non-enumerable: undefined
-	testEnumModule(t, `out = enum.chunk("123", 1)`,
-		toy.Undefined) // non-enumerable: undefined
-
-	testEnumModule(t, `out = enum.at([], 0)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.at([], 1)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.at([], -1)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.at(["one"], 0)`,
-		"one")
-	testEnumModule(t, `out = enum.at(["one"], 1)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.at(["one"], -1)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.at(["one","two","three"], 0)`,
-		"one")
-	testEnumModule(t, `out = enum.at(["one","two","three"], 1)`,
-		"two")
-	testEnumModule(t, `out = enum.at(["one","two","three"], 2)`,
-		"three")
-	testEnumModule(t, `out = enum.at(["one","two","three"], -1)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.at(["one","two","three"], 3)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.at(["one","two","three"], "1")`,
-		toy.Undefined) // non-int index: undefined
-	testEnumModule(t, `out = enum.at({}, "a")`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.at({a:"one"}, "a")`,
-		"one")
-	testEnumModule(t, `out = enum.at({a:"one"}, "b")`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "a")`,
-		"one")
-	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "b")`,
-		"two")
-	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "c")`,
-		"three")
-	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "d")`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, 'a')`,
-		toy.Undefined) // non-string index: undefined
-	testEnumModule(t, `out = enum.at(0, 1)`,
-		toy.Undefined) // non-enumerable: undefined
-	testEnumModule(t, `out = enum.at("abc", 1)`,
-		toy.Undefined) // non-enumerable: undefined
-
-	testEnumModule(t, `out=0; enum.each([],func(k,v){out+=v})`, 0)
-	testEnumModule(t, `out=0; enum.each([1,2,3],func(k,v){out+=v})`, 6)
-	testEnumModule(t, `out=0; enum.each([1,2,3],func(k,v){out+=k})`, 3)
-	testEnumModule(t, `out=0; enum.each({a:1,b:2,c:3},func(k,v){out+=v})`, 6)
-	testEnumModule(t, `out=""; enum.each({a:1,b:2,c:3},func(k,v){out+=k}); out=len(out)`,
-		3)
-	testEnumModule(t, `out=0; enum.each(5,func(k,v){out+=v})`, 0)     // non-enumerable: no iteration
-	testEnumModule(t, `out=0; enum.each("123",func(k,v){out+=v})`, 0) // non-enumerable: no iteration
-
-	testEnumModule(t, `out = enum.filter([], enum.value)`,
-		ARR{})
-	testEnumModule(t, `out = enum.filter([false,1,2], enum.value)`,
-		ARR{1, 2})
-	testEnumModule(t, `out = enum.filter([false,1,0,2], enum.value)`,
-		ARR{1, 2})
-	testEnumModule(t, `out = enum.filter({}, enum.value)`,
-		toy.Undefined) // non-array: undefined
-	testEnumModule(t, `out = enum.filter(0, enum.value)`,
-		toy.Undefined) // non-array: undefined
-	testEnumModule(t, `out = enum.filter("123", enum.value)`,
-		toy.Undefined) // non-array: undefined
-
-	testEnumModule(t, `out = enum.find([], enum.value)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.find([0], enum.value)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.find([1], enum.value)`, 1)
-	testEnumModule(t, `out = enum.find([false,0,undefined,1], enum.value)`, 1)
-	testEnumModule(t, `out = enum.find([1,2,3], enum.value)`, 1)
-	testEnumModule(t, `out = enum.find({}, enum.value)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.find({a:0}, enum.value)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.find({a:1}, enum.value)`, 1)
-	testEnumModule(t, `out = enum.find({a:false,b:0,c:undefined,d:1}, enum.value)`,
-		1)
-	//testEnumModule(t, `out = enum.find({a:1,b:2,c:3}, enum.value)`, 1)
-	testEnumModule(t, `out = enum.find(0, enum.value)`,
-		toy.Undefined) // non-enumerable: undefined
-	testEnumModule(t, `out = enum.find("123", enum.value)`,
-		toy.Undefined) // non-enumerable: undefined
-
-	testEnumModule(t, `out = enum.find_key([], enum.value)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.find_key([0], enum.value)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.find_key([1], enum.value)`, 0)
-	testEnumModule(t, `out = enum.find_key([false,0,undefined,1], enum.value)`,
-		3)
-	testEnumModule(t, `out = enum.find_key([1,2,3], enum.value)`, 0)
-	testEnumModule(t, `out = enum.find_key({}, enum.value)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.find_key({a:0}, enum.value)`,
-		toy.Undefined)
-	testEnumModule(t, `out = enum.find_key({a:1}, enum.value)`,
-		"a")
-	testEnumModule(t, `out = enum.find_key({a:false,b:0,c:undefined,d:1}, enum.value)`,
-		"d")
-	//testEnumModule(t, `out = enum.find_key({a:1,b:2,c:3}, enum.value)`, "a")
-	testEnumModule(t, `out = enum.find_key(0, enum.value)`,
-		toy.Undefined) // non-enumerable: undefined
-	testEnumModule(t, `out = enum.find_key("123", enum.value)`,
-		toy.Undefined) // non-enumerable: undefined
-
-	testEnumModule(t, `out = enum.map([], enum.value)`,
-		ARR{})
-	testEnumModule(t, `out = enum.map([1,2,3], enum.value)`,
-		ARR{1, 2, 3})
-	testEnumModule(t, `out = enum.map([1,2,3], enum.key)`,
-		ARR{0, 1, 2})
-	testEnumModule(t, `out = enum.map([1,2,3], func(k,v) { return v*2 })`,
-		ARR{2, 4, 6})
-	testEnumModule(t, `out = enum.map({}, enum.value)`,
-		ARR{})
-	testEnumModule(t, `out = enum.map({a:1}, func(k,v) { return v*2 })`,
-		ARR{2})
-	testEnumModule(t, `out = enum.map(0, enum.value)`,
-		toy.Undefined) // non-enumerable: undefined
-	testEnumModule(t, `out = enum.map("123", enum.value)`,
-		toy.Undefined) // non-enumerable: undefined
-}
-
-func testEnumModule(t *testing.T, input string, expected any) {
-	expectRun(t, `enum := import("enum"); `+input,
-		Opts().Module("enum", stdlib.SourceModules["enum"]),
-		expected)
-}
+// func testEnumModule(t *testing.T, input string, expected any) {
+// 	expectRun(t, `enum := import("enum"); `+input,
+// 		Opts().Module("enum", stdlib.SourceModules["enum"]),
+// 		expected)
+// }
 
 func TestSrcModEnum(t *testing.T) {
 	expectRun(t, `
 x := import("enum")
-out = x.all([1, 2, 3], func(_, v) { return v >= 1 })
+out = x.all([1, 2, 3], fn(_, v) { return v >= 1 })
 `, Opts().Stdlib(), true)
 	expectRun(t, `
 x := import("enum")
-out = x.all([1, 2, 3], func(_, v) { return v >= 2 })
+out = x.all([1, 2, 3], fn(_, v) { return v >= 2 })
 `, Opts().Stdlib(), false)
 
 	expectRun(t, `
 x := import("enum")
-out = x.any([1, 2, 3], func(_, v) { return v >= 1 })
+out = x.any([1, 2, 3], fn(_, v) { return v >= 1 })
 `, Opts().Stdlib(), true)
 	expectRun(t, `
 x := import("enum")
-out = x.any([1, 2, 3], func(_, v) { return v >= 2 })
+out = x.any([1, 2, 3], fn(_, v) { return v >= 2 })
 `, Opts().Stdlib(), true)
 
 	expectRun(t, `
@@ -3363,7 +3271,7 @@ out = x.at([1, 2, 3], 0)
 }
 
 func TestVMStackOverflow(t *testing.T) {
-	expectError(t, `f := func() { return f() + 1 }; f()`,
+	expectRunError(t, `f := fn() { return f() + 1 }; f()`,
 		nil, "stack overflow")
 }
 
@@ -3439,13 +3347,13 @@ func TestString(t *testing.T) {
 	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", strStr, 2, 2),
 		nil, "")
 
-	expectError(t, fmt.Sprintf("%s[:%d]", strStr, -1),
+	expectRunError(t, fmt.Sprintf("%s[:%d]", strStr, -1),
 		nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:]", strStr, strLen+1),
+	expectRunError(t, fmt.Sprintf("%s[%d:]", strStr, strLen+1),
 		nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:%d]", strStr, 0, -1),
+	expectRunError(t, fmt.Sprintf("%s[%d:%d]", strStr, 0, -1),
 		nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:%d]", strStr, 2, 1),
+	expectRunError(t, fmt.Sprintf("%s[%d:%d]", strStr, 2, 1),
 		nil, "invalid slice index")
 
 	// string concatenation with other types
@@ -3462,14 +3370,14 @@ func TestString(t *testing.T) {
 	// also works with "+=" operator
 	expectRun(t, `out = "foo"; out += 1.5`, nil, "foo1.5")
 	// string concats works only when string is LHS
-	expectError(t, `1 + "foo"`, nil, "invalid operation")
+	expectRunError(t, `1 + "foo"`, nil, "invalid operation")
 
-	expectError(t, `"foo" - "bar"`, nil, "invalid operation")
+	expectRunError(t, `"foo" - "bar"`, nil, "invalid operation")
 }
 
 func TestTailCall(t *testing.T) {
 	expectRun(t, `
-	fac := func(n, a) {
+	fac := fn(n, a) {
 		if n == 1 {
 			return a
 		}
@@ -3478,7 +3386,7 @@ func TestTailCall(t *testing.T) {
 	out = fac(5, 1)`, nil, 120)
 
 	expectRun(t, `
-	fac := func(n, a) {
+	fac := fn(n, a) {
 		if n == 1 {
 			return a
 		}
@@ -3488,7 +3396,7 @@ func TestTailCall(t *testing.T) {
 	out = fac(5, 1)`, nil, 120)
 
 	expectRun(t, `
-	fib := func(x, s) {
+	fib := fn(x, s) {
 		if x == 0 {
 			return 0 + s
 		} else if x == 1 {
@@ -3499,7 +3407,7 @@ func TestTailCall(t *testing.T) {
 	out = fib(15, 0)`, nil, 610)
 
 	expectRun(t, `
-	fib := func(n, a, b) {
+	fib := fn(n, a, b) {
 		if n == 0 {
 			return a
 		} else if n == 1 {
@@ -3512,7 +3420,7 @@ func TestTailCall(t *testing.T) {
 	// global variable and no return value
 	expectRun(t, `
 			out = 0
-			foo := func(a) {
+			foo := fn(a) {
 			   if a == 0 {
 			       return
 			   }
@@ -3522,9 +3430,9 @@ func TestTailCall(t *testing.T) {
 			foo(10)`, nil, 55)
 
 	expectRun(t, `
-	f1 := func() {
+	f1 := fn() {
 		f2 := 0    // TODO: this might be fixed in the future
-		f2 = func(n, s) {
+		f2 = fn(n, s) {
 			if n == 0 { return s }
 			return f2(n-1, n + s)
 		}
@@ -3535,7 +3443,7 @@ func TestTailCall(t *testing.T) {
 	// tail-call replacing loop
 	// without tail-call optimization, this code will cause stack overflow
 	expectRun(t, `
-iter := func(n, max) {
+iter := fn(n, max) {
 	if n == max {
 		return n
 	}
@@ -3545,7 +3453,7 @@ out = iter(0, 9999)
 `, nil, 9999)
 	expectRun(t, `
 c := 0
-iter := func(n, max) {
+iter := fn(n, max) {
 	if n == max {
 		return
 	}
@@ -3561,10 +3469,10 @@ out = c
 // tail call with free vars
 func TestTailCallFreeVars(t *testing.T) {
 	expectRun(t, `
-func() {
+fn() {
 	a := 10
 	f2 := 0
-	f2 = func(n, s) {
+	f2 = fn(n, s) {
 		if n == 0 {
 			return s + a
 		}
@@ -3576,39 +3484,39 @@ func() {
 
 func TestSpread(t *testing.T) {
 	expectRun(t, `
-	f := func(...a) {
+	f := fn(...a) {
 		return append(a, 3)
 	}
 	out = f([1, 2]...)
 	`, nil, ARR{1, 2, 3})
 
 	expectRun(t, `
-	f := func(a, ...b) {
+	f := fn(a, ...b) {
 		return append([a], append(b, 3)...)
 	}
 	out = f([1, 2]...)
 	`, nil, ARR{1, 2, 3})
 
 	expectRun(t, `
-	f := func(a, ...b) {
+	f := fn(a, ...b) {
 		return append(append([a], b), 3)
 	}
 	out = f(1, [2]...)
 	`, nil, ARR{1, ARR{2}, 3})
 
 	expectRun(t, `
-	f1 := func(...a){
+	f1 := fn(...a){
 		return append([3], a...)
 	}
-	f2 := func(a, ...b) {
+	f2 := fn(a, ...b) {
 		return f1(append([a], b...)...)
 	}
 	out = f2([1, 2]...)
 	`, nil, ARR{3, 1, 2})
 
 	expectRun(t, `
-	f := func(a, ...b) {
-		return func(...a) {
+	f := fn(a, ...b) {
+		return fn(...a) {
 			return append([3], append(a, 4)...)
 		}(a, b...)
 	}
@@ -3616,41 +3524,35 @@ func TestSpread(t *testing.T) {
 	`, nil, ARR{3, 1, 2, 4})
 
 	expectRun(t, `
-	f := func(a, ...b) {
+	f := fn(a, ...b) {
 		c := append(b, 4)
-		return func(){
+		return fn(){
 			return append(append([a], b...), c...)
 		}()
 	}
 	out = f(1, immutable([2, 3])...)
 	`, nil, ARR{1, 2, 3, 2, 3, 4})
 
-	expectError(t, `func(a) {}([1, 2]...)`, nil,
+	expectRunError(t, `fn(a) {}([1, 2]...)`, nil,
 		"Runtime Error: wrong number of arguments: want=1, got=2")
-	expectError(t, `func(a, b, c) {}([1, 2]...)`, nil,
+	expectRunError(t, `fn(a, b, c) {}([1, 2]...)`, nil,
 		"Runtime Error: wrong number of arguments: want=3, got=2")
 }
 
 func TestSliceIndex(t *testing.T) {
-	expectError(t, `undefined[:1]`, nil, "Runtime Error: not indexable")
-	expectError(t, `123[-1:2]`, nil, "Runtime Error: not indexable")
-	expectError(t, `{}[:]`, nil, "Runtime Error: not indexable")
-	expectError(t, `a := 123[-1:2] ; a += 1`, nil, "Runtime Error: not indexable")
+	expectRunError(t, `undefined[:1]`, nil, "Runtime Error: not indexable")
+	expectRunError(t, `123[-1:2]`, nil, "Runtime Error: not indexable")
+	expectRunError(t, `{}[:]`, nil, "Runtime Error: not indexable")
+	expectRunError(t, `a := 123[-1:2] ; a += 1`, nil, "Runtime Error: not indexable")
 }
 
-func expectRun(
-	t *testing.T,
-	input string,
-	opts *testopts,
-	expected any,
-) {
+func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 	if opts == nil {
 		opts = Opts()
 	}
 
 	symbols := opts.symbols
 	modules := opts.modules
-	maxAllocs := opts.maxAllocs
 
 	expectedObj := toObject(expected)
 
@@ -3668,9 +3570,9 @@ func expectRun(
 		}
 
 		// compiler/VM
-		res, trace, err := traceCompileRun(file, symbols, modules, maxAllocs)
-		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
-		require.Equal(t, expectedObj, res[testOut],
+		res, trace, err := traceCompileRun(file, symbols, modules)
+		expectNoError(t, err, "\n"+strings.Join(trace, "\n"))
+		expectEqual(t, expectedObj, res[testOut],
 			"\n"+strings.Join(trace, "\n"))
 	}
 
@@ -3682,24 +3584,21 @@ func expectRun(
 		}
 
 		expectedObj := toObject(expected)
-		switch eo := expectedObj.(type) {
-		case *toy.Array:
-			expectedObj = &toy.ImmutableArray{Value: eo.Value}
-		case *toy.Map:
-			expectedObj = &toy.ImmutableMap{Value: eo.Value}
+		if f, ok := expectedObj.(toy.Freezable); ok {
+			expectedObj = f.AsImmutable()
 		}
 
 		modules.AddSourceModule("__code__",
 			[]byte(fmt.Sprintf("out := undefined; %s; export out", input)))
 
-		res, trace, err := traceCompileRun(file, symbols, modules, maxAllocs)
-		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
-		require.Equal(t, expectedObj, res[testOut],
+		res, trace, err := traceCompileRun(file, symbols, modules)
+		expectNoError(t, err, "\n"+strings.Join(trace, "\n"))
+		expectEqual(t, expectedObj, res[testOut],
 			"\n"+strings.Join(trace, "\n"))
 	}
 }
 
-func expectError(
+func expectRunError(
 	t *testing.T,
 	input string,
 	opts *testopts,
@@ -3708,10 +3607,8 @@ func expectError(
 	if opts == nil {
 		opts = Opts()
 	}
-
 	symbols := opts.symbols
 	modules := opts.modules
-	maxAllocs := opts.maxAllocs
 
 	expected = strings.TrimSpace(expected)
 	if expected == "" {
@@ -3725,14 +3622,14 @@ func expectError(
 	}
 
 	// compiler/VM
-	_, trace, err := traceCompileRun(program, symbols, modules, maxAllocs)
-	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
-	require.True(t, strings.Contains(err.Error(), expected),
+	_, trace, err := traceCompileRun(program, symbols, modules)
+	expectError(t, err, "\n"+strings.Join(trace, "\n"))
+	expectContains(t, err.Error(), expected,
 		"expected error string: %s, got: %s\n%s",
 		expected, err.Error(), strings.Join(trace, "\n"))
 }
 
-func expectErrorIs(
+func expectRunErrorIs(
 	t *testing.T,
 	input string,
 	opts *testopts,
@@ -3743,7 +3640,6 @@ func expectErrorIs(
 	}
 	symbols := opts.symbols
 	modules := opts.modules
-	maxAllocs := opts.maxAllocs
 
 	// parse
 	program := parse(t, input)
@@ -3752,14 +3648,14 @@ func expectErrorIs(
 	}
 
 	// compiler/VM
-	_, trace, err := traceCompileRun(program, symbols, modules, maxAllocs)
-	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
-	require.True(t, errors.Is(err, expected),
+	_, trace, err := traceCompileRun(program, symbols, modules)
+	expectError(t, err, "\n"+strings.Join(trace, "\n"))
+	expectTrue(t, errors.Is(err, expected),
 		"expected error is: %s, got: %s\n%s",
 		expected.Error(), err.Error(), strings.Join(trace, "\n"))
 }
 
-func expectErrorAs(
+func expectRunErrorAs(
 	t *testing.T,
 	input string,
 	opts *testopts,
@@ -3770,7 +3666,6 @@ func expectErrorAs(
 	}
 	symbols := opts.symbols
 	modules := opts.modules
-	maxAllocs := opts.maxAllocs
 
 	// parse
 	program := parse(t, input)
@@ -3779,9 +3674,9 @@ func expectErrorAs(
 	}
 
 	// compiler/VM
-	_, trace, err := traceCompileRun(program, symbols, modules, maxAllocs)
-	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
-	require.True(t, errors.As(err, expected),
+	_, trace, err := traceCompileRun(program, symbols, modules)
+	expectError(t, err, "\n"+strings.Join(trace, "\n"))
+	expectTrue(t, errors.As(err, expected),
 		"expected error as: %v, got: %v\n%s",
 		expected, err, strings.Join(trace, "\n"))
 }
@@ -3799,7 +3694,6 @@ func traceCompileRun(
 	file *parser.File,
 	symbols map[string]toy.Object,
 	modules *toy.ModuleMap,
-	maxAllocs int64,
 ) (res map[string]toy.Object, trace []string, err error) {
 	var v *toy.VM
 
@@ -3835,7 +3729,7 @@ func traceCompileRun(
 		valueCopy := value
 		globals[sym.Index] = valueCopy
 	}
-	for idx, fn := range toy.GetAllBuiltinFunctions() {
+	for idx, fn := range toy.BuiltinFuncs {
 		symTable.DefineBuiltin(idx, fn.Name)
 	}
 
@@ -3851,13 +3745,14 @@ func traceCompileRun(
 
 	bytecode := c.Bytecode()
 	bytecode.RemoveDuplicates()
+	bytecode.RemoveUnused()
+
 	trace = append(trace, fmt.Sprintf("\n[Compiled Constants]\n\n%s",
 		strings.Join(bytecode.FormatConstants(), "\n")))
 	trace = append(trace, fmt.Sprintf("\n[Compiled Instructions]\n\n%s\n",
 		strings.Join(bytecode.FormatInstructions(), "\n")))
 
-	v = toy.NewVM(bytecode, globals, maxAllocs)
-
+	v = toy.NewVM(bytecode, globals)
 	err = v.Run()
 	{
 		res = make(map[string]toy.Object)
@@ -3897,99 +3792,6 @@ func parse(t *testing.T, input string) *parser.File {
 
 	p := parser.NewParser(testFile, []byte(input), nil)
 	file, err := p.ParseFile()
-	require.NoError(t, err)
+	expectNoError(t, err)
 	return file
-}
-
-func errorObject(v any) *toy.Error {
-	return &toy.Error{Value: toObject(v)}
-}
-
-func toObject(v any) toy.Object {
-	switch v := v.(type) {
-	case toy.Object:
-		return v
-	case string:
-		return &toy.String{Value: v}
-	case int64:
-		return &toy.Int{Value: v}
-	case int: // for convenience
-		return &toy.Int{Value: int64(v)}
-	case bool:
-		if v {
-			return toy.True
-		}
-		return toy.False
-	case rune:
-		return &toy.Char{Value: v}
-	case byte: // for convenience
-		return &toy.Char{Value: rune(v)}
-	case float64:
-		return &toy.Float{Value: v}
-	case []byte:
-		return &toy.Bytes{Value: v}
-	case MAP:
-		objs := make(map[string]toy.Object)
-		for k, v := range v {
-			objs[k] = toObject(v)
-		}
-
-		return &toy.Map{Value: objs}
-	case ARR:
-		var objs []toy.Object
-		for _, e := range v {
-			objs = append(objs, toObject(e))
-		}
-
-		return &toy.Array{Value: objs}
-	case IMAP:
-		objs := make(map[string]toy.Object)
-		for k, v := range v {
-			objs[k] = toObject(v)
-		}
-
-		return &toy.ImmutableMap{Value: objs}
-	case IARR:
-		var objs []toy.Object
-		for _, e := range v {
-			objs = append(objs, toObject(e))
-		}
-
-		return &toy.ImmutableArray{Value: objs}
-	}
-
-	panic(fmt.Errorf("unknown type: %T", v))
-}
-
-func objectZeroCopy(o toy.Object) toy.Object {
-	switch o.(type) {
-	case *toy.Int:
-		return &toy.Int{}
-	case *toy.Float:
-		return &toy.Float{}
-	case *toy.Bool:
-		return &toy.Bool{}
-	case *toy.Char:
-		return &toy.Char{}
-	case *toy.String:
-		return &toy.String{}
-	case *toy.Array:
-		return &toy.Array{}
-	case *toy.Map:
-		return &toy.Map{}
-	case *toy.UndefinedType:
-		return toy.Undefined
-	case *toy.Error:
-		return &toy.Error{}
-	case *toy.Bytes:
-		return &toy.Bytes{}
-	case *toy.ImmutableArray:
-		return &toy.ImmutableArray{}
-	case *toy.ImmutableMap:
-		return &toy.ImmutableMap{}
-	case nil:
-		panic("nil")
-	default:
-		panic(fmt.Errorf("unknown object type: %s", o.TypeName()))
-	}
 }

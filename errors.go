@@ -3,6 +3,8 @@ package toy
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -50,14 +52,48 @@ var (
 	ErrNotImplemented = errors.New("not implemented")
 )
 
-// ErrInvalidArgumentType represents an invalid argument value type error.
-type ErrInvalidArgumentType struct {
-	Name     string
-	Expected string
-	Found    string
+// InvalidArgumentTypeError represents an invalid argument value type error.
+type InvalidArgumentTypeError struct {
+	Name string
+	Want string
+	Got  string
 }
 
-func (e *ErrInvalidArgumentType) Error() string {
+func (e *InvalidArgumentTypeError) Error() string {
 	return fmt.Sprintf("invalid type for argument '%s': want '%s', got '%s'",
-		e.Name, e.Expected, e.Found)
+		e.Name, e.Want, e.Got)
+}
+
+// WrongNumArgumentsError represents a wrong number of arguments error.
+type WrongNumArgumentsError struct {
+	WantMin int
+	WantMax int
+	Got     int
+}
+
+func (e *WrongNumArgumentsError) Error() string {
+	var b strings.Builder
+	b.WriteString("want")
+	if e.WantMin == e.WantMax {
+		b.WriteByte(' ')
+		b.WriteString(strconv.Itoa(e.WantMax))
+	} else if e.Got < e.WantMin {
+		b.WriteString(" at least ")
+		b.WriteString(strconv.Itoa(e.WantMin))
+	} else if e.Got > e.WantMax {
+		b.WriteString(" at most ")
+		b.WriteString(strconv.Itoa(e.WantMax))
+	}
+	b.WriteString(" argument(s), got ")
+	b.WriteString(strconv.Itoa(e.Got))
+	return b.String()
+}
+
+// MissingArgumentError represents a missing argument error.
+type MissingArgumentError struct {
+	Name string
+}
+
+func (e *MissingArgumentError) Error() string {
+	return fmt.Sprintf("missing argument for '%s'", e.Name)
 }

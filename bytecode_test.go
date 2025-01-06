@@ -12,7 +12,7 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 		objectsArray(
 			Char('y'),
 			Float(93.11),
-			compiledFunction(1, 0,
+			compiledFunction(1, 0, false,
 				MakeInstruction(parser.OpConstant, 3),
 				MakeInstruction(parser.OpSetLocal, 0),
 				MakeInstruction(parser.OpGetGlobal, 0),
@@ -27,7 +27,7 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 		objectsArray(
 			Char('y'),
 			Float(93.11),
-			compiledFunction(1, 0,
+			compiledFunction(1, 0, false,
 				MakeInstruction(parser.OpConstant, 3),
 				MakeInstruction(parser.OpSetLocal, 0),
 				MakeInstruction(parser.OpGetGlobal, 0),
@@ -56,7 +56,7 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 			Float(2.0),
 			Char('3'),
 			String("four"),
-			compiledFunction(1, 0,
+			compiledFunction(1, 0, false,
 				MakeInstruction(parser.OpConstant, 3),
 				MakeInstruction(parser.OpConstant, 7),
 				MakeInstruction(parser.OpSetLocal, 0),
@@ -86,7 +86,7 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 			Float(2.0),
 			Char('3'),
 			String("four"),
-			compiledFunction(1, 0,
+			compiledFunction(1, 0, false,
 				MakeInstruction(parser.OpConstant, 3),
 				MakeInstruction(parser.OpConstant, 2),
 				MakeInstruction(parser.OpSetLocal, 0),
@@ -129,6 +129,84 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 
 func testBytecodeRemoveDuplicates(t *testing.T, input, expected *Bytecode) {
 	input.RemoveDuplicates()
+	expectEqual(t, expected.FileSet, input.FileSet)
+	expectEqual(t, expected.MainFunction, input.MainFunction)
+	expectEqual(t, expected.Constants, input.Constants)
+}
+
+func TestBytecode_RemoveUnused(t *testing.T) {
+	testBytecodeRemoveUnused(t, bytecode(
+		concatInsts(),
+		objectsArray(
+			Char('y'),
+			Float(93.11),
+			compiledFunction(1, 0, false,
+				MakeInstruction(parser.OpConstant, 3),
+				MakeInstruction(parser.OpSetLocal, 0),
+				MakeInstruction(parser.OpGetGlobal, 0),
+				MakeInstruction(parser.OpGetFree, 0),
+			),
+			Float(39.2),
+			Int(192),
+			String("bar"),
+		),
+	), bytecode(
+		concatInsts(),
+		objectsArray(),
+	))
+
+	testBytecodeRemoveUnused(t, bytecode(
+		concatInsts(
+			MakeInstruction(parser.OpConstant, 0),
+		),
+		objectsArray(
+			Int(1),
+			Float(2.0),
+			Char('3'),
+			String("four"),
+			compiledFunction(1, 0, false,
+				MakeInstruction(parser.OpConstant, 3),
+				MakeInstruction(parser.OpConstant, 7),
+				MakeInstruction(parser.OpSetLocal, 0),
+				MakeInstruction(parser.OpGetGlobal, 0),
+				MakeInstruction(parser.OpGetFree, 0),
+			),
+		),
+	), bytecode(
+		concatInsts(
+			MakeInstruction(parser.OpConstant, 0),
+		),
+		objectsArray(
+			Int(1),
+		),
+	))
+
+	testBytecodeRemoveUnused(t, bytecode(
+		concatInsts(
+			MakeInstruction(parser.OpConstant, 0),
+			MakeInstruction(parser.OpConstant, 2),
+			MakeInstruction(parser.OpConstant, 0),
+		),
+		objectsArray(
+			Int(1),
+			Int(2),
+			Int(3),
+		),
+	), bytecode(
+		concatInsts(
+			MakeInstruction(parser.OpConstant, 0),
+			MakeInstruction(parser.OpConstant, 1),
+			MakeInstruction(parser.OpConstant, 0),
+		),
+		objectsArray(
+			Int(1),
+			Int(3),
+		),
+	))
+}
+
+func testBytecodeRemoveUnused(t *testing.T, input, expected *Bytecode) {
+	input.RemoveUnused()
 	expectEqual(t, expected.FileSet, input.FileSet)
 	expectEqual(t, expected.MainFunction, input.MainFunction)
 	expectEqual(t, expected.Constants, input.Constants)

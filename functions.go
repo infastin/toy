@@ -54,8 +54,10 @@ type CompiledFunction struct {
 	free          []*objectPtr
 }
 
-func (o *CompiledFunction) NumParameters() int { return o.numParameters }
-func (o *CompiledFunction) VarArgs() bool      { return o.varArgs }
+func (o *CompiledFunction) Instructions() []byte { return slices.Clone(o.instructions) }
+func (o *CompiledFunction) NumLocals() int       { return o.numLocals }
+func (o *CompiledFunction) NumParameters() int   { return o.numParameters }
+func (o *CompiledFunction) VarArgs() bool        { return o.varArgs }
 
 func (o *CompiledFunction) TypeName() string { return "compiled-function" }
 func (o *CompiledFunction) String() string   { return "<compiled-function>" }

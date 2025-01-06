@@ -406,12 +406,10 @@ func (v *VM) run() {
 
 				if numArgs != callee.numParameters {
 					if callee.varArgs {
-						v.err = fmt.Errorf(
-							"wrong number of arguments: want>=%d, got=%d",
+						v.err = fmt.Errorf("want at least %d argument(s), got %d",
 							callee.numParameters-1, numArgs)
 					} else {
-						v.err = fmt.Errorf(
-							"wrong number of arguments: want=%d, got=%d",
+						v.err = fmt.Errorf("want %d argument(s), got %d",
 							callee.numParameters, numArgs)
 					}
 					return

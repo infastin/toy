@@ -2,6 +2,7 @@ package toy
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/infastin/toy/parser"
 )
@@ -43,23 +44,25 @@ func MakeInstruction(opcode parser.Opcode, operands ...int) []byte {
 
 // FormatInstructions returns string representation of bytecode instructions.
 func FormatInstructions(b []byte, posOffset int) []string {
+	var inst strings.Builder
 	var out []string
 	i := 0
 	for i < len(b) {
 		numOperands := parser.OpcodeOperands[b[i]]
 		operands, read := parser.ReadOperands(numOperands, b[i+1:])
-		switch len(numOperands) {
-		case 0:
-			out = append(out, fmt.Sprintf("%04d %-7s",
-				posOffset+i, parser.OpcodeNames[b[i]]))
-		case 1:
-			out = append(out, fmt.Sprintf("%04d %-7s %-5d",
-				posOffset+i, parser.OpcodeNames[b[i]], operands[0]))
-		case 2:
-			out = append(out, fmt.Sprintf("%04d %-7s %-5d %-5d",
-				posOffset+i, parser.OpcodeNames[b[i]],
-				operands[0], operands[1]))
+		inst.WriteString(fmt.Sprintf("%04d %s", posOffset+i, parser.OpcodeNames[b[i]]))
+		if len(numOperands) != 0 {
+			inst.WriteString(" [")
+			for i := 0; i < len(numOperands); i++ {
+				if i != 0 {
+					inst.WriteString(", ")
+				}
+				inst.WriteString(fmt.Sprintf("%d", operands[i]))
+			}
+			inst.WriteByte(']')
 		}
+		out = append(out, inst.String())
+		inst.Reset()
 		i += 1 + read
 	}
 	return out

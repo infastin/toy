@@ -304,6 +304,20 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return err
 			}
 		}
+	case *parser.ShortBodyStmt:
+		for _, result := range node.Exprs {
+			if err := c.Compile(result); err != nil {
+				return err
+			}
+		}
+		if len(node.Exprs) > 1 {
+			c.emit(node, parser.OpTuple, len(node.Exprs))
+		}
+		var opReturnOperand int
+		if len(node.Exprs) != 0 {
+			opReturnOperand = 1
+		}
+		c.emit(node, parser.OpReturn, opReturnOperand)
 	case *parser.AssignStmt:
 		err := c.compileAssign(node, node.LHS, node.RHS, node.Token)
 		if err != nil {
@@ -314,7 +328,6 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if !ok {
 			return c.errorf(node, "unresolved reference '%s'", node.Name)
 		}
-
 		switch symbol.Scope {
 		case ScopeGlobal:
 			c.emit(node, parser.OpGetGlobal, symbol.Index)
@@ -408,8 +421,8 @@ func (c *Compiler) Compile(node parser.Node) error {
 					// not yet assigned its value. One example is a local
 					// recursive function:
 					//
-					//   func() {
-					//     foo := func(x) {
+					//   fn() {
+					//     foo := fn(x) {
 					//       // ..
 					//       return foo(x-1)
 					//     }
@@ -427,9 +440,9 @@ func (c *Compiler) Compile(node parser.Node) error {
 					// Solution is to transform the code into something like
 					// this:
 					//
-					//   func() {
+					//   fn() {
 					//     foo := undefined
-					//     foo = func(x) {
+					//     foo = fn(x) {
 					//       // ..
 					//       return foo(x-1)
 					//     }
@@ -508,7 +521,6 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if node.ModuleName == "" {
 			return c.errorf(node, "empty module name")
 		}
-
 		if mod := c.modules.Get(node.ModuleName); mod != nil {
 			switch mod := mod.(type) {
 			case SourceModule:
@@ -1295,9 +1307,8 @@ func (c *Compiler) addInstruction(b []byte) int {
 func (c *Compiler) replaceInstruction(pos int, inst []byte) {
 	copy(c.currentInstructions()[pos:], inst)
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("REPLC %s",
-			FormatInstructions(
-				c.scopes[c.scopeIndex].instructions[pos:], pos)[0]))
+		c.printTrace(fmt.Sprintf("REPLACE: %s",
+			FormatInstructions(c.scopes[c.scopeIndex].instructions[pos:], pos)[0]))
 	}
 }
 
@@ -1413,7 +1424,7 @@ func (c *Compiler) emit(
 	pos := c.addInstruction(inst)
 	c.scopes[c.scopeIndex].sourceMap[pos] = filePos
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("EMIT  %s",
+		c.printTrace(fmt.Sprintf("EMIT: %s",
 			FormatInstructions(c.scopes[c.scopeIndex].instructions[pos:], pos)[0]))
 	}
 	return pos

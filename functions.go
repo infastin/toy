@@ -63,7 +63,7 @@ func (o *CompiledFunction) IsFalsy() bool    { return false }
 
 func (o *CompiledFunction) Copy() Object {
 	return &CompiledFunction{
-		instructions:  slices.Clone(o.instructions),
+		instructions:  o.instructions,
 		numLocals:     o.numLocals,
 		numParameters: o.numParameters,
 		varArgs:       o.varArgs,

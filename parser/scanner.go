@@ -122,7 +122,7 @@ func (s *Scanner) Scan() (
 			tok = token.String
 			literal = s.scanRawString()
 		case ':':
-			tok = s.switch2(token.Colon, token.Define)
+			tok = s.switch2(token.Colon, '=', token.Define)
 		case '.':
 			tok = token.Period
 			if s.ch == '.' && s.peek() == '.' {
@@ -153,17 +153,17 @@ func (s *Scanner) Scan() (
 			insertSemi = true
 			tok = token.RBrace
 		case '+':
-			tok = s.switch3(token.Add, token.AddAssign, '+', token.Inc)
+			tok = s.switch3(token.Add, '=', token.AddAssign, '+', token.Inc)
 			if tok == token.Inc {
 				insertSemi = true
 			}
 		case '-':
-			tok = s.switch3(token.Sub, token.SubAssign, '-', token.Dec)
+			tok = s.switch3(token.Sub, '=', token.SubAssign, '-', token.Dec)
 			if tok == token.Dec {
 				insertSemi = true
 			}
 		case '*':
-			tok = s.switch2(token.Mul, token.MulAssign)
+			tok = s.switch2(token.Mul, '=', token.MulAssign)
 		case '/':
 			if s.ch == '/' || s.ch == '*' {
 				// comment
@@ -184,31 +184,31 @@ func (s *Scanner) Scan() (
 				tok = token.Comment
 				literal = comment
 			} else {
-				tok = s.switch2(token.Quo, token.QuoAssign)
+				tok = s.switch2(token.Quo, '=', token.QuoAssign)
 			}
 		case '%':
-			tok = s.switch2(token.Rem, token.RemAssign)
+			tok = s.switch2(token.Rem, '=', token.RemAssign)
 		case '^':
-			tok = s.switch2(token.Xor, token.XorAssign)
+			tok = s.switch2(token.Xor, '=', token.XorAssign)
 		case '<':
-			tok = s.switch4(token.Less, token.LessEq, '<',
-				token.Shl, token.ShlAssign)
+			tok = s.switch3(token.Less, '=', token.LessEq, '<', token.Shl)
+			tok = s.switch2(token.Shl, '=', token.ShlAssign)
 		case '>':
-			tok = s.switch4(token.Greater, token.GreaterEq, '>',
-				token.Shr, token.ShrAssign)
+			tok = s.switch3(token.Greater, '=', token.GreaterEq, '<', token.Shr)
+			tok = s.switch2(token.Shr, '=', token.ShrAssign)
 		case '=':
-			tok = s.switch2(token.Assign, token.Equal)
+			tok = s.switch3(token.Assign, '=', token.Equal, '>', token.Arrow)
 		case '!':
-			tok = s.switch2(token.Not, token.NotEqual)
+			tok = s.switch2(token.Not, '=', token.NotEqual)
 		case '&':
 			if s.ch == '^' {
 				s.next()
-				tok = s.switch2(token.AndNot, token.AndNotAssign)
+				tok = s.switch2(token.AndNot, '=', token.AndNotAssign)
 			} else {
-				tok = s.switch3(token.And, token.AndAssign, '&', token.LAnd)
+				tok = s.switch3(token.And, '=', token.AndAssign, '&', token.LAnd)
 			}
 		case '|':
-			tok = s.switch3(token.Or, token.OrAssign, '|', token.LOr)
+			tok = s.switch3(token.Or, '=', token.OrAssign, '|', token.LOr)
 		default:
 			// next reports unexpected BOMs - don't repeat
 			if ch != bom {
@@ -586,8 +586,8 @@ func (s *Scanner) skipWhitespace() {
 	}
 }
 
-func (s *Scanner) switch2(tok0, tok1 token.Token) token.Token {
-	if s.ch == '=' {
+func (s *Scanner) switch2(tok0 token.Token, ch1 rune, tok1 token.Token) token.Token {
+	if s.ch == ch1 {
 		s.next()
 		return tok1
 	}
@@ -595,11 +595,11 @@ func (s *Scanner) switch2(tok0, tok1 token.Token) token.Token {
 }
 
 func (s *Scanner) switch3(
-	tok0, tok1 token.Token,
-	ch2 rune,
-	tok2 token.Token,
+	tok0 token.Token,
+	ch1 rune, tok1 token.Token,
+	ch2 rune, tok2 token.Token,
 ) token.Token {
-	if s.ch == '=' {
+	if s.ch == ch1 {
 		s.next()
 		return tok1
 	}
@@ -611,21 +611,22 @@ func (s *Scanner) switch3(
 }
 
 func (s *Scanner) switch4(
-	tok0, tok1 token.Token,
-	ch2 rune,
-	tok2, tok3 token.Token,
+	tok0 token.Token,
+	ch1 rune, tok1 token.Token,
+	ch2 rune, tok2 token.Token,
+	ch3 rune, tok3 token.Token,
 ) token.Token {
-	if s.ch == '=' {
+	if s.ch == ch1 {
 		s.next()
 		return tok1
 	}
 	if s.ch == ch2 {
 		s.next()
-		if s.ch == '=' {
-			s.next()
-			return tok3
-		}
 		return tok2
+	}
+	if s.ch == ch3 {
+		s.next()
+		return tok3
 	}
 	return tok0
 }

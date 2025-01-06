@@ -14,15 +14,15 @@ import (
 	"github.com/infastin/toy/token"
 )
 
-type state struct {
+type compiler struct {
 	symbolTable *toy.SymbolTable
 	globals     []toy.Object
 	constants   []toy.Object
 	output      string
 }
 
-func newState() *state {
-	s := new(state)
+func newCompiler() *compiler {
+	s := new(compiler)
 
 	replPrint := func(args ...toy.Object) (ret toy.Object, err error) {
 		var printArgs []string
@@ -50,7 +50,7 @@ func newState() *state {
 	return s
 }
 
-func (s *state) compileAndRun(input []byte) (string, error) {
+func (s *compiler) compileAndRun(input []byte) (string, error) {
 	fileSet := parser.NewFileSet()
 	srcFile := fileSet.AddFile("(repl)", -1, len(input))
 
@@ -115,7 +115,8 @@ type model struct {
 	input         [][]rune
 	line          int
 	col           int
-	state         *state
+	compiler      *compiler
+	quitting      bool
 	err           error
 	history       [][][]rune
 	uncommited    [][][]rune
@@ -129,7 +130,8 @@ func newModel() model {
 		input:         make([][]rune, 1),
 		line:          0,
 		col:           0,
-		state:         newState(),
+		quitting:      false,
+		compiler:      newCompiler(),
 		err:           nil,
 		history:       nil,
 		uncommited:    make([][][]rune, 1),
@@ -412,7 +414,7 @@ func (m *model) onEnter() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	output, err := m.state.compileAndRun(input)
+	output, err := m.compiler.compileAndRun(input)
 	if err != nil {
 		m.err = err
 		return m, nil
@@ -511,10 +513,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+q":
+			m.quitting = true
 			return m, tea.Quit
 		case "ctrl+d":
 			if len(m.input) == 1 && len(m.input[m.line]) == 0 {
 				// quit if input is empty
+				m.quitting = true
 				return m, tea.Quit
 			}
 			m.deleteCharAfter()
@@ -564,7 +568,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) view(persist bool) string {
-	if persist {
+	if persist || m.quitting {
 		cursorStyle := m.cursorStyle
 		m.cursorStyle = m.textStyle
 		defer func() { m.cursorStyle = cursorStyle }()

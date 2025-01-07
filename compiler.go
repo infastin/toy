@@ -267,7 +267,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return err
 			}
 		}
-	case *parser.ShortBodyStmt:
+	case *parser.ShortFuncBodyStmt:
 		for _, result := range node.Exprs {
 			if err := c.Compile(result); err != nil {
 				return err

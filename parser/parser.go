@@ -507,10 +507,10 @@ func (p *Parser) parseFuncLit() Expr {
 	}
 	typ := p.parseFuncType()
 	p.exprLevel++
-	var body BodyStmt
+	var body FuncBodyStmt
 	if p.token == token.Arrow {
 		p.next()
-		body = &ShortBodyStmt{Exprs: p.parseExprList()}
+		body = &ShortFuncBodyStmt{Exprs: p.parseExprList()}
 	} else {
 		body = p.parseBody()
 	}

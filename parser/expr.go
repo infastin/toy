@@ -260,7 +260,7 @@ func (e *FloatLit) String() string {
 // FuncLit represents a function literal.
 type FuncLit struct {
 	Type *FuncType
-	Body BodyStmt
+	Body FuncBodyStmt
 }
 
 func (e *FuncLit) exprNode() {}

@@ -12,10 +12,10 @@ type Stmt interface {
 	stmtNode()
 }
 
-// BodyStmt represents a function body in the AST.
-type BodyStmt interface {
+// FuncBodyStmt represents a function body in the AST.
+type FuncBodyStmt interface {
 	Stmt
-	bodyStmtNode()
+	funcBodyStmtNode()
 }
 
 // AssignStmt represents an assignment statement.
@@ -87,8 +87,8 @@ type BlockStmt struct {
 	RBrace Pos
 }
 
-func (s *BlockStmt) stmtNode()     {}
-func (s *BlockStmt) bodyStmtNode() {}
+func (s *BlockStmt) stmtNode()         {}
+func (s *BlockStmt) funcBodyStmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
 func (s *BlockStmt) Pos() Pos {
@@ -113,25 +113,25 @@ func (s *BlockStmt) String() string {
 	return b.String()
 }
 
-// ShortBodyStmt represents a body of a shorthand function.
-type ShortBodyStmt struct {
+// ShortFuncBodyStmt represents a body of a shorthand function.
+type ShortFuncBodyStmt struct {
 	Exprs []Expr
 }
 
-func (s *ShortBodyStmt) stmtNode()     {}
-func (s *ShortBodyStmt) bodyStmtNode() {}
+func (s *ShortFuncBodyStmt) stmtNode()         {}
+func (s *ShortFuncBodyStmt) funcBodyStmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *ShortBodyStmt) Pos() Pos {
+func (s *ShortFuncBodyStmt) Pos() Pos {
 	return s.Exprs[0].Pos()
 }
 
 // End returns the position of first character immediately after the node.
-func (s *ShortBodyStmt) End() Pos {
+func (s *ShortFuncBodyStmt) End() Pos {
 	return s.Exprs[len(s.Exprs)-1].Pos()
 }
 
-func (s *ShortBodyStmt) String() string {
+func (s *ShortFuncBodyStmt) String() string {
 	var b strings.Builder
 	for i, e := range s.Exprs {
 		if i != 0 {

@@ -80,10 +80,6 @@ func (f *formatter) writePadding(n int) {
 	oldLen := len(buf)
 	newLen := oldLen + n
 
-	if newLen > MaxStringLen {
-		panic(ErrStringLimit)
-	}
-
 	// Make enough room for padding.
 	if newLen > cap(buf) {
 		buf = make(fmtbuf, cap(buf)*2+n)
@@ -615,34 +611,18 @@ func (f *formatter) fmtFloat(v float64, size int, verb rune, prec int) {
 type fmtbuf []byte
 
 func (b *fmtbuf) Write(p []byte) {
-	if len(*b)+len(p) > MaxStringLen {
-		panic(ErrStringLimit)
-	}
-
 	*b = append(*b, p...)
 }
 
 func (b *fmtbuf) WriteString(s string) {
-	if len(*b)+len(s) > MaxStringLen {
-		panic(ErrStringLimit)
-	}
-
 	*b = append(*b, s...)
 }
 
 func (b *fmtbuf) WriteSingleByte(c byte) {
-	if len(*b) >= MaxStringLen {
-		panic(ErrStringLimit)
-	}
-
 	*b = append(*b, c)
 }
 
 func (b *fmtbuf) WriteRune(r rune) {
-	if len(*b)+utf8.RuneLen(r) > MaxStringLen {
-		panic(ErrStringLimit)
-	}
-
 	if r < utf8.RuneSelf {
 		*b = append(*b, byte(r))
 		return
@@ -1041,16 +1021,6 @@ func (p *pp) missingArg(verb rune) {
 }
 
 func (p *pp) doFormat(format string, a []Object) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			if e, ok := r.(error); ok && e == ErrStringLimit {
-				err = e
-				return
-			}
-			panic(r)
-		}
-	}()
-
 	end := len(format)
 	argNum := 0         // we process one argument per non-trivial format
 	afterIndex := false // previous item in format was an index like [3].

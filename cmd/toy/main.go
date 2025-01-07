@@ -156,6 +156,8 @@ func CompileAndRun(inputData []byte, inputFile string) error {
 
 	mods := toy.NewModuleMap()
 	mods.Add("fmt", stdlib.FmtModule)
+	mods.Add("text", stdlib.TextModule)
+	mods.Add("regexp", stdlib.RegexpModule)
 	script.SetImports(mods)
 
 	script.EnableFileImport(true)

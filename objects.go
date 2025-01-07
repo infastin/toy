@@ -18,13 +18,10 @@ import (
 type Object interface {
 	// TypeName should return the name of the type.
 	TypeName() string
-
 	// String should return a string representation of the type's value.
 	String() string
-
 	// IsFalsy should return true if the value of the type should be considered as falsy.
 	IsFalsy() bool
-
 	// Copy should return a copy of the type (and its value). Copy function
 	// will be used for copy() builtin function which is expected to deep-copy
 	// the values generally.
@@ -155,7 +152,8 @@ type Callable interface {
 	Object
 	// Call should take an arbitrary number of arguments and return a return
 	// value and/or an error, which the VM will consider as a run-time error.
-	Call(args ...Object) (ret Object, err error)
+	// If multiple values are to be returned, Call should return Tuple.
+	Call(args ...Object) (Object, error)
 }
 
 // Iterable represents an object that can be iterated.
@@ -199,6 +197,7 @@ type CloseableIterator interface {
 	Close()
 }
 
+// Hash tries to calculate hash of the given Object.
 func Hash(x Object) (uint64, error) {
 	xh, ok := x.(Hashable)
 	if !ok {
@@ -207,6 +206,8 @@ func Hash(x Object) (uint64, error) {
 	return xh.Hash(), nil
 }
 
+// AsImmutable tries to create an immutable copy of the given Object.
+// If it fails, calls Copy() method otherwise.
 func AsImmutable(x Object) Object {
 	xf, ok := x.(Freezable)
 	if !ok {
@@ -215,6 +216,9 @@ func AsImmutable(x Object) Object {
 	return xf.AsImmutable()
 }
 
+// Mutable returns true if an Object is mutable.
+// All instances of types that don't implement Freezable interface
+// are considered mutable.
 func Mutable(x Object) bool {
 	m, ok := x.(Freezable)
 	if !ok {
@@ -223,10 +227,22 @@ func Mutable(x Object) bool {
 	return m.Mutable()
 }
 
+// Equals returns whether two objects are equal or not.
+// It will return an error if the objects aren't comparable
+// or if the comparison has failed.
 func Equals(x, y Object) (bool, error) {
 	return Compare(token.Equal, x, y)
 }
 
+// Compare compares two objects using the given comparison operator.
+// It will return an error if the objects can't be compared using the given operator.
+// or if the comparison has failed.
+//
+// Equality comparsion with UndefinedType is defined implicitly,
+// so types do not need to implement it themselves.
+//
+// Equality comparsion for two objects that hold the same reference
+// is also defined implicitly.
 func Compare(op token.Token, x, y Object) (bool, error) {
 	if x == y {
 		switch op {
@@ -251,6 +267,9 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 	return xc.Compare(op, y)
 }
 
+// BinaryOp performs a binary operation with the given operator.
+// It will return an error if the given binary operation
+// can't be performed on the given objects or if the operation has failed.
 func BinaryOp(op token.Token, x, y Object) (Object, error) {
 	xb, ok := x.(HasBinaryOp)
 	if !ok {
@@ -259,6 +278,9 @@ func BinaryOp(op token.Token, x, y Object) (Object, error) {
 	return xb.BinaryOp(op, y)
 }
 
+// BinaryOp performs an unary operation with the given operator.
+// It will return an error if the given unary operation
+// can't be performed on the given object or if the operation has failed.
 func UnaryOp(op token.Token, x Object) (res Object, err error) {
 	if op == token.Not {
 		return Bool(x.IsFalsy()), nil
@@ -270,6 +292,16 @@ func UnaryOp(op token.Token, x Object) (res Object, err error) {
 	return xu.UnaryOp(op)
 }
 
+// IndexGet retrieves the value at a specified index from the object.
+//
+// If the provided index is Int and the provided object is Indexable,
+// it retrieves the value at the specified index using At() method.
+//
+// Otherwise it checks if the provided object is IndexAccessible and
+// retrieves the value at the specified index.
+//
+// Returns an error if the index access operation can't be performed
+// on the given object or if the operation has failed.
 func IndexGet(x, index Object) (Object, error) {
 	if i, ok := index.(Int); ok {
 		if xi, ok := x.(Indexable); ok {
@@ -286,6 +318,9 @@ func IndexGet(x, index Object) (Object, error) {
 	return xi.IndexGet(index)
 }
 
+// IndexGet assigns a value to the specified index in the object.
+// Returns an error if the index assignment operation can't be performed
+// on the given object or if the operation has failed.
 func IndexSet(x, index, value Object) error {
 	xi, ok := x.(IndexAssignable)
 	if !ok {
@@ -294,6 +329,17 @@ func IndexSet(x, index, value Object) error {
 	return xi.IndexSet(index, value)
 }
 
+// FieldGet retrieves the value of the field
+// with the specified name from the object.
+//
+// If the provided object is a FieldAccessible object,
+// it retrieves the value using FieldGet().
+//
+// Otherwise, it checks if the provided object is IndexAccessible and
+// retrieves the value at the specified index, where index is the specified name.
+//
+// Returns an error if the none of operations could be performed
+// on the given object or if the operation has failed.
 func FieldGet(x Object, name string) (Object, error) {
 	xf, ok := x.(FieldAccessible)
 	if ok {
@@ -306,6 +352,15 @@ func FieldGet(x Object, name string) (Object, error) {
 	return xi.IndexGet(String(name))
 }
 
+// FieldSet sets the value of the field with the specified name in the object.
+//
+// If the provided object is a FieldAssignable object, it sets the value using FieldSet().
+//
+// Otherwise, it checks if the provided object is IndexAssignable and
+// sets the value at the specified index, where index is the specified name.
+//
+// Returns an error if none of the operations could be performed
+// on the given object or if the operation has failed.
 func FieldSet(x Object, name string, value Object) error {
 	xf, ok := x.(FieldAssignable)
 	if ok {
@@ -318,6 +373,9 @@ func FieldSet(x Object, name string, value Object) error {
 	return xi.IndexSet(String(name), value)
 }
 
+// Slice performs a slice operation on a Sliceable object.
+// Returns an error if the slice operation can't be performed
+// on the given object or if the operation has failed.
 func Slice(x Object, low, high int) (Object, error) {
 	xs, ok := x.(Sliceable)
 	if !ok {
@@ -336,6 +394,22 @@ func Slice(x Object, low, high int) (Object, error) {
 	return xs.Slice(low, high), nil
 }
 
+// Convert converts the provided object to the one pointed by the pointer.
+//
+// For String conversions, it checks if the object is already a String,
+// and if not, it attempts to convert it using the Convertible interface.
+// If the provided object doesn't implement Convertible it uses String() method
+// to convert the object to String.
+//
+// For Bool conversions, it uses IsFalsy() to convert the object to Bool.
+//
+// If the object type is the same as of the pointer value,
+// no conversion is performed and the object is assigned to the value instead.
+//
+// Otherwise, it attempts to convert it using the Convertible interface.
+//
+// Returns an error if the conversion is not possible
+// or the conversion has failed.
 func Convert[T Object](p *T, o Object) (err error) {
 	if o == Undefined {
 		return ErrNotConvertible
@@ -368,6 +442,7 @@ func Convert[T Object](p *T, o Object) (err error) {
 	return nil
 }
 
+// Elements returns a go1.23 iterator over the values of the iterable.
 func Elements(iterable Iterable) iter.Seq[Object] {
 	type hasElements interface {
 		Elements() iter.Seq[Object]
@@ -389,6 +464,8 @@ func Elements(iterable Iterable) iter.Seq[Object] {
 	}
 }
 
+// Elements returns a go1.23 iterator over the entries (key/value pairs)
+// of the iterable.
 func Entries(iterable Iterable) iter.Seq2[Object, Object] {
 	type hasEntries interface {
 		Entries() iter.Seq2[Object, Object]
@@ -752,16 +829,17 @@ func (o String) BinaryOp(op token.Token, rhs Object) (Object, error) {
 	case token.Add:
 		switch y := rhs.(type) {
 		case String:
-			if len(o)+len(y) > MaxStringLen {
-				return nil, ErrStringLimit
-			}
 			return o + y, nil
 		case Char:
-			ys := String(y)
-			if len(o)+len(ys) > MaxStringLen {
-				return nil, ErrStringLimit
+			return o + String(y), nil
+		}
+	case token.Mul:
+		switch y := rhs.(type) {
+		case Int:
+			if y <= 0 {
+				return o, nil
 			}
-			return o + ys, nil
+			return String(strings.Repeat(string(o), int(y))), nil
 		}
 	}
 	return nil, ErrInvalidOperator
@@ -870,10 +948,15 @@ func (o Bytes) BinaryOp(op token.Token, rhs Object) (Object, error) {
 	case token.Add:
 		switch y := rhs.(type) {
 		case Bytes:
-			if len(o)+len(y) > MaxBytesLen {
-				return nil, ErrBytesLimit
-			}
 			return append(o, y...), nil
+		}
+	case token.Mul:
+		switch y := rhs.(type) {
+		case Int:
+			if y <= 0 {
+				return o, nil
+			}
+			return Bytes(bytes.Repeat(o, int(y))), nil
 		}
 	}
 	return nil, ErrInvalidOperator
@@ -1111,17 +1194,37 @@ func (o *Array) Compare(op token.Token, rhs Object) (bool, error) {
 }
 
 func (o *Array) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	y, ok := rhs.(*Array)
-	if !ok {
-		return nil, ErrInvalidOperator
-	}
 	switch op {
 	case token.Add:
-		return &Array{
-			elems:     append(o.elems, y.elems...),
-			immutable: o.immutable,
-			itercount: 0,
-		}, nil
+		switch y := rhs.(type) {
+		case *Array:
+			return &Array{
+				elems:     append(o.elems, y.elems...),
+				immutable: o.immutable,
+				itercount: 0,
+			}, nil
+		}
+	case token.Mul:
+		switch y := rhs.(type) {
+		case Int:
+			var newElems []Object
+			switch {
+			case y == 1:
+				newElems = o.elems
+			case y > 1:
+				newElems = slices.Grow(o.elems, len(o.elems)*int(y-1))
+				for i := len(o.elems); i < cap(newElems); i += len(o.elems) {
+					for _, elem := range o.elems {
+						newElems = append(newElems, elem.Copy())
+					}
+				}
+			}
+			return &Array{
+				elems:     newElems,
+				immutable: o.immutable,
+				itercount: 0,
+			}, nil
+		}
 	}
 	return nil, ErrInvalidOperator
 }
@@ -1395,6 +1498,35 @@ func (o Tuple) Compare(op token.Token, rhs Object) (bool, error) {
 		}
 	}
 	return false, ErrInvalidOperator
+}
+
+func (o Tuple) BinaryOp(op token.Token, rhs Object) (Object, error) {
+	switch op {
+	case token.Add:
+		switch y := rhs.(type) {
+		case Tuple:
+			return append(o, y...), nil
+		}
+	case token.Mul:
+		switch y := rhs.(type) {
+		case Int:
+			switch {
+			case y == 1:
+				return o, nil
+			case y > 1:
+				newTuple := slices.Grow(o, len(o)*int(y-1))
+				for i := len(o); i < cap(newTuple); i += len(o) {
+					for _, elem := range o {
+						newTuple = append(newTuple, elem.Copy())
+					}
+				}
+				return newTuple, nil
+			default:
+				return Tuple{}, nil
+			}
+		}
+	}
+	return nil, ErrInvalidOperator
 }
 
 func (o Tuple) IndexGet(index Object) (res Object, err error) {

@@ -7,18 +7,21 @@ import (
 	"strings"
 	"unicode"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/stdlib"
 	"github.com/infastin/toy/token"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type compiler struct {
 	symbolTable *toy.SymbolTable
 	globals     []toy.Object
+	modules     *toy.ModuleMap
 	constants   []toy.Object
-	output      string
+	output      []string
 }
 
 func newCompiler() *compiler {
@@ -32,19 +35,23 @@ func newCompiler() *compiler {
 			}
 			b.WriteString(arg.String())
 		}
-		s.output = b.String()
+		s.output = append(s.output, b.String())
 		return toy.Undefined, nil
 	}
 
 	toy.BuiltinFuncs = append(toy.BuiltinFuncs,
 		&toy.BuiltinFunction{Name: "print", Func: replPrint})
 
+	s.globals = make([]toy.Object, toy.GlobalsSize)
+
 	s.symbolTable = toy.NewSymbolTable()
 	for idx, fn := range toy.BuiltinFuncs {
 		s.symbolTable.DefineBuiltin(idx, fn.Name)
 	}
 
-	s.globals = make([]toy.Object, toy.GlobalsSize)
+	s.modules = toy.NewModuleMap()
+	s.modules.Add("text", stdlib.TextModule)
+	s.modules.Add("regexp", stdlib.RegexpModule)
 
 	return s
 }
@@ -58,9 +65,11 @@ func (s *compiler) compileAndRun(input []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	file = addPrints(file)
 
-	c := toy.NewCompiler(srcFile, s.symbolTable, s.constants, nil, nil)
+	file = addPrints(file)
+	symbolTable := s.symbolTable.Copy()
+
+	c := toy.NewCompiler(srcFile, symbolTable, s.constants, s.modules, nil)
 	if err := c.Compile(file); err != nil {
 		return "", err
 	}
@@ -72,10 +81,12 @@ func (s *compiler) compileAndRun(input []byte) (string, error) {
 	if err := machine.Run(); err != nil {
 		return "", err
 	}
-	s.constants = bytecode.Constants
 
-	output := s.output
-	s.output = ""
+	s.constants = bytecode.Constants
+	s.symbolTable = symbolTable
+
+	output := strings.Join(s.output, "\n")
+	s.output = s.output[:0]
 
 	return output, nil
 }

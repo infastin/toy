@@ -11,9 +11,31 @@ import (
 
 // An Unpacker defines custom argument unpacking behavior.
 type Unpacker interface {
+	// Unpack unpacks the given object into Unpacker.
+	// In case of a type error, it should return InvalidArgumentTypeError
+	// with an only Want field set.
 	Unpack(o Object) error
 }
 
+// UnpackArgs unpacks function arguments into the supplied parameter variables,
+// pairs is an alternating list of names and pointers to variables.
+//
+// The variable must either be one of Go's primitive types (int*, float*, bool and string),
+// implement Unpacker or Object, be one of Toy's interfaces (Object, Iterable, etc.),
+// or be a pointer to any of these.
+//
+// If the parameter name ends with "?", it is optional.
+// If a parameter is marked optional, then all following parameters are
+// implicitly optional whether or not they are marked.
+//
+// If the parameter name is "...", all remaining arguments
+// are unpacked into the supplied pointer to []Object.
+//
+// If the variable implements Unpacker, its Unpack argument is called with the argument value,
+// allowing an application to define its own argument validation and conversion.
+//
+// If the variable implements Value, UnpackArgs may call its Type()
+// method while constructing the error message.
 func UnpackArgs(args []Object, pairs ...any) error {
 	var defined big.Int
 	nparams := len(pairs) / 2

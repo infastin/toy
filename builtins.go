@@ -351,7 +351,7 @@ func builtinRange(args ...Object) (Object, error) {
 	return NewArray(elems), nil
 }
 
-func builtinError(args ...Object) (ret Object, err error) {
+func builtinError(args ...Object) (_ Object, err error) {
 	if len(args) < 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -385,7 +385,7 @@ func builtinError(args ...Object) (ret Object, err error) {
 	return &Error{message: s, cause: cause}, nil
 }
 
-func builtinTuple(args ...Object) (ret Object, err error) {
+func builtinTuple(args ...Object) (Object, error) {
 	return Tuple(args), nil
 }
 

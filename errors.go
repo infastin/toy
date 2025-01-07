@@ -20,14 +20,6 @@ var (
 	// ErrInvalidOperator represents an error for invalid operator usage.
 	ErrInvalidOperator = errors.New("invalid operator")
 
-	// ErrBytesLimit represents an error where the size of bytes value exceeds
-	// the limit.
-	ErrBytesLimit = errors.New("exceeding bytes size limit")
-
-	// ErrStringLimit represents an error where the size of string value
-	// exceeds the limit.
-	ErrStringLimit = errors.New("exceeding string size limit")
-
 	// ErrNotIndexable is an error where an Object is not indexable.
 	ErrNotIndexable = errors.New("not indexable")
 

@@ -726,10 +726,6 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = format("%v", [1, [2, [3, 4]]])`,
 		nil, `[1, [2, [3, 4]]]`)
 
-	toy.MaxStringLen = 9
-	expectRunError(t, `format("%s", "1234567890")`, nil, "exceeding string size limit")
-	toy.MaxStringLen = 2147483647
-
 	// delete
 	expectRunError(t, `delete()`, nil, "want at least 2 arguments")
 	expectRunError(t, `delete(1)`, nil, "want at least 2 arguments")
@@ -861,20 +857,6 @@ v := ["a", "b", "c"];
 deleted := splice(v, 1, 1, "d", "e");
 out = [deleted, v]
 `, nil, ARR{ARR{"b"}, ARR{"a", "d", "e", "c"}})
-}
-
-func TestBytesN(t *testing.T) {
-	curMaxBytesLen := toy.MaxBytesLen
-	defer func() { toy.MaxBytesLen = curMaxBytesLen }()
-	toy.MaxBytesLen = 10
-
-	expectRun(t, `out = bytes(0)`, nil, make([]byte, 0))
-	expectRun(t, `out = bytes(10)`, nil, make([]byte, 10))
-	expectRunError(t, `bytes(11)`, nil, "bytes size limit")
-
-	toy.MaxBytesLen = 1000
-	expectRun(t, `out = bytes(1000)`, nil, make([]byte, 1000))
-	expectRunError(t, `bytes(1001)`, nil, "bytes size limit")
 }
 
 func TestBytes(t *testing.T) {

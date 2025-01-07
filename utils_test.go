@@ -154,7 +154,7 @@ func makeImmutableMap(pars ...any) *toy.Map {
 }
 
 func makeArray(args ...any) *toy.Array {
-	var elems []toy.Object
+	elems := make([]toy.Object, 0, len(args))
 	for _, arg := range args {
 		elems = append(elems, toObject(arg))
 	}
@@ -166,7 +166,7 @@ func makeImmutableArray(args ...any) *toy.Array {
 }
 
 func makeTuple(args ...any) toy.Tuple {
-	var tup toy.Tuple
+	tup := make(toy.Tuple, 0, len(args))
 	for _, arg := range args {
 		tup = append(tup, toObject(arg))
 	}
@@ -194,17 +194,9 @@ func toObject(v any) toy.Object {
 	case []byte:
 		return toy.Bytes(v)
 	case ARR:
-		var elems []toy.Object
-		for _, e := range v {
-			elems = append(elems, toObject(e))
-		}
-		return toy.NewArray(elems)
+		return makeArray(v...)
 	case IARR:
-		var elems []toy.Object
-		for _, e := range v {
-			elems = append(elems, toObject(e))
-		}
-		return toy.NewArray(elems).AsImmutable()
+		return makeImmutableArray(v...)
 	case MAP:
 		m := new(toy.Map)
 		for k, v := range v {

@@ -1,14 +1,6 @@
 package toy
 
 var (
-	// MaxStringLen is the maximum byte-length for string value. Note this
-	// limit applies to all compiler/VM instances in the process.
-	MaxStringLen = 2147483647
-
-	// MaxBytesLen is the maximum length for bytes value. Note this limit
-	// applies to all compiler/VM instances in the process.
-	MaxBytesLen = 2147483647
-
 	// GlobalsSize is the maximum number of global variables for a VM.
 	GlobalsSize = 1024
 
@@ -25,4 +17,4 @@ const (
 )
 
 // CallableFunc is a function signature for the callable functions.
-type CallableFunc = func(args ...Object) (ret Object, err error)
+type CallableFunc = func(args ...Object) (Object, error)

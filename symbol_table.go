@@ -1,5 +1,10 @@
 package toy
 
+import (
+	"maps"
+	"slices"
+)
+
 // SymbolScope represents a symbol scope.
 type SymbolScope string
 
@@ -153,6 +158,22 @@ func (t *SymbolTable) Names() []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// Copy creates a copy of the symbol table.
+func (t *SymbolTable) Copy() *SymbolTable {
+	if t == nil {
+		return nil
+	}
+	return &SymbolTable{
+		parent:         t.parent.Copy(),
+		block:          t.block,
+		store:          maps.Clone(t.store),
+		numDefinition:  t.numDefinition,
+		maxDefinition:  t.maxDefinition,
+		freeSymbols:    slices.Clone(t.freeSymbols),
+		builtinSymbols: slices.Clone(t.builtinSymbols),
+	}
 }
 
 func (t *SymbolTable) nextIndex() int {

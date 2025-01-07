@@ -172,9 +172,6 @@ func (c *Compiler) Compile(node parser.Node) error {
 			c.emit(node, parser.OpFalse)
 		}
 	case *parser.StringLit:
-		if len(node.Value) > MaxStringLen {
-			return c.error(node, ErrStringLimit)
-		}
 		c.emit(node, parser.OpConstant,
 			c.addConstant(String(node.Value)))
 	case *parser.CharLit:

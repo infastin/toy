@@ -1,4 +1,4 @@
-package parser_test
+package parser
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/infastin/toy/token"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestParserError(t *testing.T) {
@@ -24,8 +26,7 @@ func TestParserErrorList(t *testing.T) {
 	list.Add(SourceFilePos{Offset: 30, Line: 3, Column: 10}, "error 3")
 	list.Add(SourceFilePos{Offset: 10, Line: 1, Column: 10}, "error 1")
 	list.Sort()
-	require.Equal(t, "Parse Error: error 1\n\tat 1:10 (and 2 more errors)",
-		list.Error())
+	require.Equal(t, "Parse Error: error 1\n\tat 1:10 (and 2 more errors)", list.Error())
 }
 
 func TestParseArray(t *testing.T) {
@@ -1778,8 +1779,8 @@ func emptyStmt(implicit bool, pos Pos) *EmptyStmt {
 	return &EmptyStmt{Implicit: implicit, Semicolon: pos}
 }
 
-func returnStmt(pos Pos, result Expr) *ReturnStmt {
-	return &ReturnStmt{Result: result, ReturnPos: pos}
+func returnStmt(pos Pos, results []Expr) *ReturnStmt {
+	return &ReturnStmt{Results: results, ReturnPos: pos}
 }
 
 func forStmt(

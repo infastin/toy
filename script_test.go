@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/token"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func TestScript_Add(t *testing.T) {
@@ -206,8 +208,8 @@ func (o Counter) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	return false, toy.ErrInvalidOperator
 }
 
-func (o Counter) BinaryOp(op token.Token, rhs toy.Object) (toy.Object, error) {
-	switch rhs := rhs.(type) {
+func (o Counter) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Object, error) {
+	switch rhs := other.(type) {
 	case Counter:
 		switch op {
 		case token.Add:
@@ -220,6 +222,9 @@ func (o Counter) BinaryOp(op token.Token, rhs toy.Object) (toy.Object, error) {
 		case token.Add:
 			return o + Counter(rhs), nil
 		case token.Sub:
+			if right {
+				return Counter(rhs) - o, nil
+			}
 			return o - Counter(rhs), nil
 		}
 	}
@@ -241,11 +246,19 @@ for x in arr {
 	c1 += x
 }
 out := c1()
-`,
-		MAP{"c1": Counter(5)},
-	)
+`, MAP{"c1": Counter(5)})
 	compiledRun(t, c)
 	compiledGet(t, c, "out", int64(15))
+
+	c = compile(t, `
+arr := [1, 2, 3, 4]
+for x in arr {
+	c1 = x - c1
+}
+out := c1()
+`, MAP{"c1": Counter(42)})
+	compiledRun(t, c)
+	compiledGet(t, c, "out", int64(44))
 }
 
 func compiledGetCounter(t *testing.T, c *toy.Compiled, name string, expected Counter) {
@@ -267,18 +280,18 @@ func TestScriptSourceModule(t *testing.T) {
 
 	c, err := scr.Run()
 	expectNoError(t, err)
-	expectEqual(t, int64(5), c.Get("out").Value())
+	expectEqual(t, toy.Int(5), c.Get("out").Value())
 
 	// executing module function
 	scr = toy.NewScript([]byte(`mod := import("mod"); out := mod()`))
 
 	mods = make(toy.ModuleMap)
-	mods.AddSourceModule("mod", []byte(`a := 3; export fn(a) => a + 5`))
+	mods.AddSourceModule("mod", []byte(`a := 3; export fn() => a + 5`))
 	scr.SetImports(mods)
 
 	c, err = scr.Run()
 	expectNoError(t, err)
-	expectEqual(t, int64(8), c.Get("out").Value())
+	expectEqual(t, toy.Int(8), c.Get("out").Value())
 
 	// source module imports builtin module
 	scr = toy.NewScript([]byte(`out := import("mod")`))
@@ -293,7 +306,8 @@ func TestScriptSourceModule(t *testing.T) {
 				if err := toy.UnpackArgs(args, "s", &s); err != nil {
 					return nil, err
 				}
-				return toy.String(strings.ToTitle(s)), nil
+				caser := cases.Title(language.Und, cases.NoLower)
+				return toy.String(caser.String(s)), nil
 			},
 		},
 	})
@@ -301,7 +315,7 @@ func TestScriptSourceModule(t *testing.T) {
 
 	c, err = scr.Run()
 	expectNoError(t, err)
-	expectEqual(t, "Foo", c.Get("out").Value())
+	expectEqual(t, toy.String("Foo"), c.Get("out").Value())
 
 	scr.SetImports(nil)
 	_, err = scr.Run()

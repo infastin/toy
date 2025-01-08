@@ -358,6 +358,29 @@ func TestCompiler_Compile(t *testing.T) {
 		),
 	))
 
+	expectCompile(t, `a, b, c := [1, 2, 3]`, bytecode(
+		concatInsts(
+			MakeInstruction(parser.OpConstant, 0),
+			MakeInstruction(parser.OpConstant, 1),
+			MakeInstruction(parser.OpConstant, 2),
+			MakeInstruction(parser.OpArray, 3, 0),
+			MakeInstruction(parser.OpIdxAssignAssert, 3),
+			MakeInstruction(parser.OpIdxElem, 0),
+			MakeInstruction(parser.OpSetGlobal, 0),
+			MakeInstruction(parser.OpIdxElem, 1),
+			MakeInstruction(parser.OpSetGlobal, 1),
+			MakeInstruction(parser.OpIdxElem, 2),
+			MakeInstruction(parser.OpSetGlobal, 2),
+			MakeInstruction(parser.OpPop),
+			MakeInstruction(parser.OpSuspend),
+		),
+		objectsArray(
+			Int(1),
+			Int(2),
+			Int(3),
+		),
+	))
+
 	expectCompile(t, `[]`, bytecode(
 		concatInsts(
 			MakeInstruction(parser.OpArray, 0, 0),

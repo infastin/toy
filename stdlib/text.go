@@ -6,6 +6,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/infastin/toy"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var TextModule = &toy.BuiltinModule{
@@ -23,7 +26,7 @@ var TextModule = &toy.BuiltinModule{
 		"trim":         &toy.BuiltinFunction{Name: "trim", Func: makeASSRS("s", "cutset", strings.Trim)},
 		"toLower":      &toy.BuiltinFunction{Name: "toLower", Func: makeASRS("s", strings.ToLower)},
 		"toUpper":      &toy.BuiltinFunction{Name: "toUpper", Func: makeASRS("s", strings.ToUpper)},
-		"toTitle":      &toy.BuiltinFunction{Name: "toTitle", Func: makeASRS("s", strings.ToTitle)},
+		"toTitle":      &toy.BuiltinFunction{Name: "toTitle", Func: textToTitle},
 		"join":         &toy.BuiltinFunction{Name: "join", Func: textJoin},
 		"split":        &toy.BuiltinFunction{Name: "split", Func: textSplit},
 		"splitAfter":   &toy.BuiltinFunction{Name: "splitAfter", Func: textSplitAfter},
@@ -67,6 +70,15 @@ func textContains(args ...toy.Object) (toy.Object, error) {
 			Got:  a2.TypeName(),
 		}
 	}
+}
+
+func textToTitle(args ...toy.Object) (toy.Object, error) {
+	var s string
+	if err := toy.UnpackArgs(args, "s", &s); err != nil {
+		return nil, err
+	}
+	caser := cases.Title(language.Und, cases.NoLower)
+	return toy.String(caser.String(s)), nil
 }
 
 func textJoin(args ...toy.Object) (toy.Object, error) {

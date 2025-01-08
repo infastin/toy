@@ -20,7 +20,11 @@ var FmtModule = &toy.BuiltinModule{
 func fmtPrint(args ...toy.Object) (toy.Object, error) {
 	var b strings.Builder
 	for _, arg := range args {
-		b.WriteString(arg.String())
+		var s toy.String
+		if err := toy.Convert(&s, arg); err != nil {
+			return nil, err
+		}
+		b.WriteString(string(s))
 	}
 	if b.Len() != 0 {
 		os.Stdout.WriteString(b.String())
@@ -31,7 +35,11 @@ func fmtPrint(args ...toy.Object) (toy.Object, error) {
 func fmtPrintln(args ...toy.Object) (toy.Object, error) {
 	var b strings.Builder
 	for _, arg := range args {
-		b.WriteString(arg.String())
+		var s toy.String
+		if err := toy.Convert(&s, arg); err != nil {
+			return nil, err
+		}
+		b.WriteString(string(s))
 	}
 	b.WriteByte('\n')
 	os.Stdout.WriteString(b.String())

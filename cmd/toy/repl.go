@@ -19,7 +19,7 @@ import (
 type compiler struct {
 	symbolTable *toy.SymbolTable
 	globals     []toy.Object
-	modules     *toy.ModuleMap
+	modules     toy.ModuleMap
 	constants   []toy.Object
 	output      []string
 }
@@ -27,7 +27,10 @@ type compiler struct {
 func newCompiler() *compiler {
 	s := new(compiler)
 
-	replPrint := func(args ...toy.Object) (ret toy.Object, err error) {
+	replPrintFunc := func(args ...toy.Object) (ret toy.Object, err error) {
+		if len(args) == 1 && args[0] == toy.Undefined {
+			return toy.Undefined, nil
+		}
 		var b strings.Builder
 		for i, arg := range args {
 			if i != 0 {
@@ -35,12 +38,30 @@ func newCompiler() *compiler {
 			}
 			b.WriteString(arg.String())
 		}
-		s.output = append(s.output, b.String())
+		if b.Len() != 0 {
+			s.output = append(s.output, b.String())
+		}
+		return toy.Undefined, nil
+	}
+
+	printFunc := func(args ...toy.Object) (ret toy.Object, err error) {
+		var b strings.Builder
+		for _, arg := range args {
+			var s toy.String
+			if err := toy.Convert(&s, arg); err != nil {
+				return nil, err
+			}
+			b.WriteString(string(s))
+		}
+		if b.Len() != 0 {
+			s.output = append(s.output, b.String())
+		}
 		return toy.Undefined, nil
 	}
 
 	toy.BuiltinFuncs = append(toy.BuiltinFuncs,
-		&toy.BuiltinFunction{Name: "print", Func: replPrint})
+		&toy.BuiltinFunction{Name: "__replPrint__", Func: replPrintFunc},
+		&toy.BuiltinFunction{Name: "print", Func: printFunc})
 
 	s.globals = make([]toy.Object, toy.GlobalsSize)
 
@@ -49,9 +70,8 @@ func newCompiler() *compiler {
 		s.symbolTable.DefineBuiltin(idx, fn.Name)
 	}
 
-	s.modules = toy.NewModuleMap()
-	s.modules.Add("text", stdlib.TextModule)
-	s.modules.Add("regexp", stdlib.RegexpModule)
+	s.modules = stdlib.StdLib.Copy()
+	s.modules.Remove("fmt")
 
 	return s
 }
@@ -98,7 +118,7 @@ func addPrints(file *parser.File) *parser.File {
 		case *parser.ExprStmt:
 			stmts = append(stmts, &parser.ExprStmt{
 				Expr: &parser.CallExpr{
-					Func: &parser.Ident{Name: "print"},
+					Func: &parser.Ident{Name: "__replPrint__"},
 					Args: []parser.Expr{s.Expr},
 				},
 			})
@@ -106,7 +126,7 @@ func addPrints(file *parser.File) *parser.File {
 			stmts = append(stmts, s, &parser.ExprStmt{
 				Expr: &parser.CallExpr{
 					Func: &parser.Ident{
-						Name: "print",
+						Name: "__replPrint__",
 					},
 					Args: s.LHS,
 				},
@@ -151,7 +171,9 @@ func newModel() model {
 	}
 }
 
-func (m *model) clearInput() {
+func (m *model) reset() {
+	clear(m.uncommited)
+	m.uncommitedIdx = len(m.uncommited) - 1
 	m.input = m.input[:1]
 	m.input[0] = m.input[0][:0]
 	m.line = 0
@@ -537,7 +559,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+l":
 			return m, tea.ClearScreen
 		case "ctrl+c":
-			m.clearInput()
+			m.reset()
 		case "up":
 			m.prevLineOrUpHistory()
 		case "down":

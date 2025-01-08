@@ -83,7 +83,7 @@ func NewCompiler(
 
 	// builtin modules
 	if modules == nil {
-		modules = NewModuleMap()
+		modules = make(ModuleMap)
 	}
 
 	return &Compiler{
@@ -733,11 +733,8 @@ func (c *Compiler) compileAssignDefine(
 	if len(lhs) == len(rhs) {
 		_, unpacking = rhs[0].(*parser.UnpackExpr)
 	} else {
-		switch rhs[0].(type) {
-		case *parser.CallExpr, *parser.UnpackExpr:
-			unpacking = true
-		}
-		if !unpacking || len(rhs) != 1 {
+		unpacking = true
+		if len(rhs) != 1 {
 			return c.errorf(node, "trying to assign %d values to %d variables", len(rhs), len(lhs))
 		}
 	}

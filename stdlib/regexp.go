@@ -11,22 +11,10 @@ import (
 var RegexpModule = &toy.BuiltinModule{
 	Name: "regexp",
 	Members: map[string]toy.Object{
-		"compile": &toy.BuiltinFunction{
-			Name: "compile",
-			Func: regexpCompile,
-		},
-		"match": &toy.BuiltinFunction{
-			Name: "match",
-			Func: regexpMatch,
-		},
-		"find": &toy.BuiltinFunction{
-			Name: "find",
-			Func: regexpFind,
-		},
-		"replace": &toy.BuiltinFunction{
-			Name: "replace",
-			Func: regexpReplace,
-		},
+		"compile": &toy.BuiltinFunction{Name: "compile", Func: regexpCompile},
+		"match":   &toy.BuiltinFunction{Name: "match", Func: regexpMatch},
+		"find":    &toy.BuiltinFunction{Name: "find", Func: regexpFind},
+		"replace": &toy.BuiltinFunction{Name: "replace", Func: regexpReplace},
 	},
 }
 
@@ -35,7 +23,7 @@ type RegexpMatch struct {
 	begin, end int
 }
 
-func (m RegexpMatch) TypeName() string { return "regexp.Match" }
+func (m RegexpMatch) TypeName() string { return "RegexpMatch" }
 func (m RegexpMatch) String() string   { return strconv.Quote(m.text) }
 func (m RegexpMatch) IsFalsy() bool    { return len(m.text) == 0 }
 func (m RegexpMatch) Copy() toy.Object { return m }
@@ -66,20 +54,36 @@ func (m RegexpMatch) FieldGet(name string) (toy.Object, error) {
 
 type Regexp regexp.Regexp
 
-func (r *Regexp) TypeName() string { return "regexp.Regexp" }
+func (r *Regexp) Unpack(o toy.Object) error {
+	switch x := o.(type) {
+	case *Regexp:
+		*r = *x
+	case toy.String:
+		rx, err := regexp.Compile(string(x))
+		if err != nil {
+			return err
+		}
+		*r = Regexp(*rx)
+	default:
+		return &toy.InvalidArgumentTypeError{Want: "Regexp or string"}
+	}
+	return nil
+}
+
+func (r *Regexp) TypeName() string { return "Regexp" }
 func (r *Regexp) String() string   { return fmt.Sprintf("/%s/", (*regexp.Regexp)(r).String()) }
 func (r *Regexp) IsFalsy() bool    { return false }
 func (r *Regexp) Copy() toy.Object { return r }
 
 func (r *Regexp) FieldGet(name string) (toy.Object, error) {
-	m, ok := regexpMethods[name]
+	m, ok := regexpRegexpMethods[name]
 	if !ok {
 		return nil, toy.ErrNoSuchField
 	}
 	return m.WithReceiver(r), nil
 }
 
-var regexpMethods = map[string]*toy.BuiltinFunction{
+var regexpRegexpMethods = map[string]*toy.BuiltinFunction{
 	"find":    {Name: "find", Func: regexpRegexpFind},
 	"replace": {Name: "replace", Func: regexpRegexpReplace},
 }

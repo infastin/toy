@@ -86,11 +86,6 @@ func PrintTrace(inputData []byte, inputFile string) error {
 		symTable.DefineBuiltin(idx, fn.Name)
 	}
 
-	mods := toy.NewModuleMap()
-	mods.Add("fmt", stdlib.FmtModule)
-	mods.Add("text", stdlib.TextModule)
-	mods.Add("regexp", stdlib.RegexpModule)
-
 	p := parser.NewParser(file, []byte(inputData), nil)
 	parsed, err := p.ParseFile()
 	if err != nil {
@@ -99,7 +94,7 @@ func PrintTrace(inputData []byte, inputFile string) error {
 
 	tr := &compileTracer{}
 
-	c := toy.NewCompiler(file, symTable, nil, mods, tr)
+	c := toy.NewCompiler(file, symTable, nil, stdlib.StdLib, tr)
 	if err := c.Compile(parsed); err != nil {
 		return err
 	}
@@ -158,22 +153,14 @@ func PrintTrace(inputData []byte, inputFile string) error {
 // CompileAndRun compiles the source code and executes it.
 func CompileAndRun(inputData []byte, inputFile string) error {
 	script := toy.NewScript(inputData)
-
-	mods := toy.NewModuleMap()
-	mods.Add("fmt", stdlib.FmtModule)
-	mods.Add("text", stdlib.TextModule)
-	mods.Add("regexp", stdlib.RegexpModule)
-	script.SetImports(mods)
-
+	script.SetImports(stdlib.StdLib)
 	script.EnableFileImport(true)
 	if err := script.SetImportDir(filepath.Dir(inputFile)); err != nil {
 		return err
 	}
-
 	if _, err := script.Run(); err != nil {
 		return err
 	}
-
 	return nil
 }
 

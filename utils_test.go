@@ -144,7 +144,7 @@ func makeMap(pairs ...any) *toy.Map {
 	out := new(toy.Map)
 	for i := 0; i < len(pairs); i += 2 {
 		key := pairs[i].(string)
-		out.IndexSet(toy.String(key), toObject(pairs[i+1])) //nolint:errcheck
+		out.IndexSet(toy.String(key), toObject(pairs[i+1]))
 	}
 	return out
 }
@@ -200,13 +200,13 @@ func toObject(v any) toy.Object {
 	case MAP:
 		m := new(toy.Map)
 		for k, v := range v {
-			m.IndexSet(toy.String(k), toObject(v)) //nolint:errcheck
+			m.IndexSet(toy.String(k), toObject(v))
 		}
 		return m
 	case IMAP:
 		m := new(toy.Map)
 		for k, v := range v {
-			m.IndexSet(toy.String(k), toObject(v)) //nolint:errcheck
+			m.IndexSet(toy.String(k), toObject(v))
 		}
 		return m.AsImmutable()
 	case nil:

@@ -11,137 +11,32 @@ import (
 var TextModule = &toy.BuiltinModule{
 	Name: "text",
 	Members: map[string]toy.Object{
-		"contains": &toy.BuiltinFunction{
-			Name: "contains",
-			Func: textContains,
-		},
-		"containsAny": &toy.BuiltinFunction{
-			Name: "containsAny",
-			Func: makeASSRB("s", "chars", strings.ContainsAny),
-		},
-		"hasPrefix": &toy.BuiltinFunction{
-			Name: "hasPrefix",
-			Func: makeASSRB("s", "prefix", strings.HasPrefix),
-		},
-		"hasSuffix": &toy.BuiltinFunction{
-			Name: "hasSuffix",
-			Func: makeASSRB("s", "suffix", strings.HasSuffix),
-		},
-		"trimLeft": &toy.BuiltinFunction{
-			Name: "trimLeft",
-			Func: makeASSRS("s", "cutset", strings.TrimLeft),
-		},
-		"trimRight": &toy.BuiltinFunction{
-			Name: "trimRight",
-			Func: makeASSRS("s", "cutset", strings.TrimRight),
-		},
-		"trimPrefix": &toy.BuiltinFunction{
-			Name: "trimPrefix",
-			Func: makeASSRS("s", "prefix", strings.TrimPrefix),
-		},
-		"trimSuffix": &toy.BuiltinFunction{
-			Name: "trimSuffix",
-			Func: makeASSRS("s", "suffix", strings.TrimSuffix),
-		},
-		"trimSpace": &toy.BuiltinFunction{
-			Name: "trimSpace",
-			Func: makeASRS("s", strings.TrimSpace),
-		},
-		"trim": &toy.BuiltinFunction{
-			Name: "trim",
-			Func: makeASSRS("s", "cutset", strings.Trim),
-		},
-		"toLower": &toy.BuiltinFunction{
-			Name: "toLower",
-			Func: makeASRS("s", strings.ToLower),
-		},
-		"toUpper": &toy.BuiltinFunction{
-			Name: "toUpper",
-			Func: makeASRS("s", strings.ToUpper),
-		},
-		"toTitle": &toy.BuiltinFunction{
-			Name: "toTitle",
-			Func: makeASRS("s", strings.ToTitle),
-		},
-		"join": &toy.BuiltinFunction{
-			Name: "join",
-			Func: textJoin,
-		},
-		"split": &toy.BuiltinFunction{
-			Name: "split",
-			Func: textSplit,
-		},
-		"splitAfter": &toy.BuiltinFunction{
-			Name: "splitAfter",
-			Func: textSplitAfter,
-		},
-		"fields": &toy.BuiltinFunction{
-			Name: "fields",
-			Func: textFields,
-		},
-		"replace": &toy.BuiltinFunction{
-			Name: "replace",
-			Func: textReplace,
-		},
-		"cut": &toy.BuiltinFunction{
-			Name: "cut",
-			Func: textCut,
-		},
-		"cutPrefix": &toy.BuiltinFunction{
-			Name: "cutPrefix",
-			Func: textCutPrefix,
-		},
-		"cutSuffix": &toy.BuiltinFunction{
-			Name: "cutSuffix",
-			Func: textCutSuffix,
-		},
-		"index": &toy.BuiltinFunction{
-			Name: "index",
-			Func: textIndex,
-		},
-		"indexAny": &toy.BuiltinFunction{
-			Name: "indexAny",
-			Func: textIndexAny,
-		},
-		"lastIndex": &toy.BuiltinFunction{
-			Name: "lastIndex",
-			Func: textLastIndex,
-		},
-		"lastIndexAny": &toy.BuiltinFunction{
-			Name: "lastIndexAny",
-			Func: textLastIndexAny,
-		},
+		"contains":     &toy.BuiltinFunction{Name: "contains", Func: textContains},
+		"containsAny":  &toy.BuiltinFunction{Name: "containsAny", Func: makeASSRB("s", "chars", strings.ContainsAny)},
+		"hasPrefix":    &toy.BuiltinFunction{Name: "hasPrefix", Func: makeASSRB("s", "prefix", strings.HasPrefix)},
+		"hasSuffix":    &toy.BuiltinFunction{Name: "hasSuffix", Func: makeASSRB("s", "suffix", strings.HasSuffix)},
+		"trimLeft":     &toy.BuiltinFunction{Name: "trimLeft", Func: makeASSRS("s", "cutset", strings.TrimLeft)},
+		"trimRight":    &toy.BuiltinFunction{Name: "trimRight", Func: makeASSRS("s", "cutset", strings.TrimRight)},
+		"trimPrefix":   &toy.BuiltinFunction{Name: "trimPrefix", Func: makeASSRS("s", "prefix", strings.TrimPrefix)},
+		"trimSuffix":   &toy.BuiltinFunction{Name: "trimSuffix", Func: makeASSRS("s", "suffix", strings.TrimSuffix)},
+		"trimSpace":    &toy.BuiltinFunction{Name: "trimSpace", Func: makeASRS("s", strings.TrimSpace)},
+		"trim":         &toy.BuiltinFunction{Name: "trim", Func: makeASSRS("s", "cutset", strings.Trim)},
+		"toLower":      &toy.BuiltinFunction{Name: "toLower", Func: makeASRS("s", strings.ToLower)},
+		"toUpper":      &toy.BuiltinFunction{Name: "toUpper", Func: makeASRS("s", strings.ToUpper)},
+		"toTitle":      &toy.BuiltinFunction{Name: "toTitle", Func: makeASRS("s", strings.ToTitle)},
+		"join":         &toy.BuiltinFunction{Name: "join", Func: textJoin},
+		"split":        &toy.BuiltinFunction{Name: "split", Func: textSplit},
+		"splitAfter":   &toy.BuiltinFunction{Name: "splitAfter", Func: textSplitAfter},
+		"fields":       &toy.BuiltinFunction{Name: "fields", Func: textFields},
+		"replace":      &toy.BuiltinFunction{Name: "replace", Func: textReplace},
+		"cut":          &toy.BuiltinFunction{Name: "cut", Func: textCut},
+		"cutPrefix":    &toy.BuiltinFunction{Name: "cutPrefix", Func: textCutPrefix},
+		"cutSuffix":    &toy.BuiltinFunction{Name: "cutSuffix", Func: textCutSuffix},
+		"index":        &toy.BuiltinFunction{Name: "index", Func: textIndex},
+		"indexAny":     &toy.BuiltinFunction{Name: "indexAny", Func: textIndexAny},
+		"lastIndex":    &toy.BuiltinFunction{Name: "lastIndex", Func: textLastIndex},
+		"lastIndexAny": &toy.BuiltinFunction{Name: "lastIndexAny", Func: textLastIndexAny},
 	},
-}
-
-func makeASRS(name string, fn func(string) string) toy.CallableFunc {
-	return func(args ...toy.Object) (toy.Object, error) {
-		var s string
-		if err := toy.UnpackArgs(args, name, &s); err != nil {
-			return nil, err
-		}
-		return toy.String(fn(s)), nil
-	}
-}
-
-func makeASSRB(n1, n2 string, fn func(string, string) bool) toy.CallableFunc {
-	return func(args ...toy.Object) (toy.Object, error) {
-		var s1, s2 string
-		if err := toy.UnpackArgs(args, n1, &s1, n2, &s2); err != nil {
-			return nil, err
-		}
-		return toy.Bool(fn(s1, s2)), nil
-	}
-}
-
-func makeASSRS(n1, n2 string, fn func(string, string) string) toy.CallableFunc {
-	return func(args ...toy.Object) (toy.Object, error) {
-		var s1, s2 string
-		if err := toy.UnpackArgs(args, n1, &s1, n2, &s2); err != nil {
-			return nil, err
-		}
-		return toy.String(fn(s1, s2)), nil
-	}
 }
 
 func textContains(args ...toy.Object) (toy.Object, error) {

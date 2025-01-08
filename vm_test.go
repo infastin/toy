@@ -20,7 +20,7 @@ import (
 const testOut = "out"
 
 type testopts struct {
-	modules     *toy.ModuleMap
+	modules     toy.ModuleMap
 	symbols     map[string]toy.Object
 	maxAllocs   int64
 	skip2ndPass bool
@@ -28,7 +28,7 @@ type testopts struct {
 
 func Opts() *testopts {
 	return &testopts{
-		modules:     toy.NewModuleMap(),
+		modules:     make(toy.ModuleMap),
 		symbols:     make(map[string]toy.Object),
 		maxAllocs:   -1,
 		skip2ndPass: false,
@@ -3675,7 +3675,7 @@ func (o *vmTracer) Write(p []byte) (n int, err error) {
 func traceCompileRun(
 	file *parser.File,
 	symbols map[string]toy.Object,
-	modules *toy.ModuleMap,
+	modules toy.ModuleMap,
 ) (res map[string]toy.Object, trace []string, err error) {
 	var v *toy.VM
 

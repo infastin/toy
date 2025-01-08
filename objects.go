@@ -32,14 +32,13 @@ type Object interface {
 type Hashable interface {
 	Object
 	// Hash returns a function of x such that Equals(x, y) => Hash(x) == Hash(y).
-	// The hash is used only by maps and is not exposed to the Toy program.
 	Hash() uint64
 }
 
 // Freezable represents an object that can create immutable copies.
 type Freezable interface {
 	Object
-	// Copy should return an immutable copy of the type (and its value).
+	// AsImmutable should return an immutable copy of the type (and its value).
 	// AsImmutable function will be used for immutable() builtin keyword
 	// which is expected to deep-copy the values generally.
 	AsImmutable() Object
@@ -51,21 +50,27 @@ type Freezable interface {
 // perhaps ordered comparisons.
 type Comparable interface {
 	Object
-	// CompareSameType compares one value to another.
+	// Compare compares one value to another.
 	// The comparison operation must be one of Equal, NotEqual, Less, LessEq, Greater, or GreaterEq.
-	// CompareSameType returns an error if an ordered comparison was
-	// requested for a type that does not support it.
-	// If CompareSameType returns an error, the VM will treat it as a run-time error.
+	// If Compare returns an error, the VM will treat it as a run-time error.
+	//
+	// Client code should not call this method.
+	// Instead, use the standalone Compare or Equals functions.
 	Compare(op token.Token, rhs Object) (bool, error)
 }
 
 // HasBinaryOp represents an object that supports binary operations (excluding comparison operators).
 type HasBinaryOp interface {
 	Object
-	// BinaryOp should return another object that is the result of a given
-	// binary operator and a right-hand side object.
+	// BinaryOp performs a binary operation on the current object with the provided object.
+	// The right parameter indicates whether the current object is the right operand (true)
+	// or the left operand (false) in the operation.
+	// It should return the result of the operation and an error if the operation is not supported or has failed.
 	// If BinaryOp returns an error, the VM will treat it as a run-time error.
-	BinaryOp(op token.Token, rhs Object) (Object, error)
+	//
+	// Client code should not call this method.
+	// Instead, use the standalone BinaryOp function.
+	BinaryOp(op token.Token, other Object, right bool) (Object, error)
 }
 
 // HasBinaryOp represents an object that supports unary operations.
@@ -73,6 +78,9 @@ type HasUnaryOp interface {
 	Object
 	// UnaryOp should return another object that is the result of a given unary operator.
 	// If UnaryOp returns an error, the VM will treat it as a run-time error.
+	//
+	// Client code should not call this method.
+	// Instead, use the standalone UnaryOp function.
 	UnaryOp(op token.Token) (Object, error)
 }
 
@@ -84,6 +92,9 @@ type IndexAccessible interface {
 	// index and return an object. If error is returned, the runtime will treat
 	// it as a run-time error and ignore returned value.
 	// If nil is returned as value, it will be converted to Undefined value by the runtime.
+	//
+	// Client code should not call this method.
+	// Instead, use the standalone IndexGet function.
 	IndexGet(index Object) (value Object, err error)
 }
 
@@ -95,6 +106,9 @@ type IndexAssignable interface {
 	// assignable objects. Index assignable is an object that can take an index
 	// and a value on the left-hand side of the assignment statement.
 	// If an error is returned, it will be treated as a run-time error.
+	//
+	// Client code should not call this method.
+	// Instead, use the standalone IndexSet function.
 	IndexSet(index, value Object) error
 }
 
@@ -104,6 +118,9 @@ type FieldAccessible interface {
 	// FieldGet should take a name of the field and return its value.
 	// If error is returned, the runtime will treat
 	// it as a run-time error and ignore returned value.
+	//
+	// Client code should not call this method.
+	// Instead, use the standalone FieldGet function.
 	FieldGet(name string) (Object, error)
 }
 
@@ -114,6 +131,9 @@ type FieldAssignable interface {
 	// FieldSet should take the name of a field and its new value Object
 	// and return an error if the field cannot be set.
 	// If error is returned, the runtime will treat it as a run-time error.
+	//
+	// Client code should not call this method.
+	// Instead, use the standalone FieldSet function.
 	FieldSet(name string, value Object) error
 }
 
@@ -144,6 +164,9 @@ type Convertible interface {
 	Object
 	// Convert should take a pointer to an Object and try to convert the Convertible object
 	// to the type of the provided Object, and return an error if the conversion fails.
+	//
+	// Client code should not call this method.
+	// Instead, use the standalone Convert function.
 	Convert(p any) error
 }
 
@@ -242,13 +265,14 @@ func Equals(x, y Object) (bool, error) {
 }
 
 // Compare compares two objects using the given comparison operator.
+// If the comparsion between x and y has failed, it will try to compare y and x.
 // It will return an error if the objects can't be compared using the given operator.
 // or if the comparison has failed.
 //
 // Equality comparsion with UndefinedType is defined implicitly,
 // so types do not need to implement it themselves.
 //
-// Equality comparsion for two objects that hold the same reference
+// Equality comparsion for two objects holding the same reference
 // is also defined implicitly.
 func Compare(op token.Token, x, y Object) (bool, error) {
 	if x == y {
@@ -268,24 +292,48 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 		}
 	}
 	xc, ok := x.(Comparable)
+	if ok {
+		if res, err := xc.Compare(op, y); err == nil {
+			return res, nil
+		}
+	}
+	yc, ok := y.(Comparable)
 	if !ok {
 		return false, ErrInvalidOperator
 	}
-	return xc.Compare(op, y)
+	switch op {
+	case token.Less:
+		op = token.Greater
+	case token.Greater:
+		op = token.Less
+	case token.LessEq:
+		op = token.GreaterEq
+	case token.GreaterEq:
+		op = token.LessEq
+	}
+	return yc.Compare(op, x)
 }
 
 // BinaryOp performs a binary operation with the given operator.
+// If the operation for x and y has failed,
+// it will try to perform the same operation for y and x.
 // It will return an error if the given binary operation
 // can't be performed on the given objects or if the operation has failed.
 func BinaryOp(op token.Token, x, y Object) (Object, error) {
 	xb, ok := x.(HasBinaryOp)
+	if ok {
+		if res, err := xb.BinaryOp(op, y, false); err == nil {
+			return res, nil
+		}
+	}
+	yb, ok := y.(HasBinaryOp)
 	if !ok {
 		return nil, ErrInvalidOperator
 	}
-	return xb.BinaryOp(op, y)
+	return yb.BinaryOp(op, x, true)
 }
 
-// BinaryOp performs an unary operation with the given operator.
+// UnaryOp performs an unary operation with the given operator.
 // It will return an error if the given unary operation
 // can't be performed on the given object or if the operation has failed.
 func UnaryOp(op token.Token, x Object) (res Object, err error) {
@@ -325,7 +373,7 @@ func IndexGet(x, index Object) (Object, error) {
 	return xi.IndexGet(index)
 }
 
-// IndexGet assigns a value to the specified index in the object.
+// IndexSet assigns a value to the specified index in the object.
 // Returns an error if the index assignment operation can't be performed
 // on the given object or if the operation has failed.
 func IndexSet(x, index, value Object) error {
@@ -418,9 +466,6 @@ func Slice(x Object, low, high int) (Object, error) {
 // Returns an error if the conversion is not possible
 // or the conversion has failed.
 func Convert[T Object](p *T, o Object) (err error) {
-	if o == Undefined {
-		return ErrNotConvertible
-	}
 	switch p := any(p).(type) {
 	case *String:
 		if s, ok := o.(String); ok {
@@ -604,8 +649,8 @@ func (o Float) Compare(op token.Token, rhs Object) (bool, error) {
 	return false, ErrInvalidOperator
 }
 
-func (o Float) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	switch y := rhs.(type) {
+func (o Float) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
+	switch y := other.(type) {
 	case Float:
 		switch op {
 		case token.Add:
@@ -622,10 +667,16 @@ func (o Float) BinaryOp(op token.Token, rhs Object) (Object, error) {
 		case token.Add:
 			return o + Float(y), nil
 		case token.Sub:
+			if right {
+				return Float(y) - o, nil
+			}
 			return o - Float(y), nil
 		case token.Mul:
 			return o * Float(y), nil
 		case token.Quo:
+			if right {
+				return Float(y) / o, nil
+			}
 			return o / Float(y), nil
 		}
 	}
@@ -714,8 +765,8 @@ func (o Int) Compare(op token.Token, rhs Object) (bool, error) {
 	return false, ErrInvalidOperator
 }
 
-func (o Int) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	switch y := rhs.(type) {
+func (o Int) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
+	switch y := other.(type) {
 	case Int:
 		switch op {
 		case token.Add:
@@ -746,10 +797,16 @@ func (o Int) BinaryOp(op token.Token, rhs Object) (Object, error) {
 		case token.Add:
 			return Float(o) + y, nil
 		case token.Sub:
+			if right {
+				return y - Float(o), nil
+			}
 			return Float(o) - y, nil
 		case token.Mul:
 			return Float(o) * y, nil
 		case token.Quo:
+			if right {
+				return y / Float(o), nil
+			}
 			return Float(o) / y, nil
 		}
 	case Char:
@@ -757,6 +814,9 @@ func (o Int) BinaryOp(op token.Token, rhs Object) (Object, error) {
 		case token.Add:
 			return Char(o) + y, nil
 		case token.Sub:
+			if right {
+				return y - Char(o), nil
+			}
 			return Char(o) - y, nil
 		}
 	}
@@ -831,17 +891,20 @@ func (o String) Compare(op token.Token, rhs Object) (bool, error) {
 	return false, ErrInvalidOperator
 }
 
-func (o String) BinaryOp(op token.Token, rhs Object) (Object, error) {
+func (o String) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
 	switch op {
 	case token.Add:
-		switch y := rhs.(type) {
+		switch y := other.(type) {
 		case String:
 			return o + y, nil
 		case Char:
+			if right {
+				return String(y) + o, nil
+			}
 			return o + String(y), nil
 		}
 	case token.Mul:
-		switch y := rhs.(type) {
+		switch y := other.(type) {
 		case Int:
 			if y <= 0 {
 				return o, nil
@@ -950,15 +1013,15 @@ func (o Bytes) Compare(op token.Token, rhs Object) (bool, error) {
 	return false, ErrInvalidOperator
 }
 
-func (o Bytes) BinaryOp(op token.Token, rhs Object) (Object, error) {
+func (o Bytes) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
 	switch op {
 	case token.Add:
-		switch y := rhs.(type) {
+		switch y := other.(type) {
 		case Bytes:
 			return append(o, y...), nil
 		}
 	case token.Mul:
-		switch y := rhs.(type) {
+		switch y := other.(type) {
 		case Int:
 			if y <= 0 {
 				return o, nil
@@ -1063,8 +1126,8 @@ func (o Char) Compare(op token.Token, rhs Object) (bool, error) {
 	return false, ErrInvalidOperator
 }
 
-func (o Char) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	switch y := rhs.(type) {
+func (o Char) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
+	switch y := other.(type) {
 	case Char:
 		switch op {
 		case token.Add:
@@ -1077,6 +1140,9 @@ func (o Char) BinaryOp(op token.Token, rhs Object) (Object, error) {
 		case token.Add:
 			return o + Char(y), nil
 		case token.Sub:
+			if right {
+				return Char(y) - o, nil
+			}
 			return o - Char(y), nil
 		}
 	}
@@ -1200,10 +1266,10 @@ func (o *Array) Compare(op token.Token, rhs Object) (bool, error) {
 	return false, ErrInvalidOperator
 }
 
-func (o *Array) BinaryOp(op token.Token, rhs Object) (Object, error) {
+func (o *Array) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
 	switch op {
 	case token.Add:
-		switch y := rhs.(type) {
+		switch y := other.(type) {
 		case *Array:
 			return &Array{
 				elems:     append(o.elems, y.elems...),
@@ -1212,7 +1278,7 @@ func (o *Array) BinaryOp(op token.Token, rhs Object) (Object, error) {
 			}, nil
 		}
 	case token.Mul:
-		switch y := rhs.(type) {
+		switch y := other.(type) {
 		case Int:
 			var newElems []Object
 			switch {
@@ -1413,8 +1479,8 @@ func (o *Map) Compare(op token.Token, rhs Object) (bool, error) {
 	return false, ErrInvalidOperator
 }
 
-func (o *Map) BinaryOp(op token.Token, rhs Object) (Object, error) {
-	y, ok := rhs.(*Map)
+func (o *Map) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
+	y, ok := other.(*Map)
 	if !ok {
 		return nil, ErrInvalidOperator
 	}
@@ -1509,15 +1575,15 @@ func (o Tuple) Compare(op token.Token, rhs Object) (bool, error) {
 	return false, ErrInvalidOperator
 }
 
-func (o Tuple) BinaryOp(op token.Token, rhs Object) (Object, error) {
+func (o Tuple) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
 	switch op {
 	case token.Add:
-		switch y := rhs.(type) {
+		switch y := other.(type) {
 		case Tuple:
 			return append(o, y...), nil
 		}
 	case token.Mul:
-		switch y := rhs.(type) {
+		switch y := other.(type) {
 		case Int:
 			switch {
 			case y == 1:
@@ -1600,7 +1666,11 @@ type Error struct {
 	cause   *Error
 }
 
-func NewError(format string, args ...any) *Error {
+func NewError(message string) *Error {
+	return &Error{message: message}
+}
+
+func NewErrorf(format string, args ...any) *Error {
 	return &Error{message: fmt.Sprintf(format, args...)}
 }
 

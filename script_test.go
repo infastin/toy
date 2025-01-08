@@ -137,7 +137,7 @@ e := mod1.double(s)
 	scr.Add("b", toy.Int(0))
 	scr.Add("c", toy.Int(0))
 
-	mods := toy.NewModuleMap()
+	mods := make(toy.ModuleMap)
 	mods.AddBuiltinModule("mod1", map[string]toy.Object{
 		"double": &toy.BuiltinFunction{
 			Name: "double",
@@ -261,7 +261,7 @@ func TestScriptSourceModule(t *testing.T) {
 	// script1 imports "mod1"
 	scr := toy.NewScript([]byte(`out := import("mod")`))
 
-	mods := toy.NewModuleMap()
+	mods := make(toy.ModuleMap)
 	mods.AddSourceModule("mod", []byte(`export 5`))
 	scr.SetImports(mods)
 
@@ -272,7 +272,7 @@ func TestScriptSourceModule(t *testing.T) {
 	// executing module function
 	scr = toy.NewScript([]byte(`mod := import("mod"); out := mod()`))
 
-	mods = toy.NewModuleMap()
+	mods = make(toy.ModuleMap)
 	mods.AddSourceModule("mod", []byte(`a := 3; export fn(a) => a + 5`))
 	scr.SetImports(mods)
 
@@ -283,7 +283,7 @@ func TestScriptSourceModule(t *testing.T) {
 	// source module imports builtin module
 	scr = toy.NewScript([]byte(`out := import("mod")`))
 
-	mods = toy.NewModuleMap()
+	mods = make(toy.ModuleMap)
 	mods.AddSourceModule("mod", []byte(`text := import("text"); export text.title("foo")`))
 	mods.AddBuiltinModule("text", map[string]toy.Object{
 		"title": &toy.BuiltinFunction{
@@ -478,7 +478,7 @@ export fn(ctx) {
 
 	s := toy.NewScript([]byte(m))
 
-	mods := toy.NewModuleMap()
+	mods := make(toy.ModuleMap)
 	mods.AddSourceModule("expression", []byte(src))
 	s.SetImports(mods)
 

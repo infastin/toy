@@ -171,6 +171,13 @@ type Sequence interface {
 	Items() []Object
 }
 
+// IndexableSequence represents an iterable sequence of objects of known length
+// that supports efficient random access.
+type IndexableSequence interface {
+	Indexable
+	Sequence
+}
+
 // Mapping represents an iterable object that maps one Object to another.
 type Mapping interface {
 	Iterable
@@ -1444,12 +1451,14 @@ func (o Tuple) TypeName() string { return "tuple" }
 
 func (o Tuple) String() string {
 	var b strings.Builder
+	b.WriteString("tuple(")
 	for i, v := range o {
 		if i != 0 {
 			b.WriteString(", ")
 		}
 		b.WriteString(v.String())
 	}
+	b.WriteByte(')')
 	return b.String()
 }
 

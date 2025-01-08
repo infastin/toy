@@ -115,7 +115,7 @@ func (s *BlockStmt) String() string {
 
 // ShortFuncBodyStmt represents a body of a shorthand function.
 type ShortFuncBodyStmt struct {
-	Exprs []Expr
+	Expr Expr
 }
 
 func (s *ShortFuncBodyStmt) stmtNode()         {}
@@ -123,23 +123,16 @@ func (s *ShortFuncBodyStmt) funcBodyStmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
 func (s *ShortFuncBodyStmt) Pos() Pos {
-	return s.Exprs[0].Pos()
+	return s.Expr.Pos()
 }
 
 // End returns the position of first character immediately after the node.
 func (s *ShortFuncBodyStmt) End() Pos {
-	return s.Exprs[len(s.Exprs)-1].Pos()
+	return s.Expr.End()
 }
 
 func (s *ShortFuncBodyStmt) String() string {
-	var b strings.Builder
-	for i, e := range s.Exprs {
-		if i != 0 {
-			b.WriteString("; ")
-		}
-		b.WriteString(e.String())
-	}
-	return b.String()
+	return s.Expr.String()
 }
 
 // BranchStmt represents a branch statement.

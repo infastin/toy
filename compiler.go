@@ -268,19 +268,10 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 		}
 	case *parser.ShortFuncBodyStmt:
-		for _, result := range node.Exprs {
-			if err := c.Compile(result); err != nil {
-				return err
-			}
+		if err := c.Compile(node.Expr); err != nil {
+			return err
 		}
-		if len(node.Exprs) > 1 {
-			c.emit(node, parser.OpTuple, len(node.Exprs))
-		}
-		var opReturnOperand int
-		if len(node.Exprs) != 0 {
-			opReturnOperand = 1
-		}
-		c.emit(node, parser.OpReturn, opReturnOperand)
+		c.emit(node, parser.OpReturn, 1)
 	case *parser.AssignStmt:
 		err := c.compileAssign(node, node.LHS, node.RHS, node.Token)
 		if err != nil {
@@ -454,7 +445,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 		}
 		if len(node.Results) > 1 {
-			c.emit(node, parser.OpTuple, len(node.Results))
+			c.emit(node, parser.OpTuple, len(node.Results), 0)
 		}
 		var opReturnOperand int
 		if len(node.Results) != 0 {
@@ -542,11 +533,21 @@ func (c *Compiler) Compile(node parser.Node) error {
 			return err
 		}
 		c.emit(node, parser.OpImmutable)
+	case *parser.TupleLit:
+		splat := 0
+		for _, elem := range node.Elements {
+			if _, ok := elem.(*parser.SplatExpr); ok {
+				splat = 1
+			}
+			if err := c.Compile(elem); err != nil {
+				return err
+			}
+		}
+		c.emit(node, parser.OpTuple, len(node.Elements), splat)
 	case *parser.UnpackExpr:
 		if err := c.Compile(node.Expr); err != nil {
 			return err
 		}
-		c.emit(node, parser.OpSeqToTuple)
 	case *parser.CondExpr:
 		if err := c.Compile(node.Cond); err != nil {
 			return err
@@ -808,9 +809,9 @@ func (c *Compiler) compileAssignDefine(
 		if err := c.Compile(rhs[0]); err != nil {
 			return err
 		}
-		// since we can't check how many values a tuple contains at compile time
+		// since we can't check how many values an indexable contains at compile time
 		// we have to check it at the runtime
-		c.emit(node, parser.OpTupleAssignAssert, len(lhs))
+		c.emit(node, parser.OpIdxAssignAssert, len(lhs))
 	}
 
 	for j, lr := range resolved {
@@ -828,8 +829,8 @@ func (c *Compiler) compileAssignDefine(
 		}
 
 		if unpacking {
-			// push value from the tuple to the top of the stack
-			c.emit(node, parser.OpTupleElem, j)
+			// push value from the indexable to the top of the stack
+			c.emit(node, parser.OpIdxElem, j)
 		}
 
 		switch lr.symbol.Scope {

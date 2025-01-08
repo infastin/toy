@@ -244,12 +244,24 @@ func (v *VM) run() {
 			v.stack[v.sp] = m
 			v.sp++
 		case parser.OpTuple:
-			v.ip += 2
-			numElements := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+			v.ip += 3
+			numElements := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
+			splat := int(v.curInsts[v.ip])
 
 			var tup Tuple
-			for i := v.sp - numElements; i < v.sp; i++ {
-				tup = append(tup, v.stack[i])
+			if splat == 1 {
+				for i := v.sp - numElements; i < v.sp; i++ {
+					switch elem := v.stack[i].(type) {
+					case *splatSequence:
+						tup = append(tup, elem.s.Items()...)
+					default:
+						tup = append(tup, elem)
+					}
+				}
+			} else {
+				for i := v.sp - numElements; i < v.sp; i++ {
+					tup = append(tup, v.stack[i])
+				}
 			}
 			v.sp -= numElements
 
@@ -258,14 +270,6 @@ func (v *VM) run() {
 		case parser.OpImmutable:
 			value := v.stack[v.sp-1]
 			v.stack[v.sp-1] = AsImmutable(value)
-		case parser.OpSeqToTuple:
-			value := v.stack[v.sp-1]
-			seq, ok := value.(Sequence)
-			if !ok {
-				v.err = fmt.Errorf("unpack expression can only be used with sequence, got '%s' instead",
-					value.TypeName())
-			}
-			v.stack[v.sp-1] = Tuple(seq.Items())
 		case parser.OpIndex:
 			index := v.stack[v.sp-1]
 			left := v.stack[v.sp-2]
@@ -545,19 +549,29 @@ func (v *VM) run() {
 			builtinIndex := int(v.curInsts[v.ip])
 			v.stack[v.sp] = BuiltinFuncs[builtinIndex]
 			v.sp++
-		case parser.OpTupleAssignAssert:
+		case parser.OpIdxAssignAssert:
 			v.ip += 2
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-			tup := v.stack[v.sp-1].(Tuple)
-			if n != len(tup) {
-				v.err = fmt.Errorf("trying to assign %d values to %d variables", len(tup), n)
+			val := v.stack[v.sp-1]
+			seq, ok := val.(Indexable)
+			if !ok {
+				v.err = fmt.Errorf("trying to assign non-indexable '%s' to %d variables", val.TypeName(), n)
 				return
 			}
-		case parser.OpTupleElem:
+			if n != seq.Len() {
+				v.err = fmt.Errorf("trying to assign %d values to %d variables", seq.Len(), n)
+				return
+			}
+		case parser.OpIdxElem:
 			v.ip += 2
 			eidx := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-			tup := v.stack[v.sp-1].(Tuple)
-			v.stack[v.sp] = tup[eidx]
+			val := v.stack[v.sp-1]
+			seq, ok := v.stack[v.sp-1].(Indexable)
+			if !ok {
+				v.err = fmt.Errorf("trying to get %d'th element from non-indexable '%s'", eidx, val.TypeName())
+				return
+			}
+			v.stack[v.sp] = seq.At(eidx)
 			v.sp++
 		case parser.OpClosure:
 			v.ip += 3

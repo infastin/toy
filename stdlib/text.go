@@ -13,7 +13,7 @@ var TextModule = &toy.BuiltinModule{
 	Members: map[string]toy.Object{
 		"contains": &toy.BuiltinFunction{
 			Name: "contains",
-			Func: stringsContains,
+			Func: textContains,
 		},
 		"containsAny": &toy.BuiltinFunction{
 			Name: "containsAny",
@@ -65,51 +65,51 @@ var TextModule = &toy.BuiltinModule{
 		},
 		"join": &toy.BuiltinFunction{
 			Name: "join",
-			Func: stringsJoin,
+			Func: textJoin,
 		},
 		"split": &toy.BuiltinFunction{
 			Name: "split",
-			Func: stringsSplit,
+			Func: textSplit,
 		},
 		"splitAfter": &toy.BuiltinFunction{
 			Name: "splitAfter",
-			Func: stringsSplitAfter,
+			Func: textSplitAfter,
 		},
 		"fields": &toy.BuiltinFunction{
 			Name: "fields",
-			Func: stringsFields,
+			Func: textFields,
 		},
 		"replace": &toy.BuiltinFunction{
 			Name: "replace",
-			Func: stringsReplace,
+			Func: textReplace,
 		},
 		"cut": &toy.BuiltinFunction{
 			Name: "cut",
-			Func: stringsCut,
+			Func: textCut,
 		},
 		"cutPrefix": &toy.BuiltinFunction{
 			Name: "cutPrefix",
-			Func: stringsCutPrefix,
+			Func: textCutPrefix,
 		},
 		"cutSuffix": &toy.BuiltinFunction{
 			Name: "cutSuffix",
-			Func: stringsCutSuffix,
+			Func: textCutSuffix,
 		},
 		"index": &toy.BuiltinFunction{
 			Name: "index",
-			Func: stringsIndex,
+			Func: textIndex,
 		},
 		"indexAny": &toy.BuiltinFunction{
 			Name: "indexAny",
-			Func: stringsIndexAny,
+			Func: textIndexAny,
 		},
 		"lastIndex": &toy.BuiltinFunction{
 			Name: "lastIndex",
-			Func: stringsLastIndex,
+			Func: textLastIndex,
 		},
 		"lastIndexAny": &toy.BuiltinFunction{
 			Name: "lastIndexAny",
-			Func: stringsLastIndexAny,
+			Func: textLastIndexAny,
 		},
 	},
 }
@@ -144,7 +144,7 @@ func makeASSRS(n1, n2 string, fn func(string, string) string) toy.CallableFunc {
 	}
 }
 
-func stringsContains(args ...toy.Object) (toy.Object, error) {
+func textContains(args ...toy.Object) (toy.Object, error) {
 	if len(args) != 2 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 2,
@@ -174,7 +174,7 @@ func stringsContains(args ...toy.Object) (toy.Object, error) {
 	}
 }
 
-func stringsJoin(args ...toy.Object) (toy.Object, error) {
+func textJoin(args ...toy.Object) (toy.Object, error) {
 	var (
 		elems toy.Sequence
 		sep   string
@@ -193,7 +193,7 @@ func stringsJoin(args ...toy.Object) (toy.Object, error) {
 	return toy.String(strings.Join(strs, sep)), nil
 }
 
-func stringsSplit(args ...toy.Object) (toy.Object, error) {
+func textSplit(args ...toy.Object) (toy.Object, error) {
 	var (
 		s, sep string
 		n      *int
@@ -218,7 +218,7 @@ func stringsSplit(args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func stringsSplitAfter(args ...toy.Object) (toy.Object, error) {
+func textSplitAfter(args ...toy.Object) (toy.Object, error) {
 	var (
 		s, sep string
 		n      *int
@@ -243,7 +243,7 @@ func stringsSplitAfter(args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func stringsFields(args ...toy.Object) (toy.Object, error) {
+func textFields(args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
@@ -255,7 +255,7 @@ func stringsFields(args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func stringsReplace(args ...toy.Object) (toy.Object, error) {
+func textReplace(args ...toy.Object) (toy.Object, error) {
 	var (
 		s, old, new string
 		n           *int
@@ -270,7 +270,7 @@ func stringsReplace(args ...toy.Object) (toy.Object, error) {
 	}
 }
 
-func stringsCut(args ...toy.Object) (toy.Object, error) {
+func textCut(args ...toy.Object) (toy.Object, error) {
 	var s, sep string
 	if err := toy.UnpackArgs(args, "s", &s, "sep", &sep); err != nil {
 		return nil, err
@@ -279,7 +279,7 @@ func stringsCut(args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.String(before), toy.String(after), toy.Bool(found)}, nil
 }
 
-func stringsCutPrefix(args ...toy.Object) (toy.Object, error) {
+func textCutPrefix(args ...toy.Object) (toy.Object, error) {
 	var s, prefix string
 	if err := toy.UnpackArgs(args, "s", &s, "prefix", &prefix); err != nil {
 		return nil, err
@@ -288,7 +288,7 @@ func stringsCutPrefix(args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.String(after), toy.Bool(found)}, nil
 }
 
-func stringsCutSuffix(args ...toy.Object) (toy.Object, error) {
+func textCutSuffix(args ...toy.Object) (toy.Object, error) {
 	var s, suffix string
 	if err := toy.UnpackArgs(args, "s", &s, "suffix", &suffix); err != nil {
 		return nil, err
@@ -297,7 +297,7 @@ func stringsCutSuffix(args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.String(after), toy.Bool(found)}, nil
 }
 
-func stringsIndex(args ...toy.Object) (toy.Object, error) {
+func textIndex(args ...toy.Object) (toy.Object, error) {
 	if len(args) != 2 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 2,
@@ -332,7 +332,7 @@ func stringsIndex(args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func stringsIndexAny(args ...toy.Object) (toy.Object, error) {
+func textIndexAny(args ...toy.Object) (toy.Object, error) {
 	var s, chars string
 	if err := toy.UnpackArgs(args, "s", &s, "chars", &chars); err != nil {
 		return nil, err
@@ -344,7 +344,7 @@ func stringsIndexAny(args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func stringsLastIndex(args ...toy.Object) (toy.Object, error) {
+func textLastIndex(args ...toy.Object) (toy.Object, error) {
 	if len(args) != 2 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 2,
@@ -379,7 +379,7 @@ func stringsLastIndex(args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func stringsLastIndexAny(args ...toy.Object) (toy.Object, error) {
+func textLastIndexAny(args ...toy.Object) (toy.Object, error) {
 	var s, chars string
 	if err := toy.UnpackArgs(args, "s", &s, "chars", &chars); err != nil {
 		return nil, err

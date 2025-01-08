@@ -350,6 +350,39 @@ func (e *ImmutableExpr) String() string {
 	return "immutable(" + e.Expr.String() + ")"
 }
 
+// TupleLit represents a tuple literal.
+type TupleLit struct {
+	Elements []Expr
+	TuplePos Pos
+	LParen   Pos
+	RParen   Pos
+}
+
+func (e *TupleLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *TupleLit) Pos() Pos {
+	return e.TuplePos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *TupleLit) End() Pos {
+	return e.RParen
+}
+
+func (e *TupleLit) String() string {
+	var b strings.Builder
+	b.WriteString("tuple(")
+	for i, elem := range e.Elements {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(elem.String())
+	}
+	b.WriteByte(')')
+	return b.String()
+}
+
 // UnpackExpr represents an unpack expression.
 type UnpackExpr struct {
 	Expr      Expr

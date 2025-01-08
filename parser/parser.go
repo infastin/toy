@@ -275,7 +275,7 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 	var list []Expr
 	for p.token != token.RParen && p.token != token.EOF {
 		list = append(list, p.parseArgument())
-		if !p.expectComma(token.RParen, "call argument") {
+		if !p.expectComma("call argument") {
 			break
 		}
 	}
@@ -291,10 +291,10 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 	}
 }
 
-func (p *Parser) expectComma(closing token.Token, want string) bool {
+func (p *Parser) expectComma(want string) bool {
 	if p.token == token.Comma {
 		p.next()
-		if p.token == closing {
+		if p.token == token.Comma {
 			p.errorExpected(p.pos, want)
 			return false
 		}
@@ -450,6 +450,8 @@ func (p *Parser) parseOperand() Expr {
 		return p.parseFuncLit()
 	case token.Immutable: // immutable expression
 		return p.parseImmutableExpr()
+	case token.Tuple: // tuple literal
+		return p.parseTupleLit()
 	default:
 		p.errorExpected(p.pos, "operand")
 	}
@@ -507,13 +509,7 @@ func (p *Parser) parseFuncLit() Expr {
 	}
 	typ := p.parseFuncType()
 	p.exprLevel++
-	var body FuncBodyStmt
-	if p.token == token.Arrow {
-		p.next()
-		body = &ShortFuncBodyStmt{Exprs: p.parseExprList()}
-	} else {
-		body = p.parseBody()
-	}
+	body := p.parseBody()
 	p.exprLevel--
 	return &FuncLit{
 		Type: typ,
@@ -532,7 +528,7 @@ func (p *Parser) parseArrayLit() Expr {
 	var elements []Expr
 	for p.token != token.RBrack && p.token != token.EOF {
 		elements = append(elements, p.parseArgument())
-		if !p.expectComma(token.RBrack, "array element") {
+		if !p.expectComma("array element") {
 			break
 		}
 	}
@@ -560,6 +556,34 @@ func (p *Parser) parseImmutableExpr() Expr {
 		Expr:         value,
 		LParen:       lparen,
 		RParen:       rparen,
+	}
+}
+
+func (p *Parser) parseTupleLit() Expr {
+	if p.trace {
+		defer untracep(tracep(p, "TupleLit"))
+	}
+
+	tuple := p.expect(token.Tuple)
+	lparen := p.expect(token.LParen)
+	p.exprLevel++
+
+	var elements []Expr
+	for p.token != token.RParen && p.token != token.EOF {
+		elements = append(elements, p.parseArgument())
+		if !p.expectComma("tuple element") {
+			break
+		}
+	}
+
+	p.exprLevel--
+	rparen := p.expect(token.RParen)
+
+	return &TupleLit{
+		TuplePos: tuple,
+		Elements: elements,
+		LParen:   lparen,
+		RParen:   rparen,
 	}
 }
 
@@ -591,9 +615,13 @@ func (p *Parser) parseFuncType() *FuncType {
 	}
 }
 
-func (p *Parser) parseBody() *BlockStmt {
+func (p *Parser) parseBody() FuncBodyStmt {
 	if p.trace {
 		defer untracep(tracep(p, "Body"))
+	}
+	if p.token == token.Arrow {
+		p.next()
+		return &ShortFuncBodyStmt{Expr: p.parseExpr()}
 	}
 	lbrace := p.expect(token.LBrace)
 	list := p.parseStmtList()
@@ -674,7 +702,7 @@ func (p *Parser) parseStmt() (stmt Stmt) {
 		token.Float, token.Char, token.String, token.True, token.False,
 		token.Undefined, token.Import, token.LParen, token.LBrace,
 		token.LBrack, token.Add, token.Sub, token.Mul, token.And, token.Xor,
-		token.Not:
+		token.Not, token.Immutable, token.Tuple:
 		s := p.parseSimpleStmt(false)
 		p.expectSemi()
 		return s
@@ -1072,7 +1100,7 @@ func (p *Parser) parseMapLit() *MapLit {
 	var elements []*MapElementLit
 	for p.token != token.RBrace && p.token != token.EOF {
 		elements = append(elements, p.parseMapElementLit())
-		if !p.expectComma(token.RBrace, "map element") {
+		if !p.expectComma("map element") {
 			break
 		}
 	}

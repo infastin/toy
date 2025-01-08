@@ -86,6 +86,11 @@ func PrintTrace(inputData []byte, inputFile string) error {
 		symTable.DefineBuiltin(idx, fn.Name)
 	}
 
+	mods := toy.NewModuleMap()
+	mods.Add("fmt", stdlib.FmtModule)
+	mods.Add("text", stdlib.TextModule)
+	mods.Add("regexp", stdlib.RegexpModule)
+
 	p := parser.NewParser(file, []byte(inputData), nil)
 	parsed, err := p.ParseFile()
 	if err != nil {
@@ -94,7 +99,7 @@ func PrintTrace(inputData []byte, inputFile string) error {
 
 	tr := &compileTracer{}
 
-	c := toy.NewCompiler(file, symTable, nil, nil, tr)
+	c := toy.NewCompiler(file, symTable, nil, mods, tr)
 	if err := c.Compile(parsed); err != nil {
 		return err
 	}

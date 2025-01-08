@@ -21,7 +21,6 @@ var (
 		{Name: "range", Func: builtinRange},
 
 		{Name: "error", Func: builtinError},
-		{Name: "tuple", Func: builtinTuple},
 
 		{Name: "string", Func: builtinConvert[String]},
 		{Name: "int", Func: builtinConvert[Int]},
@@ -62,6 +61,7 @@ var (
 		{Name: "isCallable", Func: builtinIs[Callable]},
 		{Name: "isIterable", Func: builtinIs[Iterable]},
 		{Name: "isSequence", Func: builtinIs[Sequence]},
+		{Name: "isIndexableSequence", Func: builtinIs[IndexableSequence]},
 		{Name: "isMapping", Func: builtinIs[Mapping]},
 	}
 )
@@ -383,10 +383,6 @@ func builtinError(args ...Object) (_ Object, err error) {
 		s = format
 	}
 	return &Error{message: s, cause: cause}, nil
-}
-
-func builtinTuple(args ...Object) (Object, error) {
-	return Tuple(args), nil
 }
 
 func builtinConvert[T Object](args ...Object) (Object, error) {

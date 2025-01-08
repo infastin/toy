@@ -250,6 +250,12 @@ func unpackArg(ptr any, o Object) error {
 			return &InvalidArgumentTypeError{Want: "sequence"}
 		}
 		*ptr = seq
+	case *IndexableSequence:
+		iseq, ok := o.(IndexableSequence)
+		if !ok {
+			return &InvalidArgumentTypeError{Want: "indexable sequence"}
+		}
+		*ptr = iseq
 	case *Mapping:
 		m, ok := o.(Mapping)
 		if !ok {

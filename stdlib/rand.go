@@ -34,7 +34,10 @@ func randInt(args ...toy.Object) (toy.Object, error) {
 	return toy.Int(x.Int64()), nil
 }
 
-func randFloat(...toy.Object) (toy.Object, error) {
+func randFloat(args ...toy.Object) (toy.Object, error) {
+	if len(args) != 0 {
+		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
+	}
 	x, err := rand.Int(rand.Reader, big.NewInt(1<<53))
 	if err != nil {
 		return nil, err

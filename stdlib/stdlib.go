@@ -12,5 +12,6 @@ var StdLib = toy.ModuleMap{
 	"regexp": RegexpModule,
 	"text":   TextModule,
 	"time":   TimeModule,
+	"uuid":   UUIDModule,
 	"yaml":   YAMLModule,
 }

@@ -383,30 +383,6 @@ func (e *TupleLit) String() string {
 	return b.String()
 }
 
-// UnpackExpr represents an unpack expression.
-type UnpackExpr struct {
-	Expr      Expr
-	UnpackPos Pos
-	LParen    Pos
-	RParen    Pos
-}
-
-func (e *UnpackExpr) exprNode() {}
-
-// Pos returns the position of first character belonging to the node.
-func (e *UnpackExpr) Pos() Pos {
-	return e.UnpackPos
-}
-
-// End returns the position of first character immediately after the node.
-func (e *UnpackExpr) End() Pos {
-	return e.RParen
-}
-
-func (e *UnpackExpr) String() string {
-	return "unpack(" + e.Expr.String() + ")"
-}
-
 // ImportExpr represents an import expression.
 type ImportExpr struct {
 	ModuleName string

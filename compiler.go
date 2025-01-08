@@ -544,10 +544,6 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 		}
 		c.emit(node, parser.OpTuple, len(node.Elements), splat)
-	case *parser.UnpackExpr:
-		if err := c.Compile(node.Expr); err != nil {
-			return err
-		}
 	case *parser.CondExpr:
 		if err := c.Compile(node.Cond); err != nil {
 			return err
@@ -730,12 +726,10 @@ func (c *Compiler) compileAssignDefine(
 	op token.Token,
 ) error {
 	var unpacking bool
-	if len(lhs) == len(rhs) {
-		_, unpacking = rhs[0].(*parser.UnpackExpr)
-	} else {
+	if len(lhs) != len(rhs) {
 		unpacking = true
 		if len(rhs) != 1 {
-			return c.errorf(node, "trying to assign %d values to %d variables", len(rhs), len(lhs))
+			return c.errorf(node, "trying to assign %d value(s) to %d variable(s)", len(rhs), len(lhs))
 		}
 	}
 

@@ -555,11 +555,11 @@ func (v *VM) run() {
 			val := v.stack[v.sp-1]
 			seq, ok := val.(Indexable)
 			if !ok {
-				v.err = fmt.Errorf("trying to assign non-indexable '%s' to %d variables", val.TypeName(), n)
+				v.err = fmt.Errorf("trying to assign non-indexable '%s' to %d variable(s)", val.TypeName(), n)
 				return
 			}
 			if n != seq.Len() {
-				v.err = fmt.Errorf("trying to assign %d values to %d variables", seq.Len(), n)
+				v.err = fmt.Errorf("trying to assign %d value(s) to %d variable(s)", seq.Len(), n)
 				return
 			}
 		case parser.OpIdxElem:

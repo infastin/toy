@@ -587,22 +587,6 @@ func (p *Parser) parseTupleLit() Expr {
 	}
 }
 
-func (p *Parser) parseUnpackExpr() Expr {
-	if p.trace {
-		defer untracep(tracep(p, "UnpackExpr"))
-	}
-	unpack := p.expect(token.Unpack)
-	lparen := p.expect(token.LParen)
-	value := p.parseExpr()
-	rparen := p.expect(token.RParen)
-	return &UnpackExpr{
-		UnpackPos: unpack,
-		Expr:      value,
-		LParen:    lparen,
-		RParen:    rparen,
-	}
-}
-
 func (p *Parser) parseFuncType() *FuncType {
 	if p.trace {
 		defer untracep(tracep(p, "FuncType"))
@@ -967,15 +951,9 @@ func (p *Parser) parseSimpleStmt(forIn bool) Stmt {
 	case token.Assign, token.Define: // assignment statement
 		pos, tok := p.pos, p.token
 		p.next()
-		var y []Expr
-		if p.token == token.Unpack {
-			y = append(y, p.parseUnpackExpr())
-		} else {
-			y = p.parseExprList()
-		}
 		return &AssignStmt{
 			LHS:      x,
-			RHS:      y,
+			RHS:      p.parseExprList(),
 			Token:    tok,
 			TokenPos: pos,
 		}

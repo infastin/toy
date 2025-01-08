@@ -77,7 +77,6 @@ const (
 	Func
 	Immutable
 	Tuple
-	Unpack
 	If
 	Return
 	Export
@@ -153,7 +152,6 @@ var tokens = [...]string{
 	Func:         "fn",
 	Immutable:    "immutable",
 	Tuple:        "tuple",
-	Unpack:       "unpack",
 	If:           "if",
 	Return:       "return",
 	Export:       "export",

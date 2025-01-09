@@ -375,15 +375,13 @@ func (v *VM) run() {
 		case parser.OpCall:
 			numArgs := int(v.curInsts[v.ip+1])
 			splat := int(v.curInsts[v.ip+2])
-			deferred := int(v.curInsts[v.ip+3])
+			onStack := int(v.curInsts[v.ip+3])
 			v.ip += 3
 
-			if deferred == 1 {
-				deferPos := parser.Pos(v.stack[v.sp-1].(Int))
-				v.curFrame.fn.sourceMap[v.ip-3] = deferPos
-				splat = int(v.stack[v.sp-2].(Int))
-				numArgs = int(v.stack[v.sp-3].(Int))
-				v.sp -= 3
+			if onStack == 1 {
+				splat = int(v.stack[v.sp-1].(Int))
+				numArgs = int(v.stack[v.sp-2].(Int))
+				v.sp -= 2
 			}
 
 			value := v.stack[v.sp-1-numArgs]
@@ -538,6 +536,7 @@ func (v *VM) run() {
 			}
 			call := v.curFrame.deferred[len(v.curFrame.deferred)-1]
 			v.curFrame.deferred = v.curFrame.deferred[:len(v.curFrame.deferred)-1]
+			v.curFrame.fn.sourceMap[v.ip] = call.pos
 			v.stack[v.sp] = call.fn
 			for i, arg := range call.args {
 				v.stack[v.sp+1+i] = arg
@@ -545,9 +544,8 @@ func (v *VM) run() {
 			numArgs := len(call.args)
 			v.stack[v.sp+1+numArgs] = Int(numArgs)
 			v.stack[v.sp+1+numArgs+1] = Int(call.splat)
-			v.stack[v.sp+1+numArgs+2] = Int(call.pos)
-			v.stack[v.sp+1+numArgs+3] = Bool(true)
-			v.sp += 1 + numArgs + 4
+			v.stack[v.sp+1+numArgs+2] = Bool(true)
+			v.sp += 1 + numArgs + 3
 		case parser.OpDefineLocal:
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])

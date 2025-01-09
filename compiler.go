@@ -441,6 +441,9 @@ func (c *Compiler) Compile(node parser.Node) error {
 			// outside the function
 			return c.errorf(node, "return not allowed outside function")
 		}
+		if len(c.currentDeferMap()) != 0 {
+			c.emitDeferLoop()
+		}
 		for _, result := range node.Results {
 			if err := c.Compile(result); err != nil {
 				return err
@@ -453,7 +456,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if len(node.Results) != 0 {
 			opReturnOperand = 1
 		}
-		c.emitReturn(node, opReturnOperand)
+		c.emit(node, parser.OpReturn, opReturnOperand)
 	case *parser.DeferStmt:
 		if err := c.Compile(node.CallExpr.Func); err != nil {
 			return err
@@ -540,11 +543,14 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if c.parent == nil {
 			break
 		}
+		if len(c.currentDeferMap()) != 0 {
+			c.emitDeferLoop()
+		}
 		if err := c.Compile(node.Result); err != nil {
 			return err
 		}
 		c.emit(node, parser.OpImmutable)
-		c.emitReturn(node, 1)
+		c.emit(node, parser.OpReturn, 1)
 	case *parser.ImmutableExpr:
 		if err := c.Compile(node.Expr); err != nil {
 			return err
@@ -1406,20 +1412,21 @@ func (c *Compiler) optimizeFunc(node parser.Node) int {
 
 	// append "return"
 	if appendReturn {
-		c.emitReturn(node, 0)
+		if len(c.currentDeferMap()) != 0 {
+			c.emitDeferLoop()
+		}
+		c.emit(node, parser.OpReturn, 0)
 	}
 
 	return len(deadLocals)
 }
 
 func (c *Compiler) emit(node parser.Node, opcode parser.Opcode, operands ...int) int {
-	filePos := parser.NoPos
-	if node != nil {
-		filePos = node.Pos()
-	}
 	inst := MakeInstruction(opcode, operands...)
 	pos := c.addInstruction(inst)
-	c.scopes[c.scopeIndex].sourceMap[pos] = filePos
+	if node != nil {
+		c.scopes[c.scopeIndex].sourceMap[pos] = node.Pos()
+	}
 	if c.trace != nil {
 		c.printTrace(fmt.Sprintf("EMIT: %s",
 			FormatInstructions(c.scopes[c.scopeIndex].instructions[pos:], pos)[0]))
@@ -1427,29 +1434,15 @@ func (c *Compiler) emit(node parser.Node, opcode parser.Opcode, operands ...int)
 	return pos
 }
 
-func (c *Compiler) emitDeferLoop(node parser.Node) {
+func (c *Compiler) emitDeferLoop() {
+
 	curPos := len(c.currentInstructions())
-	c.emit(node, parser.OpPushDefer)
-	jumpPos := c.emit(node, parser.OpJumpFalsy, 0)
-	c.emit(node, parser.OpCall, 0, 0, 1)
-	c.emit(node, parser.OpPop)
-	c.emit(node, parser.OpJump, curPos)
+	c.emit(nil, parser.OpPushDefer)
+	jumpPos := c.emit(nil, parser.OpJumpFalsy, 0)
+	c.emit(nil, parser.OpCall, 0, 0, 1)
+	c.emit(nil, parser.OpPop)
+	c.emit(nil, parser.OpJump, curPos)
 	c.changeOperand(jumpPos, len(c.currentInstructions()))
-}
-
-func (c *Compiler) emitReturn(node parser.Node, operands ...int) {
-	if len(c.currentDeferMap()) != 0 {
-		curPos := len(c.currentInstructions())
-		c.emit(node, parser.OpPushDefer)
-		jumpPos := c.emit(node, parser.OpJumpFalsy, 0)
-		c.emit(node, parser.OpCall, 0, 0, 1)
-		c.emit(node, parser.OpPop)
-		c.emit(node, parser.OpJump, curPos)
-		c.changeOperand(jumpPos, len(c.currentInstructions()))
-
-		c.emitDeferLoop(node)
-	}
-	c.emit(node, parser.OpReturn, operands...)
 }
 
 func (c *Compiler) printTrace(a ...any) {

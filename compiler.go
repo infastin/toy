@@ -18,7 +18,7 @@ import (
 type compilationScope struct {
 	instructions []byte
 	sourceMap    map[int]parser.Pos
-	hasDefer     bool
+	deferMap     []parser.Pos
 }
 
 // loop represents a loop construct that
@@ -427,6 +427,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			numParameters: len(node.Type.Params.List),
 			varArgs:       node.Type.Params.VarArgs,
 			sourceMap:     scope.sourceMap,
+			deferMap:      scope.deferMap,
 		}
 
 		if len(freeSymbols) > 0 {
@@ -466,8 +467,8 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return err
 			}
 		}
-		c.scopes[c.scopeIndex].hasDefer = true
-		c.emit(node, parser.OpSaveDefer, len(node.CallExpr.Args), splat)
+		deferIdx := c.addDeferPos(node.CallExpr.Pos())
+		c.emit(node, parser.OpSaveDefer, len(node.CallExpr.Args), splat, deferIdx)
 	case *parser.SplatExpr:
 		if err := c.Compile(node.Expr); err != nil {
 			return err
@@ -590,11 +591,23 @@ func (c *Compiler) Compile(node parser.Node) error {
 
 // Bytecode returns a compiled bytecode.
 func (c *Compiler) Bytecode() *Bytecode {
+	insts := c.currentInstructions()
+	if len(c.currentDeferMap()) != 0 {
+		curPos := len(insts)
+		insts = append(insts, MakeInstruction(parser.OpPushDefer)...)
+		jumpPos := len(insts)
+		insts = append(insts, MakeInstruction(parser.OpJumpFalsy, 0)...)
+		insts = append(insts, MakeInstruction(parser.OpCall, 0, 0, 1)...)
+		insts = append(insts, MakeInstruction(parser.OpJump, curPos)...)
+		copy(insts[jumpPos:], MakeInstruction(parser.OpJumpFalsy, len(insts)))
+	}
+	insts = append(insts, MakeInstruction(parser.OpSuspend)...)
 	return &Bytecode{
 		FileSet: c.file.Set(),
 		MainFunction: &CompiledFunction{
-			instructions: append(c.currentInstructions(), parser.OpSuspend),
+			instructions: insts,
 			sourceMap:    c.currentSourceMap(),
+			deferMap:     c.currentDeferMap(),
 		},
 		Constants: c.constants,
 	}
@@ -1202,6 +1215,16 @@ func (c *Compiler) currentSourceMap() map[int]parser.Pos {
 	return c.scopes[c.scopeIndex].sourceMap
 }
 
+func (c *Compiler) currentDeferMap() []parser.Pos {
+	return c.scopes[c.scopeIndex].deferMap
+}
+
+func (c *Compiler) addDeferPos(pos parser.Pos) int {
+	idx := len(c.scopes[c.scopeIndex].deferMap)
+	c.scopes[c.scopeIndex].deferMap = append(c.scopes[c.scopeIndex].deferMap, pos)
+	return idx
+}
+
 func (c *Compiler) enterScope() {
 	scope := compilationScope{
 		sourceMap: make(map[int]parser.Pos),
@@ -1404,8 +1427,18 @@ func (c *Compiler) emit(node parser.Node, opcode parser.Opcode, operands ...int)
 	return pos
 }
 
+func (c *Compiler) emitDeferLoop(node parser.Node) {
+	curPos := len(c.currentInstructions())
+	c.emit(node, parser.OpPushDefer)
+	jumpPos := c.emit(node, parser.OpJumpFalsy, 0)
+	c.emit(node, parser.OpCall, 0, 0, 1)
+	c.emit(node, parser.OpPop)
+	c.emit(node, parser.OpJump, curPos)
+	c.changeOperand(jumpPos, len(c.currentInstructions()))
+}
+
 func (c *Compiler) emitReturn(node parser.Node, operands ...int) {
-	if c.scopes[c.scopeIndex].hasDefer {
+	if len(c.currentDeferMap()) != 0 {
 		curPos := len(c.currentInstructions())
 		c.emit(node, parser.OpPushDefer)
 		jumpPos := c.emit(node, parser.OpJumpFalsy, 0)
@@ -1413,6 +1446,8 @@ func (c *Compiler) emitReturn(node parser.Node, operands ...int) {
 		c.emit(node, parser.OpPop)
 		c.emit(node, parser.OpJump, curPos)
 		c.changeOperand(jumpPos, len(c.currentInstructions()))
+
+		c.emitDeferLoop(node)
 	}
 	c.emit(node, parser.OpReturn, operands...)
 }

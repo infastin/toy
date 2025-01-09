@@ -51,6 +51,7 @@ type CompiledFunction struct {
 	numParameters int
 	varArgs       bool
 	sourceMap     map[int]parser.Pos
+	deferMap      []parser.Pos
 	free          []*objectPtr
 }
 
@@ -70,6 +71,7 @@ func (o *CompiledFunction) Copy() Object {
 		numParameters: o.numParameters,
 		varArgs:       o.varArgs,
 		sourceMap:     o.sourceMap,
+		deferMap:      o.deferMap,
 		free:          slices.Clone(o.free), // DO NOT Copy() of elements; these are variable pointers
 	}
 }

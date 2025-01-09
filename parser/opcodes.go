@@ -123,7 +123,7 @@ var OpcodeOperands = [...][]int{
 	OpSplat:           {},
 	OpCall:            {1, 1, 1},
 	OpReturn:          {1},
-	OpSaveDefer:       {1, 1},
+	OpSaveDefer:       {1, 1, 1},
 	OpPushDefer:       {},
 	OpGetLocal:        {1},
 	OpSetLocal:        {1},

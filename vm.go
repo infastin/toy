@@ -14,6 +14,7 @@ type deferredCall struct {
 	fn    Callable
 	args  []Object
 	splat int
+	pos   parser.Pos
 }
 
 // frame represents a function call frame.
@@ -374,13 +375,15 @@ func (v *VM) run() {
 		case parser.OpCall:
 			numArgs := int(v.curInsts[v.ip+1])
 			splat := int(v.curInsts[v.ip+2])
-			onStack := int(v.curInsts[v.ip+3])
+			deferred := int(v.curInsts[v.ip+3])
 			v.ip += 3
 
-			if onStack == 1 {
-				splat = int(v.stack[v.sp-1].(Int))
-				numArgs = int(v.stack[v.sp-2].(Int))
-				v.sp -= 2
+			if deferred == 1 {
+				deferPos := parser.Pos(v.stack[v.sp-1].(Int))
+				v.curFrame.fn.sourceMap[v.ip-3] = deferPos
+				splat = int(v.stack[v.sp-2].(Int))
+				numArgs = int(v.stack[v.sp-3].(Int))
+				v.sp -= 3
 			}
 
 			value := v.stack[v.sp-1-numArgs]
@@ -509,7 +512,8 @@ func (v *VM) run() {
 		case parser.OpSaveDefer:
 			numArgs := int(v.curInsts[v.ip+1])
 			splat := int(v.curInsts[v.ip+2])
-			v.ip += 2
+			deferIdx := int(v.curInsts[v.ip+3])
+			v.ip += 3
 
 			value := v.stack[v.sp-1-numArgs]
 			callable, ok := value.(Callable)
@@ -524,6 +528,7 @@ func (v *VM) run() {
 				fn:    callable,
 				args:  args,
 				splat: splat,
+				pos:   v.curFrame.fn.deferMap[deferIdx],
 			})
 		case parser.OpPushDefer:
 			if len(v.curFrame.deferred) == 0 {
@@ -540,8 +545,9 @@ func (v *VM) run() {
 			numArgs := len(call.args)
 			v.stack[v.sp+1+numArgs] = Int(numArgs)
 			v.stack[v.sp+1+numArgs+1] = Int(call.splat)
-			v.stack[v.sp+1+numArgs+2] = Bool(true)
-			v.sp += 1 + numArgs + 3
+			v.stack[v.sp+1+numArgs+2] = Int(call.pos)
+			v.stack[v.sp+1+numArgs+3] = Bool(true)
+			v.sp += 1 + numArgs + 4
 		case parser.OpDefineLocal:
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
@@ -650,6 +656,7 @@ func (v *VM) run() {
 				numParameters: fn.numParameters,
 				varArgs:       fn.varArgs,
 				sourceMap:     fn.sourceMap,
+				deferMap:      fn.deferMap,
 				free:          free,
 			}
 			v.stack[v.sp] = cl

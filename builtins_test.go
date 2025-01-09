@@ -713,3 +713,101 @@ func Test_builtinRange(t *testing.T) {
 		})
 	}
 }
+
+func Test_builtinMin(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []Object
+		want    Object
+		wantErr error
+	}{
+		{
+			name:    "no-args",
+			wantErr: &WrongNumArgumentsError{WantMin: 1, Got: 0},
+		},
+		{
+			name: "ints",
+			args: []Object{Int(0), Int(1), Int(2), Int(3)},
+			want: Int(0),
+		},
+		{
+			name: "floats",
+			args: []Object{Float(-1.23), Float(0.1), Float(1.3), Float(2.5)},
+			want: Float(-1.23),
+		},
+		{
+			name: "ints-floats",
+			args: []Object{Int(0), Float(-1.2), Int(2), Float(-3.33), Int(-5)},
+			want: Int(-5),
+		},
+		{
+			name:    "not-comparable",
+			args:    []Object{String("hello"), Int(0)},
+			wantErr: errors.New(`operation 'int < string' has failed: invalid operator`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := builtinMin(tt.args...)
+			if tt.wantErr != nil || err != nil {
+				expectNotNil(t, err, "builtinMin: expected an error")
+				expectNotNil(t, tt.wantErr, "builtinMin: encountered unexpected error")
+				expectEqual(t, tt.wantErr.Error(), err.Error(), "builtinMin: wrong error message")
+			}
+			if tt.want != nil || got != nil {
+				expectNotNil(t, got, "builtinMin: expected a result")
+				expectNotNil(t, tt.want, "builtinMin: got unexpected result")
+				expectEqual(t, tt.want, got, "builtinMin: wrong result")
+			}
+		})
+	}
+}
+
+func Test_builtinMax(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []Object
+		want    Object
+		wantErr error
+	}{
+		{
+			name:    "no-args",
+			wantErr: &WrongNumArgumentsError{WantMin: 1, Got: 0},
+		},
+		{
+			name: "ints",
+			args: []Object{Int(0), Int(1), Int(2), Int(3)},
+			want: Int(3),
+		},
+		{
+			name: "floats",
+			args: []Object{Float(-1.23), Float(0.1), Float(1.3), Float(2.5)},
+			want: Float(2.5),
+		},
+		{
+			name: "ints-floats",
+			args: []Object{Int(0), Float(-1.2), Int(2), Float(-3.33), Int(-5)},
+			want: Int(2),
+		},
+		{
+			name:    "not-comparable",
+			args:    []Object{String("hello"), Int(0)},
+			wantErr: errors.New(`operation 'int > string' has failed: invalid operator`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := builtinMax(tt.args...)
+			if tt.wantErr != nil || err != nil {
+				expectNotNil(t, err, "builtinMax: expected an error")
+				expectNotNil(t, tt.wantErr, "builtinMax: encountered unexpected error")
+				expectEqual(t, tt.wantErr.Error(), err.Error(), "builtinMax: wrong error message")
+			}
+			if tt.want != nil || got != nil {
+				expectNotNil(t, got, "builtinMax: expected a result")
+				expectNotNil(t, tt.want, "builtinMax: got unexpected result")
+				expectEqual(t, tt.want, got, "builtinMax: wrong result")
+			}
+		})
+	}
+}

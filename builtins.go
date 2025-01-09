@@ -3,6 +3,8 @@ package toy
 import (
 	"fmt"
 	"slices"
+
+	"github.com/infastin/toy/token"
 )
 
 var (
@@ -21,6 +23,9 @@ var (
 		{Name: "range", Func: builtinRange},
 
 		{Name: "error", Func: builtinError},
+
+		{Name: "min", Func: builtinMin},
+		{Name: "max", Func: builtinMax},
 
 		{Name: "string", Func: builtinConvert[String]},
 		{Name: "int", Func: builtinConvert[Int]},
@@ -383,6 +388,48 @@ func builtinError(args ...Object) (_ Object, err error) {
 		s = format
 	}
 	return &Error{message: s, cause: cause}, nil
+}
+
+func builtinMin(args ...Object) (Object, error) {
+	if len(args) < 1 {
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			Got:     len(args),
+		}
+	}
+	min := args[0]
+	for _, arg := range args[1:] {
+		less, err := Compare(token.Less, arg, min)
+		if err != nil {
+			return nil, fmt.Errorf("operation '%s < %s' has failed: %w",
+				arg.TypeName(), min.TypeName(), err)
+		}
+		if less {
+			min = arg
+		}
+	}
+	return min, nil
+}
+
+func builtinMax(args ...Object) (Object, error) {
+	if len(args) < 1 {
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			Got:     len(args),
+		}
+	}
+	max := args[0]
+	for _, arg := range args[1:] {
+		greater, err := Compare(token.Greater, arg, max)
+		if err != nil {
+			return nil, fmt.Errorf("operation '%s > %s' has failed: %w",
+				arg.TypeName(), max.TypeName(), err)
+		}
+		if greater {
+			max = arg
+		}
+	}
+	return max, nil
 }
 
 func builtinConvert[T Object](args ...Object) (Object, error) {

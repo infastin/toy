@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/infastin/toy"
+	"github.com/infastin/toy/stdlib"
 	"github.com/infastin/toy/token"
 
 	"golang.org/x/text/cases"
@@ -58,45 +59,27 @@ func TestScript_Run(t *testing.T) {
 	compiledGet(t, c, "a", int64(5))
 }
 
-// func TestScript_BuiltinModules(t *testing.T) {
-// 	s := toy.NewScript([]byte(`math := import("math"); a := math.abs(-19.84)`))
-// 	s.SetImports(stdlib.GetModuleMap("math"))
-// 	c, err := s.Run()
-// 	expectNoError(t, err)
-// 	expectNotNil(t, c)
-// 	compiledGet(t, c, "a", 19.84)
-//
-// 	c, err = s.Run()
-// 	expectNoError(t, err)
-// 	expectNotNil(t, c)
-// 	compiledGet(t, c, "a", 19.84)
-//
-// 	s.SetImports(stdlib.GetModuleMap("os"))
-// 	_, err = s.Run()
-// 	expectError(t, err)
-//
-// 	s.SetImports(nil)
-// 	_, err = s.Run()
-// 	expectError(t, err)
-// }
-//
-// func TestScript_SourceModules(t *testing.T) {
-// 	s := toy.NewScript([]byte(`
-// enum := import("enum")
-// a := enum.all([1,2,3], func(_, v) {
-// 	return v > 0
-// })
-// `))
-// 	s.SetImports(stdlib.GetModuleMap("enum"))
-// 	c, err := s.Run()
-// 	expectNoError(t, err)
-// 	expectNotNil(t, c)
-// 	compiledGet(t, c, "a", true)
-//
-// 	s.SetImports(nil)
-// 	_, err = s.Run()
-// 	expectError(t, err)
-// }
+func TestScript_BuiltinModules(t *testing.T) {
+	s := toy.NewScript([]byte(`math := import("math"); a := math.abs(-19.84)`))
+	s.SetImports(toy.ModuleMap{"math": stdlib.MathModule})
+	c, err := s.Run()
+	expectNoError(t, err)
+	expectNotNil(t, c)
+	compiledGet(t, c, "a", 19.84)
+
+	c, err = s.Run()
+	expectNoError(t, err)
+	expectNotNil(t, c)
+	compiledGet(t, c, "a", 19.84)
+
+	s.SetImports(nil)
+	_, err = s.Run()
+	expectError(t, err)
+
+	s.SetImports(nil)
+	_, err = s.Run()
+	expectError(t, err)
+}
 
 func TestScriptConcurrency(t *testing.T) {
 	solve := func(a, b, c int) (d, e int) {

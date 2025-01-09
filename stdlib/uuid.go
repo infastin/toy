@@ -23,7 +23,7 @@ var UUIDModule = &toy.BuiltinModule{
 type UUID uuid.UUID
 
 func (u UUID) TypeName() string { return "UUID" }
-func (u UUID) String() string   { return fmt.Sprintf("UUID(%s)", uuid.UUID(u).String()) }
+func (u UUID) String() string   { return fmt.Sprintf("UUID(%q)", uuid.UUID(u).String()) }
 func (u UUID) IsFalsy() bool    { return u == UUID(uuid.Nil) }
 func (u UUID) Copy() toy.Object { return u }
 func (u UUID) Hash() uint64     { return hash.Bytes(u[:]) }

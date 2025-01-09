@@ -23,7 +23,7 @@ type RegexpMatch struct {
 }
 
 func (m RegexpMatch) TypeName() string { return "RegexpMatch" }
-func (m RegexpMatch) String() string   { return fmt.Sprintf("RegexpMatch(%s)", m.text) }
+func (m RegexpMatch) String() string   { return fmt.Sprintf("RegexpMatch(%q)", m.text) }
 func (m RegexpMatch) IsFalsy() bool    { return len(m.text) == 0 }
 func (m RegexpMatch) Copy() toy.Object { return m }
 

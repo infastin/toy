@@ -6,6 +6,7 @@ var StdLib = toy.ModuleMap{
 	"base64": Base64Module,
 	"fmt":    FmtModule,
 	"json":   JSONModule,
+	"math":   MathModule,
 	"os":     OSModule,
 	"path":   PathModule,
 	"rand":   RandModule,

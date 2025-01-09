@@ -441,9 +441,6 @@ func (c *Compiler) Compile(node parser.Node) error {
 			// outside the function
 			return c.errorf(node, "return not allowed outside function")
 		}
-		if len(c.currentDeferMap()) != 0 {
-			c.emitDeferLoop()
-		}
 		for _, result := range node.Results {
 			if err := c.Compile(result); err != nil {
 				return err
@@ -455,6 +452,9 @@ func (c *Compiler) Compile(node parser.Node) error {
 		var opReturnOperand int
 		if len(node.Results) != 0 {
 			opReturnOperand = 1
+		}
+		if len(c.currentDeferMap()) != 0 {
+			c.emitDeferLoop()
 		}
 		c.emit(node, parser.OpReturn, opReturnOperand)
 	case *parser.DeferStmt:
@@ -543,13 +543,13 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if c.parent == nil {
 			break
 		}
-		if len(c.currentDeferMap()) != 0 {
-			c.emitDeferLoop()
-		}
 		if err := c.Compile(node.Result); err != nil {
 			return err
 		}
 		c.emit(node, parser.OpImmutable)
+		if len(c.currentDeferMap()) != 0 {
+			c.emitDeferLoop()
+		}
 		c.emit(node, parser.OpReturn, 1)
 	case *parser.ImmutableExpr:
 		if err := c.Compile(node.Expr); err != nil {
@@ -1435,7 +1435,6 @@ func (c *Compiler) emit(node parser.Node, opcode parser.Opcode, operands ...int)
 }
 
 func (c *Compiler) emitDeferLoop() {
-
 	curPos := len(c.currentInstructions())
 	c.emit(nil, parser.OpPushDefer)
 	jumpPos := c.emit(nil, parser.OpJumpFalsy, 0)

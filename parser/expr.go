@@ -386,21 +386,21 @@ func (e *TupleLit) String() string {
 // ImportExpr represents an import expression.
 type ImportExpr struct {
 	ModuleName string
-	Token      token.Token
-	TokenPos   Pos
+	ImportPos  Pos
+	LParen     Pos
+	RParen     Pos
 }
 
 func (e *ImportExpr) exprNode() {}
 
 // Pos returns the position of first character belonging to the node.
 func (e *ImportExpr) Pos() Pos {
-	return e.TokenPos
+	return e.ImportPos
 }
 
 // End returns the position of first character immediately after the node.
 func (e *ImportExpr) End() Pos {
-	// import("moduleName")
-	return Pos(int(e.TokenPos) + 10 + len(e.ModuleName))
+	return e.RParen + 1
 }
 
 func (e *ImportExpr) String() string {

@@ -17,6 +17,7 @@ var stmtStart = map[token.Token]bool{
 	token.For:      true,
 	token.If:       true,
 	token.Return:   true,
+	token.Defer:    true,
 	token.Export:   true,
 }
 
@@ -291,6 +292,18 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 	}
 }
 
+func (p *Parser) parseCallExpr(callType string) *CallExpr {
+	x := p.parsePrimaryExpr()
+	if call, isCall := x.(*CallExpr); isCall {
+		return call
+	}
+	if _, isBad := x.(*BadExpr); !isBad {
+		// only report error if it's a new one
+		p.error(p.safePos(x.End()), fmt.Sprintf("expression in %s must be function call", callType))
+	}
+	return nil
+}
+
 func (p *Parser) expectComma(want string) bool {
 	if p.token == token.Comma {
 		p.next()
@@ -461,24 +474,22 @@ func (p *Parser) parseOperand() Expr {
 }
 
 func (p *Parser) parseImportExpr() Expr {
-	pos := p.pos
-	p.next()
-	p.expect(token.LParen)
+	pos := p.expect(token.Import)
+	lparen := p.expect(token.LParen)
 	if p.token != token.String {
 		p.errorExpected(p.pos, "module name")
 		p.advance(stmtStart)
 		return &BadExpr{From: pos, To: p.pos}
 	}
-	// module name
 	moduleName, _ := strconv.Unquote(p.tokenLit)
-	expr := &ImportExpr{
-		ModuleName: moduleName,
-		Token:      token.Import,
-		TokenPos:   pos,
-	}
 	p.next()
-	p.expect(token.RParen)
-	return expr
+	rparen := p.expect(token.RParen)
+	return &ImportExpr{
+		ModuleName: moduleName,
+		ImportPos:  pos,
+		LParen:     lparen,
+		RParen:     rparen,
+	}
 }
 
 func (p *Parser) parseCharLit() Expr {
@@ -692,6 +703,8 @@ func (p *Parser) parseStmt() (stmt Stmt) {
 		return s
 	case token.Return:
 		return p.parseReturnStmt()
+	case token.Defer:
+		return p.parseDeferStmt()
 	case token.Export:
 		return p.parseExportStmt()
 	case token.If:
@@ -910,8 +923,7 @@ func (p *Parser) parseReturnStmt() Stmt {
 		defer untracep(tracep(p, "ReturnStmt"))
 	}
 
-	pos := p.pos
-	p.expect(token.Return)
+	pos := p.expect(token.Return)
 
 	var results []Expr
 	if p.token != token.Semicolon && p.token != token.RBrace {
@@ -926,12 +938,24 @@ func (p *Parser) parseReturnStmt() Stmt {
 	}
 }
 
+func (p *Parser) parseDeferStmt() Stmt {
+	if p.trace {
+		defer untracep(tracep(p, "DeferStmt"))
+	}
+	pos := p.expect(token.Defer)
+	call := p.parseCallExpr("defer")
+	p.expectSemi()
+	if call == nil {
+		return &BadStmt{From: pos, To: pos + 5} // len("defer")
+	}
+	return &DeferStmt{DeferPos: pos, CallExpr: call}
+}
+
 func (p *Parser) parseExportStmt() Stmt {
 	if p.trace {
 		defer untracep(tracep(p, "ExportStmt"))
 	}
-	pos := p.pos
-	p.expect(token.Export)
+	pos := p.expect(token.Export)
 	x := p.parseExpr()
 	p.expectSemi()
 	return &ExportStmt{

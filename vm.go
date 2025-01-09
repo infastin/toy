@@ -2,11 +2,19 @@ package toy
 
 import (
 	"fmt"
+	"slices"
 	"sync/atomic"
 
 	"github.com/infastin/toy/parser"
 	"github.com/infastin/toy/token"
 )
+
+// deferredCall represents a deferred function call.
+type deferredCall struct {
+	fn    Callable
+	args  []Object
+	splat int
+}
 
 // frame represents a function call frame.
 type frame struct {
@@ -14,6 +22,7 @@ type frame struct {
 	freeVars    []*objectPtr
 	ip          int
 	basePointer int
+	deferred    []*deferredCall
 }
 
 // VM is a virtual machine that executes the bytecode compiled by Compiler.
@@ -365,7 +374,14 @@ func (v *VM) run() {
 		case parser.OpCall:
 			numArgs := int(v.curInsts[v.ip+1])
 			splat := int(v.curInsts[v.ip+2])
-			v.ip += 2
+			onStack := int(v.curInsts[v.ip+3])
+			v.ip += 3
+
+			if onStack == 1 {
+				splat = int(v.stack[v.sp-1].(Int))
+				numArgs = int(v.stack[v.sp-2].(Int))
+				v.sp -= 2
+			}
 
 			value := v.stack[v.sp-1-numArgs]
 
@@ -490,6 +506,42 @@ func (v *VM) run() {
 			// skip stack overflow check because (newSP) <= (oldSP)
 			v.stack[v.sp-1] = retVal
 			// v.sp++
+		case parser.OpSaveDefer:
+			numArgs := int(v.curInsts[v.ip+1])
+			splat := int(v.curInsts[v.ip+2])
+			v.ip += 2
+
+			value := v.stack[v.sp-1-numArgs]
+			callable, ok := value.(Callable)
+			if !ok {
+				v.err = fmt.Errorf("not callable: %s", value.TypeName())
+				return
+			}
+
+			args := slices.Clone(v.stack[v.sp-numArgs : v.sp])
+			v.sp -= numArgs + 1
+			v.curFrame.deferred = append(v.curFrame.deferred, &deferredCall{
+				fn:    callable,
+				args:  args,
+				splat: splat,
+			})
+		case parser.OpPushDefer:
+			if len(v.curFrame.deferred) == 0 {
+				v.stack[v.sp] = Bool(false)
+				v.sp++
+				break
+			}
+			call := v.curFrame.deferred[len(v.curFrame.deferred)-1]
+			v.curFrame.deferred = v.curFrame.deferred[:len(v.curFrame.deferred)-1]
+			v.stack[v.sp] = call.fn
+			for i, arg := range call.args {
+				v.stack[v.sp+1+i] = arg
+			}
+			numArgs := len(call.args)
+			v.stack[v.sp+1+numArgs] = Int(numArgs)
+			v.stack[v.sp+1+numArgs+1] = Int(call.splat)
+			v.stack[v.sp+1+numArgs+2] = Bool(true)
+			v.sp += 1 + numArgs + 3
 		case parser.OpDefineLocal:
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])

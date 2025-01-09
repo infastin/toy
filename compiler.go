@@ -13,15 +13,16 @@ import (
 	"github.com/infastin/toy/token"
 )
 
-// compilationScope represents a compiled instructions and the last two
-// instructions that were emitted.
+// compilationScope represents a compiled instructions
+// and the last two instructions that were emitted.
 type compilationScope struct {
 	instructions []byte
 	sourceMap    map[int]parser.Pos
+	hasDefer     bool
 }
 
-// loop represents a loop construct that the compiler uses to track the current
-// loop.
+// loop represents a loop construct that
+// the compiler uses to track the current loop.
 type loop struct {
 	continues []int
 	breaks    []int
@@ -330,23 +331,23 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 		c.emit(node, parser.OpIndex)
 	case *parser.SliceExpr:
-		var sliceOpOperand int
+		var opSliceOperand int
 		if node.Low != nil {
 			if err := c.Compile(node.Low); err != nil {
 				return err
 			}
-			sliceOpOperand |= 0x1
+			opSliceOperand |= 0x1
 		}
 		if node.High != nil {
 			if err := c.Compile(node.High); err != nil {
 				return err
 			}
-			sliceOpOperand |= 0x2
+			opSliceOperand |= 0x2
 		}
 		if err := c.Compile(node.Expr); err != nil {
 			return err
 		}
-		c.emit(node, parser.OpSliceIndex, sliceOpOperand)
+		c.emit(node, parser.OpSliceIndex, opSliceOperand)
 	case *parser.FuncLit:
 		c.enterScope()
 
@@ -451,7 +452,22 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if len(node.Results) != 0 {
 			opReturnOperand = 1
 		}
-		c.emit(node, parser.OpReturn, opReturnOperand)
+		c.emitReturn(node, opReturnOperand)
+	case *parser.DeferStmt:
+		if err := c.Compile(node.CallExpr.Func); err != nil {
+			return err
+		}
+		splat := 0
+		for _, arg := range node.CallExpr.Args {
+			if _, ok := arg.(*parser.SplatExpr); ok {
+				splat = 1
+			}
+			if err := c.Compile(arg); err != nil {
+				return err
+			}
+		}
+		c.scopes[c.scopeIndex].hasDefer = true
+		c.emit(node, parser.OpSaveDefer, len(node.CallExpr.Args), splat)
 	case *parser.SplatExpr:
 		if err := c.Compile(node.Expr); err != nil {
 			return err
@@ -470,7 +486,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return err
 			}
 		}
-		c.emit(node, parser.OpCall, len(node.Args), splat)
+		c.emit(node, parser.OpCall, len(node.Args), splat, 0)
 	case *parser.ImportExpr:
 		if node.ModuleName == "" {
 			return c.errorf(node, "empty module name")
@@ -483,7 +499,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 					return err
 				}
 				c.emit(node, parser.OpConstant, c.addConstant(compiled))
-				c.emit(node, parser.OpCall, 0, 0)
+				c.emit(node, parser.OpCall, 0, 0, 0)
 			case *BuiltinModule:
 				c.emit(node, parser.OpConstant, c.addConstant(mod))
 			default:
@@ -510,7 +526,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 
 			c.emit(node, parser.OpConstant, c.addConstant(compiled))
-			c.emit(node, parser.OpCall, 0, 0)
+			c.emit(node, parser.OpCall, 0, 0, 0)
 		} else {
 			return c.errorf(node, "module '%s' not found", node.ModuleName)
 		}
@@ -527,7 +543,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			return err
 		}
 		c.emit(node, parser.OpImmutable)
-		c.emit(node, parser.OpReturn, 1)
+		c.emitReturn(node, 1)
 	case *parser.ImmutableExpr:
 		if err := c.Compile(node.Expr); err != nil {
 			return err
@@ -986,20 +1002,20 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 		c.emit(stmt, parser.OpDefineLocal, itSymbol.Index)
 	}
 
-	var nextOpOperand int
+	var opNextOperand int
 
 	// define key variable
 	var keySymbol *Symbol
 	if stmt.Key.Name != "_" {
 		keySymbol = c.symbolTable.Define(stmt.Key.Name)
-		nextOpOperand |= 0x1
+		opNextOperand |= 0x1
 	}
 
 	// define value variable
 	var valueSymbol *Symbol
 	if stmt.Value.Name != "_" {
 		valueSymbol = c.symbolTable.Define(stmt.Value.Name)
-		nextOpOperand |= 0x2
+		opNextOperand |= 0x2
 	}
 
 	// pre-condition position
@@ -1015,7 +1031,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	} else {
 		c.emit(stmt, parser.OpGetLocal, itSymbol.Index)
 	}
-	c.emit(stmt, parser.OpIteratorNext, nextOpOperand)
+	c.emit(stmt, parser.OpIteratorNext, opNextOperand)
 
 	// condition jump position
 	postCondPos := c.emit(stmt, parser.OpJumpFalsy, 0)
@@ -1257,8 +1273,7 @@ func (c *Compiler) addConstant(o Object) int {
 
 func (c *Compiler) addInstruction(b []byte) int {
 	posNewIns := len(c.currentInstructions())
-	c.scopes[c.scopeIndex].instructions = append(
-		c.currentInstructions(), b...)
+	c.scopes[c.scopeIndex].instructions = append(c.currentInstructions(), b...)
 	return posNewIns
 }
 
@@ -1368,17 +1383,13 @@ func (c *Compiler) optimizeFunc(node parser.Node) int {
 
 	// append "return"
 	if appendReturn {
-		c.emit(node, parser.OpReturn, 0)
+		c.emitReturn(node, 0)
 	}
 
 	return len(deadLocals)
 }
 
-func (c *Compiler) emit(
-	node parser.Node,
-	opcode parser.Opcode,
-	operands ...int,
-) int {
+func (c *Compiler) emit(node parser.Node, opcode parser.Opcode, operands ...int) int {
 	filePos := parser.NoPos
 	if node != nil {
 		filePos = node.Pos()
@@ -1391,6 +1402,19 @@ func (c *Compiler) emit(
 			FormatInstructions(c.scopes[c.scopeIndex].instructions[pos:], pos)[0]))
 	}
 	return pos
+}
+
+func (c *Compiler) emitReturn(node parser.Node, operands ...int) {
+	if c.scopes[c.scopeIndex].hasDefer {
+		curPos := len(c.currentInstructions())
+		c.emit(node, parser.OpPushDefer)
+		jumpPos := c.emit(node, parser.OpJumpFalsy, 0)
+		c.emit(node, parser.OpCall, 0, 0, 1)
+		c.emit(node, parser.OpPop)
+		c.emit(node, parser.OpJump, curPos)
+		c.changeOperand(jumpPos, len(c.currentInstructions()))
+	}
+	c.emit(node, parser.OpReturn, operands...)
 }
 
 func (c *Compiler) printTrace(a ...any) {

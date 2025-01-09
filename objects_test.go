@@ -108,9 +108,9 @@ func TestObject_String(t *testing.T) {
 	o = toy.UndefinedType(0)
 	expectEqual(t, "<undefined>", o.String())
 	o = toy.Bytes{}
-	expectEqual(t, "[]", o.String())
+	expectEqual(t, "Bytes()", o.String())
 	o = toy.Bytes{'f', 'o', 'o'}
-	expectEqual(t, "[102, 111, 111]", o.String())
+	expectEqual(t, `Bytes("foo")`, o.String())
 	o = toy.Tuple{}
 	expectEqual(t, "", o.String())
 }

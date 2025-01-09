@@ -79,6 +79,7 @@ const (
 	Tuple
 	If
 	Return
+	Defer
 	Export
 	True
 	False
@@ -154,6 +155,7 @@ var tokens = [...]string{
 	Tuple:        "tuple",
 	If:           "if",
 	Return:       "return",
+	Defer:        "defer",
 	Export:       "export",
 	True:         "true",
 	False:        "false",

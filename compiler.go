@@ -178,7 +178,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 	case *parser.CharLit:
 		c.emit(node, parser.OpConstant,
 			c.addConstant(Char(node.Value)))
-	case *parser.UndefinedLit:
+	case *parser.NilLit:
 		c.emit(node, parser.OpNull)
 	case *parser.UnaryExpr:
 		if err := c.Compile(node.Expr); err != nil {
@@ -396,7 +396,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 					// this:
 					//
 					//   fn() {
-					//     foo := undefined
+					//     foo := nil
 					//     foo = fn(x) {
 					//       // ..
 					//       return foo(x-1)

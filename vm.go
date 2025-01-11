@@ -104,7 +104,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = v.constants[cidx]
 			v.sp++
 		case parser.OpNull:
-			v.stack[v.sp] = Undefined
+			v.stack[v.sp] = Nil
 			v.sp++
 		case parser.OpBinaryOp:
 			v.ip++
@@ -288,7 +288,7 @@ func (v *VM) run() {
 				return
 			}
 			if val == nil {
-				val = Undefined
+				val = Nil
 			}
 			v.stack[v.sp] = val
 			v.sp++
@@ -302,7 +302,7 @@ func (v *VM) run() {
 				return
 			}
 			if val == nil {
-				val = Undefined
+				val = Nil
 			}
 			v.stack[v.sp] = val
 			v.sp++
@@ -418,9 +418,9 @@ func (v *VM) run() {
 				}
 				v.curFrame.term = false
 
-				// nil return -> undefined
+				// nil return -> nil
 				if ret == nil {
-					ret = Undefined
+					ret = Nil
 				}
 				v.stack[v.sp] = ret
 				v.sp++
@@ -432,7 +432,7 @@ func (v *VM) run() {
 			if numResults == 1 {
 				retVal = v.stack[v.sp-1]
 			} else {
-				retVal = Undefined
+				retVal = Nil
 			}
 			v.framesIndex--
 			v.curFrame = &v.frames[v.framesIndex-1]

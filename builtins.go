@@ -32,7 +32,7 @@ var (
 		{Name: "bool", Func: builtinConvert[Bool]},
 		{Name: "float", Func: builtinConvert[Float]},
 		{Name: "char", Func: builtinConvert[Char]},
-		{Name: "bytes", Func: builtinConvert[Bytes]},
+		{Name: "bytes", Func: builtinBytes},
 
 		{Name: "isBool", Func: builtinIs[Bool]},
 		{Name: "isFloat", Func: builtinIs[Float]},
@@ -255,7 +255,7 @@ func builtinInsert(_ *VM, args ...Object) (Object, error) {
 			return nil, fmt.Errorf("insert index %d out of range [:%d]", index, n)
 		}
 		x.elems = slices.Insert(x.elems, index, rest...)
-		return Undefined, nil
+		return Nil, nil
 	case *Map:
 		if len(args) != 3 {
 			return nil, &WrongNumArgumentsError{
@@ -271,7 +271,7 @@ func builtinInsert(_ *VM, args ...Object) (Object, error) {
 		if err := x.IndexSet(index, value); err != nil {
 			return nil, fmt.Errorf("failed to insert '%s' into map: %w", index.TypeName(), err)
 		}
-		return Undefined, nil
+		return Nil, nil
 	default:
 		return nil, &InvalidArgumentTypeError{
 			Name: "collection",
@@ -305,7 +305,7 @@ func builtinClear(_ *VM, args ...Object) (Object, error) {
 			Got:  x.TypeName(),
 		}
 	}
-	return Undefined, nil
+	return Nil, nil
 }
 
 func builtinFormat(_ *VM, args ...Object) (Object, error) {
@@ -446,7 +446,29 @@ func builtinConvert[T Object](_ *VM, args ...Object) (Object, error) {
 	if argsLen == 2 {
 		return args[1], nil
 	}
-	return Undefined, nil
+	return Nil, nil
+}
+
+func builtinBytes(_ *VM, args ...Object) (Object, error) {
+	argsLen := len(args)
+	if argsLen == 0 || argsLen > 2 {
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 2,
+			Got:     len(args),
+		}
+	}
+	if i, ok := args[0].(Int); ok {
+		return make(Bytes, i), nil
+	}
+	var b Bytes
+	if err := Convert(&b, args[0]); err == nil {
+		return b, nil
+	}
+	if argsLen == 2 {
+		return args[1], nil
+	}
+	return Nil, nil
 }
 
 func builtinIs[T Object](_ *VM, args ...Object) (Object, error) {

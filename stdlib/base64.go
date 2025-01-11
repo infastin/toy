@@ -38,8 +38,8 @@ func makeBase64Decode(enc *base64.Encoding) toy.CallableFunc {
 		}
 		binary, err := enc.DecodeString(string(data))
 		if err != nil {
-			return toy.NewError(err.Error()), nil
+			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
 		}
-		return toy.Bytes(binary), nil
+		return toy.Tuple{toy.Bytes(binary), toy.Nil}, nil
 	}
 }

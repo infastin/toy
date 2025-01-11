@@ -27,8 +27,8 @@ func TestObject_TypeName(t *testing.T) {
 	expectEqual(t, "builtin-function:fn", o.TypeName())
 	o = &toy.CompiledFunction{}
 	expectEqual(t, "compiled-function", o.TypeName())
-	o = toy.UndefinedType(0)
-	expectEqual(t, "undefined", o.TypeName())
+	o = toy.NilType(0)
+	expectEqual(t, "nil", o.TypeName())
 	o = &toy.Error{}
 	expectEqual(t, "error", o.TypeName())
 	o = toy.Bytes{}
@@ -56,17 +56,17 @@ func TestObject_IsFalsy(t *testing.T) {
 	expectFalse(t, o.IsFalsy())
 	o = &toy.Array{}
 	expectTrue(t, o.IsFalsy())
-	o = makeArray(toy.Undefined)
+	o = makeArray(toy.Nil)
 	expectFalse(t, o.IsFalsy())
 	o = &toy.Map{}
 	expectTrue(t, o.IsFalsy())
-	o = makeMap("a", toy.Undefined)
+	o = makeMap("a", toy.Nil)
 	expectFalse(t, o.IsFalsy())
 	o = &toy.BuiltinFunction{}
 	expectFalse(t, o.IsFalsy())
 	o = &toy.CompiledFunction{}
 	expectFalse(t, o.IsFalsy())
-	o = toy.UndefinedType(0)
+	o = toy.NilType(0)
 	expectTrue(t, o.IsFalsy())
 	o = &toy.Error{}
 	expectTrue(t, o.IsFalsy())
@@ -76,7 +76,7 @@ func TestObject_IsFalsy(t *testing.T) {
 	expectFalse(t, o.IsFalsy())
 	o = toy.Tuple{}
 	expectTrue(t, o.IsFalsy())
-	o = toy.Tuple{toy.Undefined}
+	o = toy.Tuple{toy.Nil}
 	expectFalse(t, o.IsFalsy())
 }
 
@@ -102,43 +102,43 @@ func TestObject_String(t *testing.T) {
 	o = &toy.Map{}
 	expectEqual(t, "{}", o.String())
 	o = &toy.Error{}
-	expectEqual(t, "", o.String())
+	expectEqual(t, `error("")`, o.String())
 	o = toy.NewError("error 1")
-	expectEqual(t, "error 1", o.String())
-	o = toy.UndefinedType(0)
-	expectEqual(t, "<undefined>", o.String())
+	expectEqual(t, `error("error 1")`, o.String())
+	o = toy.NilType(0)
+	expectEqual(t, "<nil>", o.String())
 	o = toy.Bytes{}
-	expectEqual(t, "Bytes()", o.String())
+	expectEqual(t, `Bytes("")`, o.String())
 	o = toy.Bytes{'f', 'o', 'o'}
 	expectEqual(t, `Bytes("foo")`, o.String())
 	o = toy.Tuple{}
-	expectEqual(t, "", o.String())
+	expectEqual(t, "tuple()", o.String())
 }
 
 func TestObject_BinaryOp(t *testing.T) {
 	var o toy.Object = toy.Char(0)
-	_, err := toy.BinaryOp(token.Add, o, toy.Undefined)
+	_, err := toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
 	o = toy.Bool(false)
-	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
+	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
 	o = &toy.Map{}
-	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
+	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
 	o = &toy.BuiltinFunction{}
-	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
+	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
 	o = &toy.CompiledFunction{}
-	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
+	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
-	o = toy.UndefinedType(0)
-	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
+	o = toy.NilType(0)
+	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
 	o = &toy.Error{}
-	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
+	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
 	o = toy.Tuple{}
-	_, err = toy.BinaryOp(token.Add, o, toy.Undefined)
+	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
 }
 

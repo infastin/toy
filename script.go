@@ -257,7 +257,7 @@ func (c *Compiled) IsDefined(name string) bool {
 		return false
 	}
 
-	return v != Undefined
+	return v != Nil
 }
 
 // Get returns a variable identified by the name.
@@ -265,11 +265,11 @@ func (c *Compiled) Get(name string) *Variable {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	value := Object(Undefined)
+	value := Object(Nil)
 	if idx, ok := c.globalIndexes[name]; ok {
 		value = c.globals[idx]
 		if value == nil {
-			value = Undefined
+			value = Nil
 		}
 	}
 
@@ -288,7 +288,7 @@ func (c *Compiled) GetAll() []*Variable {
 	for name, idx := range c.globalIndexes {
 		value := c.globals[idx]
 		if value == nil {
-			value = Undefined
+			value = Nil
 		}
 		vars = append(vars, &Variable{
 			name:  name,

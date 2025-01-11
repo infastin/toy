@@ -162,7 +162,7 @@ func objectToYAML(o toy.Object) (*yaml.Node, error) {
 			Tag:   "!!bool",
 			Value: strconv.FormatBool(bool(x)),
 		}, nil
-	case toy.UndefinedType:
+	case toy.NilType:
 		return &yaml.Node{
 			Kind:  yaml.ScalarNode,
 			Tag:   "!!null",
@@ -188,7 +188,7 @@ func yamlEncode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 
 	node, err := objectToYAML(x)
 	if err != nil {
-		return toy.NewError(err.Error()), err
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, err
 	}
 
 	var buf bytes.Buffer
@@ -200,7 +200,7 @@ func yamlEncode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 
-	return toy.Bytes(buf.Bytes()), nil
+	return toy.Tuple{toy.Bytes(buf.Bytes()), toy.Nil}, nil
 }
 
 func yamlSequenceToArray(seq *yaml.Node) (*toy.Array, error) {
@@ -252,7 +252,7 @@ func yamlToObject(node *yaml.Node) (toy.Object, error) {
 			b, _ := strconv.ParseBool(node.Value)
 			return toy.Bool(b), nil
 		case "!!null":
-			return toy.Undefined, nil
+			return toy.Nil, nil
 		default:
 			return nil, fmt.Errorf("value with tag %q can't be decoded", node.Tag)
 		}
@@ -272,13 +272,13 @@ func yamlDecode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 
 	node := new(yaml.Node)
 	if err := yaml.Unmarshal(data.Bytes(), node); err != nil {
-		return toy.NewError(err.Error()), err
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, err
 	}
 
 	switch node.Kind {
 	case yaml.DocumentNode:
 		if len(node.Content) != 1 {
-			return toy.NewError("invalid yaml document"), nil
+			return toy.Tuple{toy.Nil, toy.NewError("invalid yaml document")}, nil
 		}
 		node = node.Content[0]
 	case yaml.AliasNode:
@@ -287,8 +287,8 @@ func yamlDecode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 
 	obj, err := yamlToObject(node)
 	if err != nil {
-		return toy.NewError(err.Error()), err
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, err
 	}
 
-	return obj, nil
+	return toy.Tuple{obj, toy.Nil}, nil
 }

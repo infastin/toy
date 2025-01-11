@@ -126,7 +126,7 @@ func makeASSRE(n1, n2 string, fn func(string, string) error) toy.CallableFunc {
 		if err := fn(s1, s2); err != nil {
 			return toy.NewError(err.Error()), nil
 		}
-		return toy.Undefined, nil
+		return toy.Nil, nil
 	}
 }
 
@@ -139,7 +139,7 @@ func makeASRE(name string, fn func(string) error) toy.CallableFunc {
 		if err := fn(name); err != nil {
 			return toy.NewError(err.Error()), nil
 		}
-		return toy.Undefined, nil
+		return toy.Nil, nil
 	}
 }
 
@@ -159,9 +159,9 @@ func makeARSE(fn func() (string, error)) toy.CallableFunc {
 		}
 		s, err := fn()
 		if err != nil {
-			return toy.NewError(err.Error()), nil
+			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
 		}
-		return toy.String(s), nil
+		return toy.Tuple{toy.String(s), toy.Nil}, nil
 	}
 }
 
@@ -173,8 +173,8 @@ func makeASRSE(name string, fn func(string) (string, error)) toy.CallableFunc {
 		}
 		res, err := fn(name)
 		if err != nil {
-			return toy.NewError(err.Error()), nil
+			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
 		}
-		return toy.String(res), nil
+		return toy.Tuple{toy.String(res), toy.Nil}, nil
 	}
 }

@@ -210,7 +210,7 @@ func toObject(v any) toy.Object {
 		}
 		return m.AsImmutable()
 	case nil:
-		return toy.Undefined
+		return toy.Nil
 	}
 	panic(fmt.Errorf("unknown type: %T", v))
 }
@@ -231,8 +231,8 @@ func objectZeroCopy(o toy.Object) toy.Object {
 		return new(toy.Array)
 	case *toy.Map:
 		return new(toy.Map)
-	case toy.UndefinedType:
-		return toy.Undefined
+	case toy.NilType:
+		return toy.Nil
 	case *toy.Error:
 		return &toy.Error{}
 	case toy.Bytes:

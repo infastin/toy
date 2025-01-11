@@ -83,9 +83,9 @@ func uuidParse(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	u, err := uuid.Parse(s)
 	if err != nil {
-		return toy.NewError(err.Error()), nil
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
 	}
-	return UUID(u), nil
+	return toy.Tuple{UUID(u), toy.Nil}, nil
 }
 
 func uuidFromBytes(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
@@ -95,7 +95,7 @@ func uuidFromBytes(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	u, err := uuid.FromBytes(data)
 	if err != nil {
-		return toy.NewError(err.Error()), nil
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
 	}
-	return UUID(u), nil
+	return toy.Tuple{UUID(u), toy.Nil}, nil
 }

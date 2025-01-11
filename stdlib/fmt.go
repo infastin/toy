@@ -29,7 +29,7 @@ func fmtPrint(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if b.Len() != 0 {
 		os.Stdout.WriteString(b.String())
 	}
-	return toy.Undefined, nil
+	return toy.Nil, nil
 }
 
 func fmtPrintln(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
@@ -43,7 +43,7 @@ func fmtPrintln(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	b.WriteByte('\n')
 	os.Stdout.WriteString(b.String())
-	return toy.Undefined, nil
+	return toy.Nil, nil
 }
 
 func fmtPrintf(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
@@ -61,7 +61,7 @@ func fmtPrintf(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(s) != 0 {
 		os.Stdout.WriteString(s)
 	}
-	return toy.Undefined, nil
+	return toy.Nil, nil
 }
 
 func fmtPrintfn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
@@ -77,5 +77,5 @@ func fmtPrintfn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 	os.Stdout.WriteString(s + "\n")
-	return toy.Undefined, nil
+	return toy.Nil, nil
 }

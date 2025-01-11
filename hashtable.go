@@ -170,7 +170,7 @@ func (ht *hashtable) lookup(k Object) (v Object, err error) {
 		h = 1 // zero is reserved
 	}
 	if ht.table == nil {
-		return Undefined, nil // empty
+		return Nil, nil // empty
 	}
 	// Inspect each bucket in the bucket list.
 	for p := &ht.table[h&(uint64(len(ht.table)-1))]; p != nil; p = p.next {
@@ -186,7 +186,7 @@ func (ht *hashtable) lookup(k Object) (v Object, err error) {
 			}
 		}
 	}
-	return Undefined, nil // not found
+	return Nil, nil // not found
 }
 
 // count returns the number of distinct elements of iter that are elements of ht.
@@ -268,7 +268,7 @@ func (ht *hashtable) delete(k Object) (v Object, err error) {
 		return nil, err
 	}
 	if ht.table == nil {
-		return Undefined, nil // empty
+		return Nil, nil // empty
 	}
 	h, err := Hash(k)
 	if err != nil {
@@ -304,7 +304,7 @@ func (ht *hashtable) delete(k Object) (v Object, err error) {
 		}
 	}
 
-	return Undefined, nil // not found
+	return Nil, nil // not found
 }
 
 // checkMutable reports an error if the hash table should not be mutated.
@@ -367,7 +367,7 @@ func (ht *hashtable) equals(other *hashtable) (bool, error) {
 	}
 	for e := ht.head; e != nil; e = e.next {
 		key, xval := e.key, e.value
-		if yval, _ := other.lookup(key); yval == Undefined {
+		if yval, _ := other.lookup(key); yval == Nil {
 			return false, nil
 		} else if eq, err := Equals(xval, yval); err != nil {
 			return false, err

@@ -1,6 +1,9 @@
 package toy
 
-import "maps"
+import (
+	"fmt"
+	"maps"
+)
 
 // Importable interface represents importable module instance.
 type Importable interface {
@@ -79,8 +82,8 @@ type BuiltinModule struct {
 
 func (m *BuiltinModule) importable() {}
 
-func (m *BuiltinModule) TypeName() string { return "module" }
-func (m *BuiltinModule) String() string   { return "<module>" }
+func (m *BuiltinModule) TypeName() string { return fmt.Sprintf("module:%s", m.Name) }
+func (m *BuiltinModule) String() string   { return fmt.Sprintf("<module:%s>", m.Name) }
 func (m *BuiltinModule) IsFalsy() bool    { return false }
 
 func (m *BuiltinModule) Copy() Object {

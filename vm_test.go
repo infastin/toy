@@ -124,8 +124,8 @@ func TestArray(t *testing.T) {
 			nil, arr[idx])
 	}
 
-	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, -1), nil, toy.Undefined)
-	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, arrLen), nil, toy.Undefined)
+	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, -1), nil, toy.Nil)
+	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, arrLen), nil, toy.Nil)
 
 	// splat operator
 	expectRun(t, `[...[1, 2], 3]`, nil, ARR{1, 2, 3})
@@ -536,11 +536,11 @@ fn() {
 }
 
 func TestUndefined(t *testing.T) {
-	expectRun(t, `out = undefined`, nil, toy.Undefined)
-	expectRun(t, `out = undefined.a`, nil, toy.Undefined)
-	expectRun(t, `out = undefined[1]`, nil, toy.Undefined)
-	expectRun(t, `out = undefined.a.b`, nil, toy.Undefined)
-	expectRun(t, `out = undefined[1][2]`, nil, toy.Undefined)
+	expectRun(t, `out = undefined`, nil, toy.Nil)
+	expectRun(t, `out = undefined.a`, nil, toy.Nil)
+	expectRun(t, `out = undefined[1]`, nil, toy.Nil)
+	expectRun(t, `out = undefined.a.b`, nil, toy.Nil)
+	expectRun(t, `out = undefined[1][2]`, nil, toy.Nil)
 	expectRun(t, `out = undefined ? 1 : 2`, nil, 2)
 	expectRun(t, `out = undefined == undefined`, nil, true)
 	expectRun(t, `out = undefined == 1`, nil, false)
@@ -583,7 +583,7 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = string('8')`, nil, "8")
 	expectRun(t, `out = string([1,8.1,true,3])`, nil, "[1, 8.1, true, 3]")
 	expectRun(t, `out = string({b: "foo"})`, nil, `{b: "foo"}`)
-	expectRun(t, `out = string(undefined)`, nil, toy.Undefined) // not "undefined"
+	expectRun(t, `out = string(undefined)`, nil, toy.Nil) // not "undefined"
 	expectRun(t, `out = string(1, "-522")`, nil, "1")
 	expectRun(t, `out = string(undefined, "-522")`, nil, "-522") // not "undefined"
 
@@ -593,45 +593,45 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = int(true)`, nil, 1)
 	expectRun(t, `out = int(false)`, nil, 0)
 	expectRun(t, `out = int('8')`, nil, 56)
-	expectRun(t, `out = int([1])`, nil, toy.Undefined)
-	expectRun(t, `out = int({a: 1})`, nil, toy.Undefined)
-	expectRun(t, `out = int(undefined)`, nil, toy.Undefined)
+	expectRun(t, `out = int([1])`, nil, toy.Nil)
+	expectRun(t, `out = int({a: 1})`, nil, toy.Nil)
+	expectRun(t, `out = int(undefined)`, nil, toy.Nil)
 	expectRun(t, `out = int("-522", 1)`, nil, -522)
 	expectRun(t, `out = int(undefined, 1)`, nil, 1)
 	expectRun(t, `out = int(undefined, 1.8)`, nil, 1.8)
 	expectRun(t, `out = int(undefined, string(1))`, nil, "1")
-	expectRun(t, `out = int(undefined, undefined)`, nil, toy.Undefined)
+	expectRun(t, `out = int(undefined, undefined)`, nil, toy.Nil)
 
 	expectRun(t, `out = float(1)`, nil, 1.0)
 	expectRun(t, `out = float(1.8)`, nil, 1.8)
 	expectRun(t, `out = float("-52.2")`, nil, -52.2)
-	expectRun(t, `out = float(true)`, nil, toy.Undefined)
-	expectRun(t, `out = float(false)`, nil, toy.Undefined)
-	expectRun(t, `out = float('8')`, nil, toy.Undefined)
-	expectRun(t, `out = float([1,8.1,true,3])`, nil, toy.Undefined)
-	expectRun(t, `out = float({a: 1, b: "foo"})`, nil, toy.Undefined)
-	expectRun(t, `out = float(undefined)`, nil, toy.Undefined)
+	expectRun(t, `out = float(true)`, nil, toy.Nil)
+	expectRun(t, `out = float(false)`, nil, toy.Nil)
+	expectRun(t, `out = float('8')`, nil, toy.Nil)
+	expectRun(t, `out = float([1,8.1,true,3])`, nil, toy.Nil)
+	expectRun(t, `out = float({a: 1, b: "foo"})`, nil, toy.Nil)
+	expectRun(t, `out = float(undefined)`, nil, toy.Nil)
 	expectRun(t, `out = float("-52.2", 1.8)`, nil, -52.2)
 	expectRun(t, `out = float(undefined, 1)`, nil, 1)
 	expectRun(t, `out = float(undefined, 1.8)`, nil, 1.8)
 	expectRun(t, `out = float(undefined, "-52.2")`, nil, "-52.2")
 	expectRun(t, `out = float(undefined, char(56))`, nil, '8')
-	expectRun(t, `out = float(undefined, undefined)`, nil, toy.Undefined)
+	expectRun(t, `out = float(undefined, undefined)`, nil, toy.Nil)
 
 	expectRun(t, `out = char(56)`, nil, '8')
-	expectRun(t, `out = char(1.8)`, nil, toy.Undefined)
-	expectRun(t, `out = char("-52.2")`, nil, toy.Undefined)
-	expectRun(t, `out = char(true)`, nil, toy.Undefined)
-	expectRun(t, `out = char(false)`, nil, toy.Undefined)
+	expectRun(t, `out = char(1.8)`, nil, toy.Nil)
+	expectRun(t, `out = char("-52.2")`, nil, toy.Nil)
+	expectRun(t, `out = char(true)`, nil, toy.Nil)
+	expectRun(t, `out = char(false)`, nil, toy.Nil)
 	expectRun(t, `out = char('8')`, nil, '8')
-	expectRun(t, `out = char([1,8.1,true,3])`, nil, toy.Undefined)
-	expectRun(t, `out = char({a: 1, b: "foo"})`, nil, toy.Undefined)
-	expectRun(t, `out = char(undefined)`, nil, toy.Undefined)
+	expectRun(t, `out = char([1,8.1,true,3])`, nil, toy.Nil)
+	expectRun(t, `out = char({a: 1, b: "foo"})`, nil, toy.Nil)
+	expectRun(t, `out = char(undefined)`, nil, toy.Nil)
 	expectRun(t, `out = char(56, 'a')`, nil, '8')
 	expectRun(t, `out = char(undefined, '8')`, nil, '8')
 	expectRun(t, `out = char(undefined, 56)`, nil, 56)
 	expectRun(t, `out = char(undefined, "-52.2")`, nil, "-52.2")
-	expectRun(t, `out = char(undefined, undefined)`, nil, toy.Undefined)
+	expectRun(t, `out = char(undefined, undefined)`, nil, toy.Nil)
 
 	expectRun(t, `out = bool(1)`, nil, true)          // non-zero integer: true
 	expectRun(t, `out = bool(0)`, nil, false)         // zero: true
@@ -650,20 +650,20 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = bool(undefined)`, nil, false) // undefined: false
 
 	expectRun(t, `out = bytes(1)`, nil, []byte{0})
-	expectRun(t, `out = bytes(1.8)`, nil, toy.Undefined)
+	expectRun(t, `out = bytes(1.8)`, nil, toy.Nil)
 	expectRun(t, `out = bytes("-522")`, nil, []byte{'-', '5', '2', '2'})
-	expectRun(t, `out = bytes(true)`, nil, toy.Undefined)
-	expectRun(t, `out = bytes(false)`, nil, toy.Undefined)
-	expectRun(t, `out = bytes('8')`, nil, toy.Undefined)
-	expectRun(t, `out = bytes([1])`, nil, toy.Undefined)
-	expectRun(t, `out = bytes({a: 1})`, nil, toy.Undefined)
-	expectRun(t, `out = bytes(undefined)`, nil, toy.Undefined)
+	expectRun(t, `out = bytes(true)`, nil, toy.Nil)
+	expectRun(t, `out = bytes(false)`, nil, toy.Nil)
+	expectRun(t, `out = bytes('8')`, nil, toy.Nil)
+	expectRun(t, `out = bytes([1])`, nil, toy.Nil)
+	expectRun(t, `out = bytes({a: 1})`, nil, toy.Nil)
+	expectRun(t, `out = bytes(undefined)`, nil, toy.Nil)
 	expectRun(t, `out = bytes("-522", ['8'])`, nil, []byte{'-', '5', '2', '2'})
 	expectRun(t, `out = bytes(undefined, "-522")`, nil, "-522")
 	expectRun(t, `out = bytes(undefined, 1)`, nil, 1)
 	expectRun(t, `out = bytes(undefined, 1.8)`, nil, 1.8)
 	expectRun(t, `out = bytes(undefined, int("-522"))`, nil, -522)
-	expectRun(t, `out = bytes(undefined, undefined)`, nil, toy.Undefined)
+	expectRun(t, `out = bytes(undefined, undefined)`, nil, toy.Nil)
 
 	expectRun(t, `out = is_error(error(1))`, nil, true)
 	expectRun(t, `out = is_error(1)`, nil, false)
@@ -747,7 +747,7 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRunError(t, `delete({}, immutable({}))`, nil, `not hashable`)
 	expectRunError(t, `delete({}, immutable([]))`, nil, `not hashable`)
 
-	expectRun(t, `out = delete({}, "")`, nil, toy.Undefined)
+	expectRun(t, `out = delete({}, "")`, nil, toy.Nil)
 	expectRun(t, `out = {key1: 1}; delete(out, "key1")`, nil, MAP{})
 	expectRun(t, `out = {key1: 1, key2: "2"}; delete(out, "key1")`, nil,
 		MAP{"key2": "2"})
@@ -868,7 +868,7 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("abcde")[0]`, nil, 97)
 	expectRun(t, `out = bytes("abcde")[1]`, nil, 98)
 	expectRun(t, `out = bytes("abcde")[4]`, nil, 101)
-	expectRun(t, `out = bytes("abcde")[10]`, nil, toy.Undefined)
+	expectRun(t, `out = bytes("abcde")[10]`, nil, toy.Nil)
 }
 
 func TestCall(t *testing.T) {
@@ -1405,11 +1405,11 @@ func TestFor(t *testing.T) {
 func TestFunction(t *testing.T) {
 	// function with no "return" statement returns "invalid" value.
 	expectRun(t, `f1 := fn() {}; out = f1();`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 	expectRun(t, `f1 := fn() {}; f2 := fn() { return f1(); }; f1(); out = f2();`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 	expectRun(t, `f := fn(x) { x; }; out = f(5);`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 
 	expectRun(t, `f := fn(...x) { return x; }; out = f(1,2,3);`,
 		nil, ARR{1, 2, 3})
@@ -1718,23 +1718,23 @@ fn() {
 
 	// function skipping return
 	expectRun(t, `out = fn() {}()`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 	expectRun(t, `out = fn(v) { if v { return true } }(1)`,
 		nil, true)
 	expectRun(t, `out = fn(v) { if v { return true } }(0)`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 	expectRun(t, `out = fn(v) { if v { } else { return true } }(1)`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 	expectRun(t, `out = fn(v) { if v { return } }(1)`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 	expectRun(t, `out = fn(v) { if v { return } }(0)`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 	expectRun(t, `out = fn(v) { if v { } else { return } }(1)`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 	expectRun(t, `out = fn(v) { for ;;v++ { if v == 3 { return true } } }(1)`,
 		nil, true)
 	expectRun(t, `out = fn(v) { for ;;v++ { if v == 3 { break } } }(1)`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 
 	// 'f' in RHS at line 4 must reference global variable 'f'
 	// See https://github.com/d5/toy.issues/314
@@ -1835,12 +1835,12 @@ for x in [1, 2, 3] {
 func TestIf(t *testing.T) {
 
 	expectRun(t, `if (true) { out = 10 }`, nil, 10)
-	expectRun(t, `if (false) { out = 10 }`, nil, toy.Undefined)
+	expectRun(t, `if (false) { out = 10 }`, nil, toy.Nil)
 	expectRun(t, `if (false) { out = 10 } else { out = 20 }`, nil, 20)
 	expectRun(t, `if (1) { out = 10 }`, nil, 10)
 	expectRun(t, `if (0) { out = 10 } else { out = 20 }`, nil, 20)
 	expectRun(t, `if (1 < 2) { out = 10 }`, nil, 10)
-	expectRun(t, `if (1 > 2) { out = 10 }`, nil, toy.Undefined)
+	expectRun(t, `if (1 > 2) { out = 10 }`, nil, toy.Nil)
 	expectRun(t, `if (1 < 2) { out = 10 } else { out = 20 }`, nil, 10)
 	expectRun(t, `if (1 > 2) { out = 10 } else { out = 20 }`, nil, 20)
 
@@ -1980,7 +1980,7 @@ func TestImmutable(t *testing.T) {
 	expectRun(t, `a := immutable([1,2,3]); a = 5; out = a`,
 		nil, 5)
 	expectRun(t, `a := immutable([1, 2, 3]); out = a[5]`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 
 	// map
 	expectRunError(t, `a := immutable({b: 1, c: 2}); a.b = 5`,
@@ -2012,7 +2012,7 @@ func TestImmutable(t *testing.T) {
 	expectRun(t, `a := immutable({a:1,b:2}); a = 5; out = 5`,
 		nil, 5)
 	expectRun(t, `a := immutable({a:1,b:2}); out = a.c`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 
 	expectRun(t, `a := immutable({b: 5, c: "foo"}); out = a.b`,
 		nil, 5)
@@ -2053,7 +2053,7 @@ func (o StringDict) IndexGet(index toy.Object) (toy.Object, error) {
 			return toy.String(v), nil
 		}
 	}
-	return toy.Undefined, nil
+	return toy.Nil, nil
 }
 
 func (o StringDict) IndexSet(index, value toy.Object) error {
@@ -2160,14 +2160,14 @@ func (o StringArray) IndexGet(index toy.Object) (toy.Object, error) {
 		if idx >= 0 && idx < toy.Int(len(o)) {
 			return toy.String(o[idx]), nil
 		}
-		return toy.Undefined, nil
+		return toy.Nil, nil
 	case toy.String:
 		for i, s := range o {
 			if s == string(idx) {
 				return toy.Int(i), nil
 			}
 		}
-		return toy.Undefined, nil
+		return toy.Nil, nil
 	}
 	return nil, toy.ErrInvalidIndexType
 }
@@ -2202,7 +2202,7 @@ func (o StringArray) Call(_ *toy.VM, args ...toy.Object) (ret toy.Object, err er
 			return toy.Int(i), nil
 		}
 	}
-	return toy.Undefined, nil
+	return toy.Nil, nil
 }
 
 func (o StringArray) Iterate() toy.Iterator {
@@ -2242,7 +2242,7 @@ func TestIndexable(t *testing.T) {
 	expectRun(t, `out = dict["B"]`,
 		Opts().Symbol("dict", dict()).Skip2ndPass(), "bar")
 	expectRun(t, `out = dict["x"]`,
-		Opts().Symbol("dict", dict()).Skip2ndPass(), toy.Undefined)
+		Opts().Symbol("dict", dict()).Skip2ndPass(), toy.Nil)
 	expectRunError(t, `dict[0]`,
 		Opts().Symbol("dict", dict()).Skip2ndPass(), "invalid index type")
 
@@ -2270,7 +2270,7 @@ func TestIndexable(t *testing.T) {
 	expectRun(t, `out = arr["three"]`,
 		Opts().Symbol("arr", strArr()).Skip2ndPass(), 2)
 	expectRun(t, `out = arr["four"]`,
-		Opts().Symbol("arr", strArr()).Skip2ndPass(), toy.Undefined)
+		Opts().Symbol("arr", strArr()).Skip2ndPass(), toy.Nil)
 	expectRun(t, `out = arr[0]`,
 		Opts().Symbol("arr", strArr()).Skip2ndPass(), "one")
 	expectRun(t, `out = arr[1]`,
@@ -2424,9 +2424,9 @@ out = {
 	})
 
 	expectRun(t, `out = {foo: 5}["foo"]`, nil, 5)
-	expectRun(t, `out = {foo: 5}["bar"]`, nil, toy.Undefined)
+	expectRun(t, `out = {foo: 5}["bar"]`, nil, toy.Nil)
 	expectRun(t, `key := "foo"; out = {foo: 5}[key]`, nil, 5)
-	expectRun(t, `out = {}["foo"]`, nil, toy.Undefined)
+	expectRun(t, `out = {}["foo"]`, nil, toy.Nil)
 
 	expectRun(t, `
 m := {
@@ -2480,7 +2480,7 @@ func TestUserModules(t *testing.T) {
 	// export none
 	expectRun(t, `out = import("mod1")`,
 		Opts().Module("mod1", `f := fn() { return 5.0 }; a := 2`),
-		toy.Undefined)
+		toy.Nil)
 
 	// export values
 	expectRun(t, `out = import("mod1")`,
@@ -2625,21 +2625,21 @@ export fn(a) {
 
 	// module skipping export
 	expectRun(t, `out = import("mod0")`,
-		Opts().Module("mod0", ``), toy.Undefined)
+		Opts().Module("mod0", ``), toy.Nil)
 	expectRun(t, `out = import("mod0")`,
 		Opts().Module("mod0", `if 1 { export true }`), true)
 	expectRun(t, `out = import("mod0")`,
 		Opts().Module("mod0", `if 0 { export true }`),
-		toy.Undefined)
+		toy.Nil)
 	expectRun(t, `out = import("mod0")`,
 		Opts().Module("mod0", `if 1 { } else { export true }`),
-		toy.Undefined)
+		toy.Nil)
 	expectRun(t, `out = import("mod0")`,
 		Opts().Module("mod0", `for v:=0;;v++ { if v == 3 { export true } }`),
 		true)
 	expectRun(t, `out = import("mod0")`,
 		Opts().Module("mod0", `for v:=0;;v++ { if v == 3 { break } }`),
-		toy.Undefined)
+		toy.Nil)
 
 	// duplicate compiled functions
 	// NOTE: module "mod" has a function with some local variable, and it's
@@ -2757,11 +2757,11 @@ f()
 
 func testAllocsLimit(t *testing.T, src string, limit int64) {
 	expectRun(t, src,
-		Opts().Skip2ndPass(), toy.Undefined) // no limit
+		Opts().Skip2ndPass(), toy.Nil) // no limit
 	expectRun(t, src,
-		Opts().MaxAllocs(limit).Skip2ndPass(), toy.Undefined)
+		Opts().MaxAllocs(limit).Skip2ndPass(), toy.Nil)
 	expectRun(t, src,
-		Opts().MaxAllocs(limit+1).Skip2ndPass(), toy.Undefined)
+		Opts().MaxAllocs(limit+1).Skip2ndPass(), toy.Nil)
 	if limit > 1 {
 		expectRunError(t, src,
 			Opts().MaxAllocs(limit-1).Skip2ndPass(),
@@ -2899,7 +2899,7 @@ func TestSelector(t *testing.T) {
 	expectRun(t, `a := {k1: 5, k2: "foo"}; out = a.k2`,
 		nil, "foo")
 	expectRun(t, `a := {k1: 5, k2: "foo"}; out = a.k3`,
-		nil, toy.Undefined)
+		nil, toy.Nil)
 
 	expectRun(t, `
 a := {
@@ -2919,7 +2919,7 @@ a := {
 	},
 	c: "foo bar"
 }
-b := a.x.c`, nil, toy.Undefined)
+b := a.x.c`, nil, toy.Nil)
 
 	expectRun(t, `
 a := {
@@ -2929,7 +2929,7 @@ a := {
 	},
 	c: "foo bar"
 }
-b := a.x.y`, nil, toy.Undefined)
+b := a.x.y`, nil, toy.Nil)
 
 	expectRun(t, `a := {b: 1, c: "foo"}; a.b = 2; out = a.b`,
 		nil, 2)
@@ -3291,9 +3291,9 @@ func TestString(t *testing.T) {
 	}
 
 	expectRun(t, fmt.Sprintf("%s[%d]", strStr, -1),
-		nil, toy.Undefined)
+		nil, toy.Nil)
 	expectRun(t, fmt.Sprintf("%s[%d]", strStr, strLen),
-		nil, toy.Undefined)
+		nil, toy.Nil)
 
 	// slice operator
 	for low := 0; low <= strLen; low++ {

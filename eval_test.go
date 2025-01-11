@@ -8,7 +8,7 @@ import (
 )
 
 func TestEval(t *testing.T) {
-	expectEval(t, `undefined`, nil, toy.Undefined)
+	expectEval(t, `nil`, nil, toy.Nil)
 	expectEval(t, `1`, nil, toy.Int(1))
 	expectEval(t, `19 + 23`, nil, toy.Int(42))
 	expectEval(t, `"foo bar"`, nil, toy.String("foo bar"))

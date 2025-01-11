@@ -75,7 +75,7 @@ func objectToJSON(enc *jx.Encoder, o toy.Object) (err error) {
 	case toy.Bool:
 		enc.Bool(bool(x))
 		return nil
-	case toy.UndefinedType:
+	case toy.NilType:
 		enc.Null()
 		return nil
 	case toy.Mapping:
@@ -105,10 +105,10 @@ func jsonEncode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 
 	if err := objectToJSON(enc, x); err != nil {
-		return toy.NewError(err.Error()), nil
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
 	}
 
-	return toy.Bytes(enc.Bytes()), nil
+	return toy.Tuple{toy.Bytes(enc.Bytes()), toy.Nil}, nil
 }
 
 func jsonArrayToArray(dec *jx.Decoder) (*toy.Array, error) {
@@ -170,7 +170,7 @@ func jsonToObject(dec *jx.Decoder) (toy.Object, error) {
 		if err := dec.Null(); err != nil {
 			return nil, err
 		}
-		return toy.Undefined, nil
+		return toy.Nil, nil
 	case jx.Array:
 		return jsonArrayToArray(dec)
 	case jx.Object:
@@ -192,8 +192,8 @@ func jsonDecode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 
 	obj, err := jsonToObject(dec)
 	if err != nil {
-		return toy.NewError(err.Error()), err
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, err
 	}
 
-	return obj, nil
+	return toy.Tuple{obj, toy.Nil}, nil
 }

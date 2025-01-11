@@ -205,7 +205,7 @@ func Test_builtinDelete(t *testing.T) {
 		{
 			name: "nil-map-empty-key",
 			args: []Object{makeMap(), String("")},
-			want: Undefined,
+			want: Nil,
 		},
 		{
 			name: "nil-map-no-key",
@@ -218,7 +218,7 @@ func Test_builtinDelete(t *testing.T) {
 		{
 			name:   "map-missing-key",
 			args:   []Object{makeMap("key", "value"), String("key1")},
-			want:   Undefined,
+			want:   Nil,
 			target: makeMap("key", "value"),
 		},
 		{
@@ -475,25 +475,25 @@ func Test_builtinInsert(t *testing.T) {
 		{
 			name:   "array-prepend",
 			args:   []Object{makeArray(0, 1, 2), Int(0), String("b")},
-			want:   Undefined,
+			want:   Nil,
 			target: makeArray("b", 0, 1, 2),
 		},
 		{
 			name:   "array-insert-at-one",
 			args:   []Object{makeArray(0, 1, 2), Int(1), String("c"), String("d")},
-			want:   Undefined,
+			want:   Nil,
 			target: makeArray(0, "c", "d", 1, 2),
 		},
 		{
 			name:   "array-append",
 			args:   []Object{makeArray(0, 1, 2), Int(3), String("c"), String("d")},
-			want:   Undefined,
+			want:   Nil,
 			target: makeArray(0, 1, 2, "c", "d"),
 		},
 		{
 			name:   "map-insert",
 			args:   []Object{makeMap(), String("1"), Int(1)},
-			want:   Undefined,
+			want:   Nil,
 			target: makeMap("1", 1),
 		},
 		{
@@ -569,13 +569,13 @@ func Test_builtinClear(t *testing.T) {
 		{
 			name:   "map",
 			args:   []Object{makeMap("1", 1, "2", 2)},
-			want:   Undefined,
+			want:   Nil,
 			target: makeMap(),
 		},
 		{
 			name:   "map",
 			args:   []Object{makeArray(1, 2, 3)},
-			want:   Undefined,
+			want:   Nil,
 			target: makeArray(),
 		},
 		{

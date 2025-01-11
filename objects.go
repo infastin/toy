@@ -91,7 +91,7 @@ type IndexAccessible interface {
 	// error for indexable objects. Indexable is an object that can take an
 	// index and return an object. If error is returned, the runtime will treat
 	// it as a run-time error and ignore returned value.
-	// If nil is returned as value, it will be converted to Undefined value by the runtime.
+	// If nil is returned as value, it will be converted to NilType value by the runtime.
 	//
 	// Client code should not call this method.
 	// Instead, use the standalone IndexGet function.
@@ -269,7 +269,7 @@ func Equals(x, y Object) (bool, error) {
 // It will return an error if the objects can't be compared using the given operator.
 // or if the comparison has failed.
 //
-// Equality comparsion with UndefinedType is defined implicitly,
+// Equality comparsion with NilType is defined implicitly,
 // so types do not need to implement it themselves.
 //
 // Equality comparsion for two objects holding the same reference
@@ -283,7 +283,7 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 			return false, nil
 		}
 	}
-	if x == Undefined || y == Undefined {
+	if x == Nil || y == Nil {
 		switch op {
 		case token.Equal:
 			return false, nil
@@ -380,7 +380,7 @@ func IndexGet(x, index Object) (Object, error) {
 	if i, ok := index.(Int); ok {
 		if xi, ok := x.(Indexable); ok {
 			if i < 0 || int64(i) >= int64(xi.Len()) {
-				return Undefined, nil
+				return Nil, nil
 			}
 			return xi.At(int(i)), nil
 		}
@@ -615,15 +615,15 @@ func Entries(iterable Iterable) iter.Seq2[Object, Object] {
 	}
 }
 
-// UndefinedType represents an undefined value.
-type UndefinedType byte
+// NilType represents a nil value.
+type NilType byte
 
-const Undefined = UndefinedType(0)
+const Nil = NilType(0)
 
-func (o UndefinedType) TypeName() string { return "undefined" }
-func (o UndefinedType) String() string   { return "<undefined>" }
-func (o UndefinedType) IsFalsy() bool    { return true }
-func (o UndefinedType) Copy() Object     { return o }
+func (o NilType) TypeName() string { return "nil" }
+func (o NilType) String() string   { return "<nil>" }
+func (o NilType) IsFalsy() bool    { return true }
+func (o NilType) Copy() Object     { return o }
 
 // Bool represents a boolean value.
 type Bool bool
@@ -928,7 +928,7 @@ func (o String) At(idx int) Object {
 			return Char(r)
 		}
 	}
-	return Undefined // should not happend
+	return Nil // should not happend
 }
 
 func (o String) Slice(low, high int) Object {
@@ -989,22 +989,6 @@ func (o String) BinaryOp(op token.Token, other Object, right bool) (Object, erro
 		}
 	}
 	return nil, ErrInvalidOperator
-}
-
-func (o String) IndexGet(index Object) (res Object, err error) {
-	intIdx, ok := index.(Int)
-	if !ok {
-		return nil, ErrInvalidIndexType
-	}
-	if intIdx < 0 {
-		return Undefined, nil
-	}
-	for i, r := range o {
-		if int64(i) == int64(intIdx) {
-			return Char(r), nil
-		}
-	}
-	return Undefined, nil
 }
 
 func (o String) Iterate() Iterator { return &stringIterator{s: []rune(o), i: 0} }
@@ -1094,17 +1078,6 @@ func (o Bytes) BinaryOp(op token.Token, other Object, right bool) (Object, error
 		}
 	}
 	return nil, ErrInvalidOperator
-}
-
-func (o Bytes) IndexGet(index Object) (res Object, err error) {
-	intIdx, ok := index.(Int)
-	if !ok {
-		return nil, ErrInvalidIndexType
-	}
-	if intIdx < 0 || int64(intIdx) >= int64(len(o)) {
-		return Undefined, nil
-	}
-	return Int(o[intIdx]), nil
 }
 
 func (o Bytes) Iterate() Iterator { return &bytesIterator{b: o, i: 0} }
@@ -1372,7 +1345,7 @@ func (o *Array) IndexGet(index Object) (res Object, err error) {
 		return nil, ErrInvalidIndexType
 	}
 	if intIdx < 0 || int64(intIdx) >= int64(len(o.elems)) {
-		return Undefined, nil
+		return Nil, nil
 	}
 	return o.elems[intIdx], nil
 }
@@ -1668,17 +1641,6 @@ func (o Tuple) BinaryOp(op token.Token, other Object, right bool) (Object, error
 	return nil, ErrInvalidOperator
 }
 
-func (o Tuple) IndexGet(index Object) (res Object, err error) {
-	intIdx, ok := index.(Int)
-	if !ok {
-		return nil, ErrInvalidIndexType
-	}
-	if intIdx < 0 || int64(intIdx) >= int64(len(o)) {
-		return Undefined, nil
-	}
-	return o[intIdx], nil
-}
-
 func (o Tuple) Iterate() Iterator { return &tupleIterator{t: o, i: 0} }
 
 func (o Tuple) Elements() iter.Seq[Object] {
@@ -1750,7 +1712,7 @@ func (o *Error) String() string {
 		b.WriteString(": ")
 		b.WriteString(o.cause.String())
 	}
-	return b.String()
+	return fmt.Sprintf("error(%q)", b.String())
 }
 
 func (o *Error) IsFalsy() bool { return true }
@@ -1797,7 +1759,7 @@ func (o *Error) FieldGet(name string) (res Object, err error) {
 		if o.cause != nil {
 			return o.cause, nil
 		}
-		return Undefined, nil
+		return Nil, nil
 	}
 	return nil, ErrNoSuchField
 }

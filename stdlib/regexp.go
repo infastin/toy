@@ -176,7 +176,7 @@ func regexpFindStringSubmatch(r *regexp.Regexp, s string, n *int) (toy.Object, e
 	if n != nil {
 		matches := r.FindAllStringSubmatchIndex(s, *n)
 		if matches == nil {
-			return toy.Undefined, nil
+			return toy.Nil, nil
 		}
 		results := make([]toy.Object, 0, len(matches))
 		for _, match := range matches {
@@ -195,7 +195,7 @@ func regexpFindStringSubmatch(r *regexp.Regexp, s string, n *int) (toy.Object, e
 	}
 	matches := r.FindStringSubmatchIndex(s)
 	if matches == nil {
-		return toy.Undefined, nil
+		return toy.Nil, nil
 	}
 	results := make([]toy.Object, 0, len(matches)/2)
 	for i := 0; i < len(matches); i += 2 {

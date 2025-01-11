@@ -28,8 +28,8 @@ func newCompiler() *compiler {
 	s := new(compiler)
 
 	replPrintFunc := func(_ *toy.VM, args ...toy.Object) (ret toy.Object, err error) {
-		if len(args) == 1 && args[0] == toy.Undefined {
-			return toy.Undefined, nil
+		if len(args) == 1 && args[0] == toy.Nil {
+			return toy.Nil, nil
 		}
 		var b strings.Builder
 		for i, arg := range args {
@@ -41,7 +41,7 @@ func newCompiler() *compiler {
 		if b.Len() != 0 {
 			s.output = append(s.output, b.String())
 		}
-		return toy.Undefined, nil
+		return toy.Nil, nil
 	}
 
 	printFunc := func(_ *toy.VM, args ...toy.Object) (ret toy.Object, err error) {
@@ -56,7 +56,7 @@ func newCompiler() *compiler {
 		if b.Len() != 0 {
 			s.output = append(s.output, b.String())
 		}
-		return toy.Undefined, nil
+		return toy.Nil, nil
 	}
 
 	toy.BuiltinFuncs = append(toy.BuiltinFuncs,

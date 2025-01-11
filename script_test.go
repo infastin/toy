@@ -345,7 +345,7 @@ func TestCompiled_Get(t *testing.T) {
 	// user-defined variables
 	compileError(t, `a := b`, nil)            // compile error because "b" is not defined
 	c = compile(t, `a := b`, MAP{"b": "foo"}) // now compile with b = "foo" defined
-	compiledGet(t, c, "a", nil)               // a = undefined; because it's before Compiled.Run()
+	compiledGet(t, c, "a", nil)               // a = nil; because it's before Compiled.Run()
 	compiledRun(t, c)                         // Compiled.Run()
 	compiledGet(t, c, "a", "foo")             // a = "foo"
 }

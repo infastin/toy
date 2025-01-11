@@ -23,7 +23,7 @@ func osEnvClear(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	os.Clearenv()
-	return toy.Undefined, nil
+	return toy.Nil, nil
 }
 
 func osEnvLookup(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
@@ -33,7 +33,7 @@ func osEnvLookup(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	value, ok := os.LookupEnv(key)
 	if !ok {
-		return toy.Undefined, nil
+		return toy.Nil, nil
 	}
 	return toy.String(value), nil
 }

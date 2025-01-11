@@ -180,9 +180,9 @@ func timeTimeInLocation(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	loc, err := time.LoadLocation(location)
 	if err != nil {
-		return toy.NewError(err.Error()), nil
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
 	}
-	return Time(time.Time(recv).In(loc)), nil
+	return toy.Tuple{Time(time.Time(recv).In(loc)), toy.Nil}, nil
 }
 
 func timeTimeRound(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
@@ -219,19 +219,19 @@ func timeParse(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if location == "UTC" {
 		t, err := time.Parse(layout, x)
 		if err != nil {
-			return toy.NewError(err.Error()), nil
+			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
 		}
 		return Time(t), nil
 	}
 	loc, err := time.LoadLocation(location)
 	if err != nil {
-		return toy.NewError(err.Error()), nil
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
 	}
 	t, err := time.ParseInLocation(layout, x, loc)
 	if err != nil {
-		return toy.NewError(err.Error()), nil
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
 	}
-	return Time(t), nil
+	return toy.Tuple{Time(t), toy.Nil}, nil
 }
 
 func timeNow(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
@@ -260,9 +260,9 @@ func timeDate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	loc, err := time.LoadLocation(location)
 	if err != nil {
-		return toy.NewError(err.Error()), nil
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
 	}
-	return Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, loc)), nil
+	return toy.Tuple{Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, loc)), toy.Nil}, nil
 }
 
 type Duration time.Duration
@@ -404,9 +404,9 @@ func timeParseDuration(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	d, err := time.ParseDuration(x)
 	if err != nil {
-		return toy.NewError(err.Error()), nil
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
 	}
-	return Duration(d), nil
+	return toy.Tuple{Duration(d), toy.Nil}, nil
 }
 
 func timeSince(_ *toy.VM, args ...toy.Object) (toy.Object, error) {

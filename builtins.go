@@ -1,6 +1,7 @@
 package toy
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -23,6 +24,7 @@ var (
 		{Name: "range", Func: builtinRange},
 
 		{Name: "error", Func: builtinError},
+		{Name: "fail", Func: builtinFail},
 
 		{Name: "min", Func: builtinMin},
 		{Name: "max", Func: builtinMax},
@@ -388,6 +390,26 @@ func builtinError(_ *VM, args ...Object) (_ Object, err error) {
 		s = format
 	}
 	return &Error{message: s, cause: cause}, nil
+}
+
+func builtinFail(v *VM, args ...Object) (Object, error) {
+	var (
+		format string
+		rest   []Object
+	)
+	if err := UnpackArgs(args, "format", &format, "...", &rest); err != nil {
+		return nil, err
+	}
+	if len(rest) == 0 {
+		v.err = errors.New(format)
+		return nil, nil
+	}
+	s, err := Format(string(format), rest...)
+	if err != nil {
+		return nil, err
+	}
+	v.err = errors.New(s)
+	return nil, nil
 }
 
 func builtinMin(_ *VM, args ...Object) (Object, error) {

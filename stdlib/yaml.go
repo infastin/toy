@@ -177,7 +177,7 @@ func objectToYAML(o toy.Object) (*yaml.Node, error) {
 	}
 }
 
-func yamlEncode(args ...toy.Object) (toy.Object, error) {
+func yamlEncode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		x      toy.Object
 		indent = 2
@@ -264,7 +264,7 @@ func yamlToObject(node *yaml.Node) (toy.Object, error) {
 	return nil, fmt.Errorf("value with kind %d can't be decoded", node.Kind)
 }
 
-func yamlDecode(args ...toy.Object) (toy.Object, error) {
+func yamlDecode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var data toy.StringOrBytes
 	if err := toy.UnpackArgs(args, "data", &data); err != nil {
 		return nil, err

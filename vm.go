@@ -24,6 +24,7 @@ type frame struct {
 	ip          int
 	basePointer int
 	deferred    []*deferredCall
+	term        bool // if true, returning to this frame will stop vm
 }
 
 // VM is a virtual machine that executes the bytecode compiled by Compiler.
@@ -387,92 +388,35 @@ func (v *VM) run() {
 				return
 			}
 
+			args := make([]Object, 0, numArgs)
 			if splat == 1 {
-				var newArgs []Object
 				for i := v.sp - numArgs; i < v.sp; i++ {
 					switch arg := v.stack[i].(type) {
 					case *splatSequence:
-						newArgs = append(newArgs, arg.s.Items()...)
+						args = append(args, arg.s.Items()...)
 					default:
-						newArgs = append(newArgs, arg)
+						args = append(args, arg)
 					}
 				}
-				copy(v.stack[v.sp-numArgs:], newArgs)
-				v.sp += len(newArgs) - numArgs
-				numArgs = len(newArgs)
+			} else {
+				args = append(args, v.stack[v.sp-numArgs:v.sp]...)
 			}
+			v.sp -= numArgs + 1
 
 			if callee, ok := callable.(*CompiledFunction); ok {
-				if callee.varArgs {
-					// if the closure is variadic,
-					// roll up all variadic parameters into an array
-					numRealArgs := callee.numParameters - 1
-					numVarArgs := numArgs - numRealArgs
-					if numVarArgs >= 0 {
-						numArgs = numRealArgs + 1
-						spStart := v.sp - numVarArgs
-						varArgs := slices.Clone(v.stack[spStart:])
-						v.stack[spStart] = NewArray(varArgs)
-						v.sp = spStart + 1
-					}
-				}
-
-				if numArgs != callee.numParameters {
-					if callee.varArgs {
-						v.err = &WrongNumArgumentsError{
-							WantMin: callee.numParameters - 1,
-							Got:     numArgs,
-						}
-					} else {
-						v.err = &WrongNumArgumentsError{
-							WantMin: callee.numParameters,
-							WantMax: callee.numParameters,
-							Got:     numArgs,
-						}
-					}
-					return
-				}
-
-				// test if it's tail-call
-				if callee == v.curFrame.fn { // recursion
-					nextOp := v.curInsts[v.ip+1]
-					if nextOp == parser.OpReturn ||
-						(nextOp == parser.OpPop && parser.OpReturn == v.curInsts[v.ip+2]) {
-						for p := 0; p < numArgs; p++ {
-							v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
-						}
-						v.sp -= numArgs + 1
-						v.ip = -1 // reset IP to beginning of the frame
-						continue
-					}
-				}
-				if v.framesIndex >= MaxFrames {
-					v.err = ErrStackOverflow
-					return
-				}
-
-				// update call frame
-				v.curFrame.ip = v.ip // store current ip before call
-				v.curFrame = &(v.frames[v.framesIndex])
-				v.curFrame.fn = callee
-				v.curFrame.freeVars = callee.free
-				v.curFrame.basePointer = v.sp - numArgs
-				v.curInsts = callee.instructions
-				v.ip = -1
-				v.framesIndex++
-				v.sp = v.sp - numArgs + callee.numLocals
+				callee.Call(v, args...)
 			} else {
-				var args []Object
-				args = append(args, v.stack[v.sp-numArgs:v.sp]...)
-				ret, err := callable.Call(args...)
-				v.sp -= numArgs + 1
-
-				// runtime error
+				v.curFrame.term = true
+				ret, err := callable.Call(v, args...)
 				if err != nil {
 					v.err = fmt.Errorf("error during call to '%s': %w",
 						callable.TypeName(), err)
 					return
 				}
+				if v.err != nil {
+					return
+				}
+				v.curFrame.term = false
 
 				// nil return -> undefined
 				if ret == nil {
@@ -490,16 +434,16 @@ func (v *VM) run() {
 			} else {
 				retVal = Undefined
 			}
-			// v.sp--
 			v.framesIndex--
 			v.curFrame = &v.frames[v.framesIndex-1]
 			v.curInsts = v.curFrame.fn.instructions
 			v.ip = v.curFrame.ip
-			// v.sp = lastFrame.basePointer - 1
 			v.sp = v.frames[v.framesIndex].basePointer
-			// skip stack overflow check because (newSP) <= (oldSP)
-			v.stack[v.sp-1] = retVal
-			// v.sp++
+			v.stack[v.sp] = retVal
+			v.sp++
+			if v.curFrame.term {
+				return
+			}
 		case parser.OpSaveDefer:
 			numArgs := int(v.curInsts[v.ip+1])
 			splat := int(v.curInsts[v.ip+2])

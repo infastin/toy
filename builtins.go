@@ -71,7 +71,7 @@ var (
 	}
 )
 
-func builtinTypeName(args ...Object) (Object, error) {
+func builtinTypeName(_ *VM, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -82,7 +82,7 @@ func builtinTypeName(args ...Object) (Object, error) {
 	return String(args[0].TypeName()), nil
 }
 
-func builtinCopy(args ...Object) (Object, error) {
+func builtinCopy(_ *VM, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -93,7 +93,7 @@ func builtinCopy(args ...Object) (Object, error) {
 	return args[0].Copy(), nil
 }
 
-func builtinLen(args ...Object) (Object, error) {
+func builtinLen(_ *VM, args ...Object) (Object, error) {
 	var value Sized
 	if err := UnpackArgs(args, "value", &value); err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func builtinLen(args ...Object) (Object, error) {
 	return Int(value.Len()), nil
 }
 
-func builtinAppend(args ...Object) (Object, error) {
+func builtinAppend(_ *VM, args ...Object) (Object, error) {
 	var (
 		arr  *Array
 		rest []Object
@@ -116,7 +116,7 @@ func builtinAppend(args ...Object) (Object, error) {
 	}, nil
 }
 
-func builtinDelete(args ...Object) (Object, error) {
+func builtinDelete(_ *VM, args ...Object) (Object, error) {
 	if len(args) < 2 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 2,
@@ -185,7 +185,7 @@ func builtinDelete(args ...Object) (Object, error) {
 	}
 }
 
-func builtinSplice(args ...Object) (Object, error) {
+func builtinSplice(_ *VM, args ...Object) (Object, error) {
 	var (
 		arr         *Array
 		start, stop int
@@ -231,7 +231,7 @@ func builtinSplice(args ...Object) (Object, error) {
 	return NewArray(deleted), nil
 }
 
-func builtinInsert(args ...Object) (Object, error) {
+func builtinInsert(_ *VM, args ...Object) (Object, error) {
 	if len(args) < 2 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 2,
@@ -281,7 +281,7 @@ func builtinInsert(args ...Object) (Object, error) {
 	}
 }
 
-func builtinClear(args ...Object) (Object, error) {
+func builtinClear(_ *VM, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -308,7 +308,7 @@ func builtinClear(args ...Object) (Object, error) {
 	return Undefined, nil
 }
 
-func builtinFormat(args ...Object) (Object, error) {
+func builtinFormat(_ *VM, args ...Object) (Object, error) {
 	var (
 		format string
 		rest   []Object
@@ -326,7 +326,7 @@ func builtinFormat(args ...Object) (Object, error) {
 	return String(s), nil
 }
 
-func builtinRange(args ...Object) (Object, error) {
+func builtinRange(_ *VM, args ...Object) (Object, error) {
 	var (
 		start, stop int
 		step        = 1
@@ -356,7 +356,7 @@ func builtinRange(args ...Object) (Object, error) {
 	return NewArray(elems), nil
 }
 
-func builtinError(args ...Object) (_ Object, err error) {
+func builtinError(_ *VM, args ...Object) (_ Object, err error) {
 	if len(args) < 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -390,7 +390,7 @@ func builtinError(args ...Object) (_ Object, err error) {
 	return &Error{message: s, cause: cause}, nil
 }
 
-func builtinMin(args ...Object) (Object, error) {
+func builtinMin(_ *VM, args ...Object) (Object, error) {
 	if len(args) < 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -401,8 +401,7 @@ func builtinMin(args ...Object) (Object, error) {
 	for _, arg := range args[1:] {
 		less, err := Compare(token.Less, arg, min)
 		if err != nil {
-			return nil, fmt.Errorf("operation '%s < %s' has failed: %w",
-				arg.TypeName(), min.TypeName(), err)
+			return nil, err
 		}
 		if less {
 			min = arg
@@ -411,7 +410,7 @@ func builtinMin(args ...Object) (Object, error) {
 	return min, nil
 }
 
-func builtinMax(args ...Object) (Object, error) {
+func builtinMax(_ *VM, args ...Object) (Object, error) {
 	if len(args) < 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -422,8 +421,7 @@ func builtinMax(args ...Object) (Object, error) {
 	for _, arg := range args[1:] {
 		greater, err := Compare(token.Greater, arg, max)
 		if err != nil {
-			return nil, fmt.Errorf("operation '%s > %s' has failed: %w",
-				arg.TypeName(), max.TypeName(), err)
+			return nil, err
 		}
 		if greater {
 			max = arg
@@ -432,7 +430,7 @@ func builtinMax(args ...Object) (Object, error) {
 	return max, nil
 }
 
-func builtinConvert[T Object](args ...Object) (Object, error) {
+func builtinConvert[T Object](_ *VM, args ...Object) (Object, error) {
 	argsLen := len(args)
 	if argsLen == 0 || argsLen > 2 {
 		return nil, &WrongNumArgumentsError{
@@ -441,9 +439,9 @@ func builtinConvert[T Object](args ...Object) (Object, error) {
 			Got:     len(args),
 		}
 	}
-	var v T
-	if err := Convert(&v, args[0]); err == nil {
-		return v, nil
+	var o T
+	if err := Convert(&o, args[0]); err == nil {
+		return o, nil
 	}
 	if argsLen == 2 {
 		return args[1], nil
@@ -451,7 +449,7 @@ func builtinConvert[T Object](args ...Object) (Object, error) {
 	return Undefined, nil
 }
 
-func builtinIs[T Object](args ...Object) (Object, error) {
+func builtinIs[T Object](_ *VM, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -463,7 +461,7 @@ func builtinIs[T Object](args ...Object) (Object, error) {
 	return Bool(ok), nil
 }
 
-func builtinIsFunction(args ...Object) (Object, error) {
+func builtinIsFunction(_ *VM, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -478,7 +476,7 @@ func builtinIsFunction(args ...Object) (Object, error) {
 	return Bool(false), nil
 }
 
-func builtinIsImmutable(args ...Object) (Object, error) {
+func builtinIsImmutable(_ *VM, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,

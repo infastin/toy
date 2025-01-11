@@ -21,7 +21,7 @@ var Base64Module = &toy.BuiltinModule{
 }
 
 func makeBase64Encode(enc *base64.Encoding) toy.CallableFunc {
-	return func(args ...toy.Object) (toy.Object, error) {
+	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var data toy.StringOrBytes
 		if err := toy.UnpackArgs(args, "data", &data); err != nil {
 			return nil, err
@@ -31,7 +31,7 @@ func makeBase64Encode(enc *base64.Encoding) toy.CallableFunc {
 }
 
 func makeBase64Decode(enc *base64.Encoding) toy.CallableFunc {
-	return func(args ...toy.Object) (toy.Object, error) {
+	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var data toy.String
 		if err := toy.UnpackArgs(args, "data", &data); err != nil {
 			return nil, err

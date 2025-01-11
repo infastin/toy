@@ -17,7 +17,7 @@ var FmtModule = &toy.BuiltinModule{
 	},
 }
 
-func fmtPrint(args ...toy.Object) (toy.Object, error) {
+func fmtPrint(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var b strings.Builder
 	for _, arg := range args {
 		var s toy.String
@@ -32,7 +32,7 @@ func fmtPrint(args ...toy.Object) (toy.Object, error) {
 	return toy.Undefined, nil
 }
 
-func fmtPrintln(args ...toy.Object) (toy.Object, error) {
+func fmtPrintln(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var b strings.Builder
 	for _, arg := range args {
 		var s toy.String
@@ -46,7 +46,7 @@ func fmtPrintln(args ...toy.Object) (toy.Object, error) {
 	return toy.Undefined, nil
 }
 
-func fmtPrintf(args ...toy.Object) (toy.Object, error) {
+func fmtPrintf(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		format string
 		rest   []toy.Object
@@ -64,7 +64,7 @@ func fmtPrintf(args ...toy.Object) (toy.Object, error) {
 	return toy.Undefined, nil
 }
 
-func fmtPrintfn(args ...toy.Object) (toy.Object, error) {
+func fmtPrintfn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		format string
 		rest   []toy.Object

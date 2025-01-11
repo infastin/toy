@@ -27,7 +27,7 @@ type compiler struct {
 func newCompiler() *compiler {
 	s := new(compiler)
 
-	replPrintFunc := func(args ...toy.Object) (ret toy.Object, err error) {
+	replPrintFunc := func(_ *toy.VM, args ...toy.Object) (ret toy.Object, err error) {
 		if len(args) == 1 && args[0] == toy.Undefined {
 			return toy.Undefined, nil
 		}
@@ -44,7 +44,7 @@ func newCompiler() *compiler {
 		return toy.Undefined, nil
 	}
 
-	printFunc := func(args ...toy.Object) (ret toy.Object, err error) {
+	printFunc := func(_ *toy.VM, args ...toy.Object) (ret toy.Object, err error) {
 		var b strings.Builder
 		for _, arg := range args {
 			var s toy.String

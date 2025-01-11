@@ -87,7 +87,7 @@ func objectToJSON(enc *jx.Encoder, o toy.Object) (err error) {
 	}
 }
 
-func jsonEncode(args ...toy.Object) (toy.Object, error) {
+func jsonEncode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		x      toy.Object
 		indent *int
@@ -179,7 +179,7 @@ func jsonToObject(dec *jx.Decoder) (toy.Object, error) {
 	return nil, dec.Skip()
 }
 
-func jsonDecode(args ...toy.Object) (toy.Object, error) {
+func jsonDecode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var data toy.StringOrBytes
 	if err := toy.UnpackArgs(args, "data", &data); err != nil {
 		return nil, err

@@ -2,6 +2,7 @@ package stdlib
 
 import (
 	"fmt"
+	"os"
 	"path"
 
 	"github.com/infastin/toy"
@@ -10,6 +11,9 @@ import (
 var PathModule = &toy.BuiltinModule{
 	Name: "path",
 	Members: map[string]toy.Object{
+		"separator":     toy.Char(os.PathSeparator),
+		"listSeparator": toy.Char(os.PathListSeparator),
+
 		"join":  &toy.BuiltinFunction{Name: "join", Func: pathJoin},
 		"base":  &toy.BuiltinFunction{Name: "base", Func: makeASRS("path", path.Base)},
 		"dir":   &toy.BuiltinFunction{Name: "dir", Func: makeASRS("path", path.Dir)},
@@ -19,7 +23,7 @@ var PathModule = &toy.BuiltinModule{
 	},
 }
 
-func pathJoin(args ...toy.Object) (toy.Object, error) {
+func pathJoin(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var elems []string
 	for i, arg := range args {
 		str, ok := arg.(toy.String)
@@ -35,7 +39,7 @@ func pathJoin(args ...toy.Object) (toy.Object, error) {
 	return toy.String(path.Join(elems...)), nil
 }
 
-func pathSplit(args ...toy.Object) (toy.Object, error) {
+func pathSplit(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "path", &s); err != nil {
 		return nil, err

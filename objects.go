@@ -176,7 +176,7 @@ type Callable interface {
 	// Call should take an arbitrary number of arguments and return a return
 	// value and/or an error, which the VM will consider as a run-time error.
 	// If multiple values are to be returned, Call should return Tuple.
-	Call(args ...Object) (Object, error)
+	Call(v *VM, args ...Object) (Object, error)
 }
 
 // Iterable represents an object that can be iterated.
@@ -557,12 +557,12 @@ func Convert[T Object](p *T, o Object) (err error) {
 // Call calls a Callable object.
 // Returns an error if the object can't be called
 // or if the call returned an error.
-func Call(vm *VM, fn Object, args ...Object) (Object, error) {
+func Call(v *VM, fn Object, args ...Object) (Object, error) {
 	callable, ok := fn.(Callable)
 	if !ok {
 		return nil, fmt.Errorf("'%s' is not callable", fn.TypeName())
 	}
-	ret, err := callable.Call(args...)
+	ret, err := callable.Call(v, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error during call to '%s': %w",
 			callable.TypeName(), err)

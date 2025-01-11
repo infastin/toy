@@ -42,7 +42,7 @@ var TextModule = &toy.BuiltinModule{
 	},
 }
 
-func textContains(args ...toy.Object) (toy.Object, error) {
+func textContains(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 2 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 2,
@@ -72,7 +72,7 @@ func textContains(args ...toy.Object) (toy.Object, error) {
 	}
 }
 
-func textToTitle(args ...toy.Object) (toy.Object, error) {
+func textToTitle(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func textToTitle(args ...toy.Object) (toy.Object, error) {
 	return toy.String(caser.String(s)), nil
 }
 
-func textJoin(args ...toy.Object) (toy.Object, error) {
+func textJoin(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		elems toy.Sequence
 		sep   string
@@ -100,7 +100,7 @@ func textJoin(args ...toy.Object) (toy.Object, error) {
 	return toy.String(strings.Join(strs, sep)), nil
 }
 
-func textSplit(args ...toy.Object) (toy.Object, error) {
+func textSplit(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		s, sep string
 		n      *int
@@ -125,7 +125,7 @@ func textSplit(args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func textSplitAfter(args ...toy.Object) (toy.Object, error) {
+func textSplitAfter(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		s, sep string
 		n      *int
@@ -150,7 +150,7 @@ func textSplitAfter(args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func textFields(args ...toy.Object) (toy.Object, error) {
+func textFields(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
@@ -162,7 +162,7 @@ func textFields(args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func textReplace(args ...toy.Object) (toy.Object, error) {
+func textReplace(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		s, old, new string
 		n           *int
@@ -177,7 +177,7 @@ func textReplace(args ...toy.Object) (toy.Object, error) {
 	}
 }
 
-func textCut(args ...toy.Object) (toy.Object, error) {
+func textCut(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s, sep string
 	if err := toy.UnpackArgs(args, "s", &s, "sep", &sep); err != nil {
 		return nil, err
@@ -186,7 +186,7 @@ func textCut(args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.String(before), toy.String(after), toy.Bool(found)}, nil
 }
 
-func textCutPrefix(args ...toy.Object) (toy.Object, error) {
+func textCutPrefix(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s, prefix string
 	if err := toy.UnpackArgs(args, "s", &s, "prefix", &prefix); err != nil {
 		return nil, err
@@ -195,7 +195,7 @@ func textCutPrefix(args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.String(after), toy.Bool(found)}, nil
 }
 
-func textCutSuffix(args ...toy.Object) (toy.Object, error) {
+func textCutSuffix(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s, suffix string
 	if err := toy.UnpackArgs(args, "s", &s, "suffix", &suffix); err != nil {
 		return nil, err
@@ -204,7 +204,7 @@ func textCutSuffix(args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.String(after), toy.Bool(found)}, nil
 }
 
-func textIndex(args ...toy.Object) (toy.Object, error) {
+func textIndex(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 2 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 2,
@@ -239,7 +239,7 @@ func textIndex(args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func textIndexAny(args ...toy.Object) (toy.Object, error) {
+func textIndexAny(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s, chars string
 	if err := toy.UnpackArgs(args, "s", &s, "chars", &chars); err != nil {
 		return nil, err
@@ -251,7 +251,7 @@ func textIndexAny(args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func textLastIndex(args ...toy.Object) (toy.Object, error) {
+func textLastIndex(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 2 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 2,
@@ -286,7 +286,7 @@ func textLastIndex(args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func textLastIndexAny(args ...toy.Object) (toy.Object, error) {
+func textLastIndexAny(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s, chars string
 	if err := toy.UnpackArgs(args, "s", &s, "chars", &chars); err != nil {
 		return nil, err

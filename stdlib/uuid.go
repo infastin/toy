@@ -54,7 +54,7 @@ func (u UUID) Convert(p any) error {
 	return nil
 }
 
-func uuidV4(args ...toy.Object) (toy.Object, error) {
+func uuidV4(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
@@ -65,7 +65,7 @@ func uuidV4(args ...toy.Object) (toy.Object, error) {
 	return UUID(u), nil
 }
 
-func uuidV7(args ...toy.Object) (toy.Object, error) {
+func uuidV7(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
@@ -76,7 +76,7 @@ func uuidV7(args ...toy.Object) (toy.Object, error) {
 	return UUID(u), nil
 }
 
-func uuidParse(args ...toy.Object) (toy.Object, error) {
+func uuidParse(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func uuidParse(args ...toy.Object) (toy.Object, error) {
 	return UUID(u), nil
 }
 
-func uuidFromBytes(args ...toy.Object) (toy.Object, error) {
+func uuidFromBytes(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var data toy.Bytes
 	if err := toy.UnpackArgs(args, "data", &data); err != nil {
 		return nil, err

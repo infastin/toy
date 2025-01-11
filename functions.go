@@ -29,11 +29,11 @@ func (o *BuiltinFunction) Copy() Object {
 	}
 }
 
-func (o *BuiltinFunction) Call(args ...Object) (Object, error) {
+func (o *BuiltinFunction) Call(v *VM, args ...Object) (Object, error) {
 	if o.Receiver != nil {
 		args = append([]Object{o.Receiver}, args...)
 	}
-	return o.Func(args...)
+	return o.Func(v, args...)
 }
 
 func (o *BuiltinFunction) WithReceiver(recv Object) *BuiltinFunction {
@@ -76,7 +76,75 @@ func (o *CompiledFunction) Copy() Object {
 	}
 }
 
-func (o *CompiledFunction) Call(args ...Object) (Object, error) { return nil, nil }
+func (o *CompiledFunction) Call(v *VM, args ...Object) (Object, error) {
+	numArgs := len(args)
+
+	if o.varArgs {
+		// if the closure is variadic,
+		// roll up all variadic parameters into an array
+		numRealArgs := o.numParameters - 1
+		numVarArgs := numArgs - numRealArgs
+		if numVarArgs >= 0 {
+			varArgs := slices.Clone(args[numRealArgs:])
+			args = append(args[:numRealArgs], NewArray(varArgs))
+			numArgs = numRealArgs + 1
+		}
+	}
+
+	if numArgs != o.numParameters {
+		if o.varArgs {
+			return nil, &WrongNumArgumentsError{
+				WantMin: o.numParameters - 1,
+				Got:     numArgs,
+			}
+		}
+		return nil, &WrongNumArgumentsError{
+			WantMin: o.numParameters,
+			WantMax: o.numParameters,
+			Got:     numArgs,
+		}
+	}
+
+	// test if it's tail-call
+	if o == v.curFrame.fn { // recursion
+		nextOp := v.curInsts[v.ip+1]
+		if nextOp == parser.OpReturn ||
+			(nextOp == parser.OpPop && parser.OpReturn == v.curInsts[v.ip+2]) {
+			copy(v.stack[v.curFrame.basePointer:], args)
+			v.ip = -1 // reset IP to beginning of the frame
+			return nil, nil
+		}
+	}
+	if v.framesIndex >= MaxFrames {
+		return nil, ErrStackOverflow
+	}
+
+	frame := v.curFrame
+
+	// update call frame
+	v.curFrame.ip = v.ip // store current ip before call
+	v.curFrame = &(v.frames[v.framesIndex])
+	v.curFrame.fn = o
+	v.curFrame.freeVars = o.free
+	v.curFrame.basePointer = v.sp
+	v.curInsts = o.instructions
+	v.ip = -1
+	v.framesIndex++
+	copy(v.stack[v.sp:], args)
+	v.sp = v.sp + o.numLocals
+
+	if frame.term {
+		v.run()
+		if v.err != nil {
+			return nil, nil
+		}
+		ret := v.stack[v.sp-1]
+		v.sp--
+		return ret, nil
+	}
+
+	return nil, nil
+}
 
 // sourcePos returns the source position of the instruction at ip.
 func (o *CompiledFunction) sourcePos(ip int) parser.Pos {

@@ -17,4 +17,4 @@ const (
 )
 
 // CallableFunc is a function signature for the callable functions.
-type CallableFunc = func(args ...Object) (Object, error)
+type CallableFunc = func(v *VM, args ...Object) (Object, error)

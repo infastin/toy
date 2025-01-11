@@ -84,7 +84,7 @@ var MathModule = &toy.BuiltinModule{
 	},
 }
 
-func mathIsInf(args ...toy.Object) (toy.Object, error) {
+func mathIsInf(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var f float64
 	if err := toy.UnpackArgs(args, "f", &f); err != nil {
 		return nil, err
@@ -92,8 +92,7 @@ func mathIsInf(args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(math.IsInf(f, 1)), nil
 }
 
-func mathIsNegInf(args ...toy.Object) (toy.Object, error) {
-
+func mathIsNegInf(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var f float64
 	if err := toy.UnpackArgs(args, "f", &f); err != nil {
 		return nil, err

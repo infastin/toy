@@ -87,7 +87,7 @@ func Test_builtinLen(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinLen(tt.args...)
+			got, err := builtinLen(nil, tt.args...)
 			if tt.wantErr != nil || err != nil {
 				expectNotNil(t, err, "builtinLen: expected an error")
 				expectNotNil(t, tt.wantErr, "builtinLen: encountered unexpected error")
@@ -144,7 +144,7 @@ func Test_builtinAppend(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinAppend(tt.args...)
+			got, err := builtinAppend(nil, tt.args...)
 			if tt.wantErr != nil || err != nil {
 				expectNotNil(t, err, "builtinAppend: expected an error")
 				expectNotNil(t, tt.wantErr, "builtinAppend: encountered unexpected error")
@@ -300,7 +300,7 @@ func Test_builtinDelete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinDelete(tt.args...)
+			got, err := builtinDelete(nil, tt.args...)
 			if tt.wantErr != nil || err != nil {
 				expectNotNil(t, err, "builtinDelete: expected an error")
 				expectNotNil(t, tt.wantErr, "builtinDelete: encountered unexpected error")
@@ -422,7 +422,7 @@ func Test_builtinSplice(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinSplice(tt.args...)
+			got, err := builtinSplice(nil, tt.args...)
 			if tt.wantErr != nil || err != nil {
 				expectNotNil(t, err, "builtinSplice: expected an error")
 				expectNotNil(t, tt.wantErr, "builtinSplice: encountered unexpected error")
@@ -499,7 +499,7 @@ func Test_builtinInsert(t *testing.T) {
 		{
 			name:    "map-insert-not-hashable",
 			args:    []Object{makeMap(), Tuple{}, Int(1)},
-			wantErr: errors.New("failed to insert 'tuple' into map: not hashable"),
+			wantErr: errors.New("failed to insert 'tuple' into map: 'tuple' is not hashable"),
 		},
 		{
 			name:    "immutable-array",
@@ -514,7 +514,7 @@ func Test_builtinInsert(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinInsert(tt.args...)
+			got, err := builtinInsert(nil, tt.args...)
 			if tt.wantErr != nil || err != nil {
 				expectNotNil(t, err, "builtinInsert: expected an error")
 				expectNotNil(t, tt.wantErr, "builtinInsert: encountered unexpected error")
@@ -591,7 +591,7 @@ func Test_builtinClear(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinClear(tt.args...)
+			got, err := builtinClear(nil, tt.args...)
 			if tt.wantErr != nil || err != nil {
 				expectNotNil(t, err, "builtinClear: expected an error")
 				expectNotNil(t, tt.wantErr, "builtinClear: encountered unexpected error")
@@ -699,7 +699,7 @@ func Test_builtinRange(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinRange(tt.args...)
+			got, err := builtinRange(nil, tt.args...)
 			if tt.wantErr != nil || err != nil {
 				expectNotNil(t, err, "builtinRange: expected an error")
 				expectNotNil(t, tt.wantErr, "builtinRange: encountered unexpected error")
@@ -748,7 +748,7 @@ func Test_builtinMin(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinMin(tt.args...)
+			got, err := builtinMin(nil, tt.args...)
 			if tt.wantErr != nil || err != nil {
 				expectNotNil(t, err, "builtinMin: expected an error")
 				expectNotNil(t, tt.wantErr, "builtinMin: encountered unexpected error")
@@ -797,7 +797,7 @@ func Test_builtinMax(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinMax(tt.args...)
+			got, err := builtinMax(nil, tt.args...)
 			if tt.wantErr != nil || err != nil {
 				expectNotNil(t, err, "builtinMax: expected an error")
 				expectNotNil(t, tt.wantErr, "builtinMax: encountered unexpected error")

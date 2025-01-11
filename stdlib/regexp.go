@@ -87,7 +87,7 @@ var regexpRegexpMethods = map[string]*toy.BuiltinFunction{
 	"replace": {Name: "replace", Func: regexpRegexpReplace},
 }
 
-func regexpRegexpFind(args ...toy.Object) (toy.Object, error) {
+func regexpRegexpFind(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv  = args[0].(*Regexp)
 		input toy.StringOrBytes
@@ -99,7 +99,7 @@ func regexpRegexpFind(args ...toy.Object) (toy.Object, error) {
 	return regexpFindStringSubmatch((*regexp.Regexp)(recv), input.String(), n)
 }
 
-func regexpRegexpReplace(args ...toy.Object) (toy.Object, error) {
+func regexpRegexpReplace(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv  = args[0].(*Regexp)
 		input toy.StringOrBytes
@@ -112,7 +112,7 @@ func regexpRegexpReplace(args ...toy.Object) (toy.Object, error) {
 	return toy.String(result), nil
 }
 
-func regexpCompile(args ...toy.Object) (toy.Object, error) {
+func regexpCompile(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var expr string
 	if err := toy.UnpackArgs(args, "expr", &expr); err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func regexpCompile(args ...toy.Object) (toy.Object, error) {
 	return (*Regexp)(r), nil
 }
 
-func regexpMatch(args ...toy.Object) (toy.Object, error) {
+func regexpMatch(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		pattern string
 		data    toy.StringOrBytes
@@ -139,7 +139,7 @@ func regexpMatch(args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(matched), nil
 }
 
-func regexpFind(args ...toy.Object) (toy.Object, error) {
+func regexpFind(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		expr  string
 		input toy.StringOrBytes
@@ -155,7 +155,7 @@ func regexpFind(args ...toy.Object) (toy.Object, error) {
 	return regexpFindStringSubmatch(r, input.String(), n)
 }
 
-func regexpReplace(args ...toy.Object) (toy.Object, error) {
+func regexpReplace(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		expr  string
 		input toy.StringOrBytes

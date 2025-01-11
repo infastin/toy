@@ -23,7 +23,7 @@ func TestScript_Add(t *testing.T) {
 	s.Add("b", toy.String("foo"))
 	s.Add("test", &toy.BuiltinFunction{
 		Name: "test",
-		Func: func(args ...toy.Object) (ret toy.Object, err error) {
+		Func: func(_ *toy.VM, args ...toy.Object) (ret toy.Object, err error) {
 			if len(args) > 0 {
 				switch arg := args[0].(type) {
 				case toy.Int:
@@ -126,7 +126,7 @@ e := mod1.double(s)
 	mods.AddBuiltinModule("mod1", map[string]toy.Object{
 		"double": &toy.BuiltinFunction{
 			Name: "double",
-			Func: func(args ...toy.Object) (ret toy.Object, err error) {
+			Func: func(_ *toy.VM, args ...toy.Object) (ret toy.Object, err error) {
 				var arg int
 				if err := toy.UnpackArgs(args, "arg", &arg); err != nil {
 					return nil, err
@@ -214,7 +214,7 @@ func (o Counter) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Obj
 	return nil, toy.ErrInvalidOperator
 }
 
-func (o Counter) Call(_ ...toy.Object) (toy.Object, error) { return toy.Int(o), nil }
+func (o Counter) Call(*toy.VM, ...toy.Object) (toy.Object, error) { return toy.Int(o), nil }
 
 func TestScript_CustomObjects(t *testing.T) {
 	c := compile(t, `a := c1(); s := string(c1); c2 := c1; c2++`, MAP{"c1": Counter(5)})
@@ -284,7 +284,7 @@ func TestScriptSourceModule(t *testing.T) {
 	mods.AddBuiltinModule("text", map[string]toy.Object{
 		"title": &toy.BuiltinFunction{
 			Name: "title",
-			Func: func(args ...toy.Object) (toy.Object, error) {
+			Func: func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 				var s string
 				if err := toy.UnpackArgs(args, "s", &s); err != nil {
 					return nil, err

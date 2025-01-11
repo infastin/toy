@@ -23,7 +23,7 @@ var OSPathModule = &toy.BuiltinModule{
 	},
 }
 
-func osPathJoin(args ...toy.Object) (toy.Object, error) {
+func osPathJoin(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var elems []string
 	for i, arg := range args {
 		str, ok := arg.(toy.String)
@@ -39,7 +39,7 @@ func osPathJoin(args ...toy.Object) (toy.Object, error) {
 	return toy.String(filepath.Join(elems...)), nil
 }
 
-func osPathSplit(args ...toy.Object) (toy.Object, error) {
+func osPathSplit(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "path", &s); err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func osPathSplit(args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.String(dir), toy.String(file)}, nil
 }
 
-func osPathSplitList(args ...toy.Object) (toy.Object, error) {
+func osPathSplitList(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "path", &s); err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func osPathSplitList(args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func osPathGlob(args ...toy.Object) (toy.Object, error) {
+func osPathGlob(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var pattern string
 	if err := toy.UnpackArgs(args, "pattern", &pattern); err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func osPathGlob(args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func osPathExpand(args ...toy.Object) (toy.Object, error) {
+func osPathExpand(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "path", &s); err != nil {
 		return nil, err

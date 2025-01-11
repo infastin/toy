@@ -159,7 +159,7 @@ var timeTimeMethods = map[string]*toy.BuiltinFunction{
 	},
 }
 
-func timeTimeFormat(args ...toy.Object) (toy.Object, error) {
+func timeTimeFormat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv   = args[0].(Time)
 		layout string
@@ -170,7 +170,7 @@ func timeTimeFormat(args ...toy.Object) (toy.Object, error) {
 	return toy.String(time.Time(recv).Format(layout)), nil
 }
 
-func timeTimeInLocation(args ...toy.Object) (toy.Object, error) {
+func timeTimeInLocation(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv     = args[0].(Time)
 		location string
@@ -185,7 +185,7 @@ func timeTimeInLocation(args ...toy.Object) (toy.Object, error) {
 	return Time(time.Time(recv).In(loc)), nil
 }
 
-func timeTimeRound(args ...toy.Object) (toy.Object, error) {
+func timeTimeRound(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv = args[0].(Time)
 		dur  Duration
@@ -196,7 +196,7 @@ func timeTimeRound(args ...toy.Object) (toy.Object, error) {
 	return Time(time.Time(recv).Round(time.Duration(dur))), nil
 }
 
-func timeTimeTruncate(args ...toy.Object) (toy.Object, error) {
+func timeTimeTruncate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv = args[0].(Time)
 		dur  Duration
@@ -207,7 +207,7 @@ func timeTimeTruncate(args ...toy.Object) (toy.Object, error) {
 	return Time(time.Time(recv).Truncate(time.Duration(dur))), nil
 }
 
-func timeParse(args ...toy.Object) (toy.Object, error) {
+func timeParse(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		x        string
 		layout   = time.RFC3339
@@ -234,14 +234,14 @@ func timeParse(args ...toy.Object) (toy.Object, error) {
 	return Time(t), nil
 }
 
-func timeNow(args ...toy.Object) (toy.Object, error) {
+func timeNow(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	return Time(time.Now()), nil
 }
 
-func timeDate(args ...toy.Object) (toy.Object, error) {
+func timeDate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		year, month, day, hour, min, sec, nsec int
 		location                               string
@@ -375,7 +375,7 @@ var timeDurationMethods = map[string]*toy.BuiltinFunction{
 	},
 }
 
-func timeDurationRound(args ...toy.Object) (toy.Object, error) {
+func timeDurationRound(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv = args[0].(Duration)
 		m    Duration
@@ -386,7 +386,7 @@ func timeDurationRound(args ...toy.Object) (toy.Object, error) {
 	return Duration(time.Duration(recv).Round(time.Duration(m))), nil
 }
 
-func timeDurationTruncate(args ...toy.Object) (toy.Object, error) {
+func timeDurationTruncate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv = args[0].(Duration)
 		m    Duration
@@ -397,7 +397,7 @@ func timeDurationTruncate(args ...toy.Object) (toy.Object, error) {
 	return Duration(time.Duration(recv).Truncate(time.Duration(m))), nil
 }
 
-func timeParseDuration(args ...toy.Object) (toy.Object, error) {
+func timeParseDuration(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var x string
 	if err := toy.UnpackArgs(args, "x", &x); err != nil {
 		return nil, err
@@ -409,7 +409,7 @@ func timeParseDuration(args ...toy.Object) (toy.Object, error) {
 	return Duration(d), nil
 }
 
-func timeSince(args ...toy.Object) (toy.Object, error) {
+func timeSince(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var t Time
 	if err := toy.UnpackArgs(args, "t", &t); err != nil {
 		return nil, err
@@ -417,7 +417,7 @@ func timeSince(args ...toy.Object) (toy.Object, error) {
 	return Duration(time.Since(time.Time(t))), nil
 }
 
-func timeUntil(args ...toy.Object) (toy.Object, error) {
+func timeUntil(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var t Time
 	if err := toy.UnpackArgs(args, "t", &t); err != nil {
 		return nil, err
@@ -425,7 +425,7 @@ func timeUntil(args ...toy.Object) (toy.Object, error) {
 	return Duration(time.Until(time.Time(t))), nil
 }
 
-func timeUnix(args ...toy.Object) (toy.Object, error) {
+func timeUnix(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var sec, nsec int64
 	if err := toy.UnpackArgs(args, "sec", &sec, "nsec", &nsec); err != nil {
 		return nil, err
@@ -433,7 +433,7 @@ func timeUnix(args ...toy.Object) (toy.Object, error) {
 	return Time(time.Unix(sec, nsec)), nil
 }
 
-func timeUnixMicro(args ...toy.Object) (toy.Object, error) {
+func timeUnixMicro(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var usec int64
 	if err := toy.UnpackArgs(args, "usec", &usec); err != nil {
 		return nil, err
@@ -441,7 +441,7 @@ func timeUnixMicro(args ...toy.Object) (toy.Object, error) {
 	return Time(time.UnixMicro(usec)), nil
 }
 
-func timeUnixMilli(args ...toy.Object) (toy.Object, error) {
+func timeUnixMilli(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var msec int64
 	if err := toy.UnpackArgs(args, "msec", &msec); err != nil {
 		return nil, err

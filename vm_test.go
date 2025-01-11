@@ -742,10 +742,10 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRunError(t, `delete(time(1257894000), 1)`, nil, `invalid type for argument 'collection'`)
 	expectRunError(t, `delete(immutable({}), "key")`, nil, `invalid type for argument 'collection'`)
 	expectRunError(t, `delete({}, undefined)`, nil, `invalid type for argument 'second'`)
-	expectRunError(t, `delete({}, [])`, nil, toy.ErrNotHashable.Error())
-	expectRunError(t, `delete({}, {})`, nil, toy.ErrNotHashable.Error())
-	expectRunError(t, `delete({}, immutable({}))`, nil, toy.ErrNotHashable.Error())
-	expectRunError(t, `delete({}, immutable([]))`, nil, toy.ErrNotHashable.Error())
+	expectRunError(t, `delete({}, [])`, nil, `not hashable`)
+	expectRunError(t, `delete({}, {})`, nil, `not hashable`)
+	expectRunError(t, `delete({}, immutable({}))`, nil, `not hashable`)
+	expectRunError(t, `delete({}, immutable([]))`, nil, `not hashable`)
 
 	expectRun(t, `out = delete({}, "")`, nil, toy.Undefined)
 	expectRun(t, `out = {key1: 1}; delete(out, "key1")`, nil, MAP{})
@@ -1056,7 +1056,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 	userFunc := func(err error) *toy.BuiltinFunction {
 		return &toy.BuiltinFunction{
 			Name: "userFunc",
-			Func: func(args ...toy.Object) (toy.Object, error) {
+			Func: func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 				return nil, err
 			},
 		}
@@ -1066,7 +1066,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 			Members: map[string]toy.Object{
 				"afunction": &toy.BuiltinFunction{
 					Name: "afunction",
-					Func: func(a ...toy.Object) (toy.Object, error) {
+					Func: func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 						return nil, err
 					},
 				},
@@ -2189,7 +2189,7 @@ func (o StringArray) IndexSet(index, value toy.Object) error {
 	return nil
 }
 
-func (o StringArray) Call(args ...toy.Object) (ret toy.Object, err error) {
+func (o StringArray) Call(_ *toy.VM, args ...toy.Object) (ret toy.Object, err error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("want 1 argument, got %d", len(args))
 	}
@@ -2455,12 +2455,12 @@ func TestBuiltin(t *testing.T) {
 			Members: map[string]toy.Object{
 				"abs": &toy.BuiltinFunction{
 					Name: "abs",
-					Func: func(a ...toy.Object) (toy.Object, error) {
-						if len(a) != 1 {
-							return nil, fmt.Errorf("want 1 argument, got %d", len(a))
+					Func: func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+						if len(args) != 1 {
+							return nil, fmt.Errorf("want 1 argument, got %d", len(args))
 						}
 						var f toy.Float
-						if err := toy.Convert(&f, a[0]); err != nil {
+						if err := toy.Convert(&f, args[0]); err != nil {
 							return nil, err
 						}
 						return toy.Float(math.Abs(float64(f))), nil
@@ -2668,12 +2668,12 @@ func TestModuleBlockScopes(t *testing.T) {
 			Members: map[string]toy.Object{
 				"intn": &toy.BuiltinFunction{
 					Name: "abs",
-					Func: func(a ...toy.Object) (toy.Object, error) {
-						if len(a) != 1 {
-							return nil, fmt.Errorf("want 1 argument, got %d", len(a))
+					Func: func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+						if len(args) != 1 {
+							return nil, fmt.Errorf("want 1 argument, got %d", len(args))
 						}
 						var n toy.Int
-						if err := toy.Convert(&n, a[0]); err != nil {
+						if err := toy.Convert(&n, args[0]); err != nil {
 							return nil, err
 						}
 						return toy.Int(rand.Int64N(int64(n))), nil

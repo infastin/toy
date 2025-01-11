@@ -482,6 +482,7 @@ func (v *VM) run() {
 				v.sp++
 			}
 		case parser.OpReturn:
+			v.ip++
 			numResults := int(v.curInsts[v.ip])
 			var retVal Object
 			if numResults == 1 {

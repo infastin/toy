@@ -140,7 +140,7 @@ type FieldAssignable interface {
 // Sized represents an object that can report its length or size.
 type Sized interface {
 	Object
-	// Len should return object's length or size.
+	// Len should return the length or size of the object.
 	Len() int
 }
 
@@ -231,7 +231,7 @@ type CloseableIterator interface {
 func Hash(x Object) (uint64, error) {
 	xh, ok := x.(Hashable)
 	if !ok {
-		return 0, ErrNotHashable
+		return 0, fmt.Errorf("'%s' is not hashable", x.TypeName())
 	}
 	return xh.Hash(), nil
 }
@@ -299,8 +299,10 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 	}
 	yc, ok := y.(Comparable)
 	if !ok {
-		return false, ErrInvalidOperator
+		return false, fmt.Errorf("operation '%s %s %s' is not supported",
+			x.TypeName(), op.String(), y.TypeName())
 	}
+	op0 := op
 	switch op {
 	case token.Less:
 		op = token.Greater
@@ -311,7 +313,12 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 	case token.GreaterEq:
 		op = token.LessEq
 	}
-	return yc.Compare(op, x)
+	res, err := yc.Compare(op, x)
+	if err != nil {
+		return false, fmt.Errorf("operation '%s %s %s' has failed: %w",
+			x.TypeName(), op0.String(), y.TypeName(), err)
+	}
+	return res, nil
 }
 
 // BinaryOp performs a binary operation with the given operator.
@@ -328,23 +335,35 @@ func BinaryOp(op token.Token, x, y Object) (Object, error) {
 	}
 	yb, ok := y.(HasBinaryOp)
 	if !ok {
-		return nil, ErrInvalidOperator
+		return nil, fmt.Errorf("operation '%s %s %s' is not supported",
+			x.TypeName(), op.String(), y.TypeName())
 	}
-	return yb.BinaryOp(op, x, true)
+	res, err := yb.BinaryOp(op, x, true)
+	if err != nil {
+		return nil, fmt.Errorf("operation '%s %s %s' has failed: %w",
+			x.TypeName(), op.String(), y.TypeName(), err)
+	}
+	return res, nil
 }
 
 // UnaryOp performs an unary operation with the given operator.
 // It will return an error if the given unary operation
 // can't be performed on the given object or if the operation has failed.
-func UnaryOp(op token.Token, x Object) (res Object, err error) {
+func UnaryOp(op token.Token, x Object) (Object, error) {
 	if op == token.Not {
 		return Bool(x.IsFalsy()), nil
 	}
 	xu, ok := x.(HasUnaryOp)
 	if !ok {
-		return nil, ErrInvalidOperator
+		return nil, fmt.Errorf("operation '%s%s' is not supported",
+			op.String(), x.TypeName())
 	}
-	return xu.UnaryOp(op)
+	res, err := xu.UnaryOp(op)
+	if err != nil {
+		return nil, fmt.Errorf("operation '%s%s' has failed: %w",
+			op.String(), x.TypeName(), err)
+	}
+	return res, nil
 }
 
 // IndexGet retrieves the value at a specified index from the object.
@@ -368,9 +387,14 @@ func IndexGet(x, index Object) (Object, error) {
 	}
 	xi, ok := x.(IndexAccessible)
 	if !ok {
-		return nil, ErrNotIndexable
+		return nil, fmt.Errorf("'%s' is not index accessible", x.TypeName())
 	}
-	return xi.IndexGet(index)
+	res, err := xi.IndexGet(index)
+	if err != nil {
+		return nil, fmt.Errorf("operation '%s[%s]' has failed: %w",
+			x.TypeName(), index.TypeName(), err)
+	}
+	return res, nil
 }
 
 // IndexSet assigns a value to the specified index in the object.
@@ -379,9 +403,13 @@ func IndexGet(x, index Object) (Object, error) {
 func IndexSet(x, index, value Object) error {
 	xi, ok := x.(IndexAssignable)
 	if !ok {
-		return ErrNotIndexable
+		return fmt.Errorf("'%s' is not index assignable", x.TypeName())
 	}
-	return xi.IndexSet(index, value)
+	if err := xi.IndexSet(index, value); err != nil {
+		return fmt.Errorf("operation '%s[%s] = %s' has failed: %w",
+			x.TypeName(), index.TypeName(), value.TypeName(), err)
+	}
+	return nil
 }
 
 // FieldGet retrieves the value of the field
@@ -398,13 +426,23 @@ func IndexSet(x, index, value Object) error {
 func FieldGet(x Object, name string) (Object, error) {
 	xf, ok := x.(FieldAccessible)
 	if ok {
-		return xf.FieldGet(name)
+		res, err := xf.FieldGet(name)
+		if err != nil {
+			return nil, fmt.Errorf("operation '%s.%s' has failed: %w",
+				x.TypeName(), name, err)
+		}
+		return res, nil
 	}
 	xi, ok := x.(IndexAccessible)
 	if !ok {
-		return nil, ErrNoFields
+		return nil, fmt.Errorf("'%s' is not field accesible", x.TypeName())
 	}
-	return xi.IndexGet(String(name))
+	res, err := xi.IndexGet(String(name))
+	if err != nil {
+		return nil, fmt.Errorf("operation '%s.%s' has failed: %w",
+			x.TypeName(), name, err)
+	}
+	return res, nil
 }
 
 // FieldSet sets the value of the field with the specified name in the object.
@@ -419,13 +457,31 @@ func FieldGet(x Object, name string) (Object, error) {
 func FieldSet(x Object, name string, value Object) error {
 	xf, ok := x.(FieldAssignable)
 	if ok {
-		return xf.FieldSet(name, value)
+		if err := xf.FieldSet(name, value); err != nil {
+			return fmt.Errorf("operation '%s.%s = %s' has failed: %w",
+				x.TypeName(), name, value.TypeName(), err)
+		}
+		return nil
 	}
 	xi, ok := x.(IndexAssignable)
 	if !ok {
-		return ErrNoFields
+		return fmt.Errorf("'%s' is not filed assignable", x.TypeName())
 	}
-	return xi.IndexSet(String(name), value)
+	if err := xi.IndexSet(String(name), value); err != nil {
+		return fmt.Errorf("operation '%s.%s = %s' has failed: %w",
+			x.TypeName(), name, value.TypeName(), err)
+	}
+	return nil
+}
+
+// Len returns the size/length of the given object.
+// Returns -1 if the object doesn't implement Sized interface.
+func Len(x Object) int {
+	xs, ok := x.(Sized)
+	if !ok {
+		return -1
+	}
+	return xs.Len()
 }
 
 // Slice performs a slice operation on a Sliceable object.
@@ -434,7 +490,7 @@ func FieldSet(x Object, name string, value Object) error {
 func Slice(x Object, low, high int) (Object, error) {
 	xs, ok := x.(Sliceable)
 	if !ok {
-		return nil, ErrNotSliceable
+		return nil, fmt.Errorf("'%s' is not sliceable", x.TypeName())
 	}
 	n := xs.Len()
 	if low > high {
@@ -487,11 +543,31 @@ func Convert[T Object](p *T, o Object) (err error) {
 		}
 		c, ok := o.(Convertible)
 		if !ok {
-			return ErrNotConvertible
+			return fmt.Errorf("'%s' is not convertible", o.TypeName())
 		}
-		return c.Convert(p)
+		if err := c.Convert(p); err != nil {
+			// It should be safe to call TypeName on potentially nil object.
+			return fmt.Errorf("failed to convert '%s' to '%s': %w",
+				o.TypeName(), (*p).TypeName(), err)
+		}
 	}
 	return nil
+}
+
+// Call calls a Callable object.
+// Returns an error if the object can't be called
+// or if the call returned an error.
+func Call(vm *VM, fn Object, args ...Object) (Object, error) {
+	callable, ok := fn.(Callable)
+	if !ok {
+		return nil, fmt.Errorf("'%s' is not callable", fn.TypeName())
+	}
+	ret, err := callable.Call(args...)
+	if err != nil {
+		return nil, fmt.Errorf("error during call to '%s': %w",
+			callable.TypeName(), err)
+	}
+	return ret, nil
 }
 
 // Elements returns a go1.23 iterator over the values of the iterable.
@@ -578,7 +654,7 @@ func (o Bool) Hash() uint64 {
 func (o Bool) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(Bool)
 	if !ok {
-		return false, ErrInvalidOperator
+		return false, ErrNotConvertible
 	}
 	switch op {
 	case token.Equal:

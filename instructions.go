@@ -53,11 +53,11 @@ func FormatInstructions(b []byte, posOffset int) []string {
 		inst.WriteString(fmt.Sprintf("%04d %s", posOffset+i, parser.OpcodeNames[b[i]]))
 		if len(numOperands) != 0 {
 			inst.WriteString(" [")
-			for i := 0; i < len(numOperands); i++ {
+			for i, operand := range operands {
 				if i != 0 {
 					inst.WriteString(", ")
 				}
-				inst.WriteString(fmt.Sprintf("%d", operands[i]))
+				inst.WriteString(fmt.Sprintf("%d", operand))
 			}
 			inst.WriteByte(']')
 		}

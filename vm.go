@@ -114,8 +114,7 @@ func (v *VM) run() {
 			res, err := BinaryOp(tok, left, right)
 			if err != nil {
 				v.sp -= 2
-				v.err = fmt.Errorf("operation '%s %s %s' has failed: %w",
-					left.TypeName(), tok.String(), right.TypeName(), err)
+				v.err = err
 				return
 			}
 
@@ -130,8 +129,7 @@ func (v *VM) run() {
 			res, err := Compare(tok, left, right)
 			if err != nil {
 				v.sp -= 2
-				v.err = fmt.Errorf("operation '%s %s %s' has failed: %w",
-					left.TypeName(), tok.String(), right.TypeName(), err)
+				v.err = err
 				return
 			}
 
@@ -153,8 +151,7 @@ func (v *VM) run() {
 
 			res, err := UnaryOp(tok, operand)
 			if err != nil {
-				v.err = fmt.Errorf("operation '%s%s' has failed: %w",
-					tok.String(), operand.TypeName(), err)
+				v.err = err
 				return
 			}
 
@@ -286,8 +283,7 @@ func (v *VM) run() {
 			v.sp -= 2
 			val, err := IndexGet(left, index)
 			if err != nil {
-				v.err = fmt.Errorf("operation '%s[%s]' has failed: %w",
-					left.TypeName(), index.TypeName(), err)
+				v.err = err
 				return
 			}
 			if val == nil {
@@ -301,8 +297,7 @@ func (v *VM) run() {
 			v.sp -= 2
 			val, err := FieldGet(left, string(name))
 			if err != nil {
-				v.err = fmt.Errorf("operation '%s.%s' has failed: %w",
-					left.TypeName(), string(name), err)
+				v.err = err
 				return
 			}
 			if val == nil {
@@ -411,16 +406,13 @@ func (v *VM) run() {
 				if callee.varArgs {
 					// if the closure is variadic,
 					// roll up all variadic parameters into an array
-					realArgs := callee.numParameters - 1
-					varArgs := numArgs - realArgs
-					if varArgs >= 0 {
-						numArgs = realArgs + 1
-						args := make([]Object, varArgs)
-						spStart := v.sp - varArgs
-						for i := spStart; i < v.sp; i++ {
-							args[i-spStart] = v.stack[i]
-						}
-						v.stack[spStart] = NewArray(args)
+					numRealArgs := callee.numParameters - 1
+					numVarArgs := numArgs - numRealArgs
+					if numVarArgs >= 0 {
+						numArgs = numRealArgs + 1
+						spStart := v.sp - numVarArgs
+						varArgs := slices.Clone(v.stack[spStart:])
+						v.stack[spStart] = NewArray(varArgs)
 						v.sp = spStart + 1
 					}
 				}
@@ -490,9 +482,9 @@ func (v *VM) run() {
 				v.sp++
 			}
 		case parser.OpReturn:
-			v.ip++
+			numResults := int(v.curInsts[v.ip])
 			var retVal Object
-			if int(v.curInsts[v.ip]) == 1 {
+			if numResults == 1 {
 				retVal = v.stack[v.sp-1]
 			} else {
 				retVal = Undefined
@@ -538,9 +530,7 @@ func (v *VM) run() {
 			v.curFrame.deferred = v.curFrame.deferred[:len(v.curFrame.deferred)-1]
 			v.curFrame.fn.sourceMap[v.ip] = call.pos
 			v.stack[v.sp] = call.fn
-			for i, arg := range call.args {
-				v.stack[v.sp+1+i] = arg
-			}
+			copy(v.stack[v.sp+1:], call.args)
 			numArgs := len(call.args)
 			v.stack[v.sp+1+numArgs] = Int(numArgs)
 			v.stack[v.sp+1+numArgs+1] = Int(call.splat)
@@ -773,14 +763,12 @@ func indexAssign(dst, src Object, selectors []Object) error {
 	for sidx := numSel - 1; sidx > 0; sidx-- {
 		next, err := IndexGet(dst, selectors[sidx])
 		if err != nil {
-			return fmt.Errorf("operation '%s[%s]' has failed: %w",
-				dst.TypeName(), selectors[sidx].TypeName(), err)
+			return err
 		}
 		dst = next
 	}
 	if err := IndexSet(dst, selectors[0], src); err != nil {
-		return fmt.Errorf("assignment operation '%s[%s]' has failed: %w",
-			dst.TypeName(), selectors[0].TypeName(), err)
+		return err
 	}
 	return nil
 }

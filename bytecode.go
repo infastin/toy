@@ -148,10 +148,9 @@ func (b *Bytecode) RemoveUnused() {
 
 func (b *Bytecode) removeUnused(insts []byte, stripped []Object, indexMap map[int]int) []Object {
 	for i := 0; i < len(insts); {
-		op := insts[i]
-		numOperands := parser.OpcodeOperands[op]
-		operands, read := parser.ReadOperands(numOperands, insts[i+1:])
-		switch op {
+		opcode := insts[i]
+		operands, offset := parser.ReadOperands(parser.OpcodeOperands[opcode], insts[i+1:])
+		switch opcode {
 		case parser.OpConstant:
 			curIdx := operands[0]
 			newIdx, ok := indexMap[curIdx]
@@ -160,7 +159,7 @@ func (b *Bytecode) removeUnused(insts []byte, stripped []Object, indexMap map[in
 				stripped = append(stripped, b.Constants[curIdx])
 				indexMap[curIdx] = newIdx
 			}
-			copy(insts[i:], MakeInstruction(op, newIdx))
+			copy(insts[i:], MakeInstruction(opcode, newIdx))
 		case parser.OpClosure:
 			curIdx := operands[0]
 			numFree := operands[1]
@@ -170,26 +169,25 @@ func (b *Bytecode) removeUnused(insts []byte, stripped []Object, indexMap map[in
 				stripped = append(stripped, b.Constants[curIdx])
 				indexMap[curIdx] = newIdx
 			}
-			copy(insts[i:], MakeInstruction(op, newIdx, numFree))
+			copy(insts[i:], MakeInstruction(opcode, newIdx, numFree))
 		}
-		i += 1 + read
+		i += 1 + offset
 	}
 	return stripped
 }
 
 func updateConstIndexes(insts []byte, indexMap map[int]int) {
 	for i := 0; i < len(insts); {
-		op := insts[i]
-		numOperands := parser.OpcodeOperands[op]
-		operands, read := parser.ReadOperands(numOperands, insts[i+1:])
-		switch op {
+		opcode := insts[i]
+		operands, offset := parser.ReadOperands(parser.OpcodeOperands[opcode], insts[i+1:])
+		switch opcode {
 		case parser.OpConstant:
 			curIdx := operands[0]
 			newIdx, ok := indexMap[curIdx]
 			if !ok {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
-			copy(insts[i:], MakeInstruction(op, newIdx))
+			copy(insts[i:], MakeInstruction(opcode, newIdx))
 		case parser.OpClosure:
 			curIdx := operands[0]
 			numFree := operands[1]
@@ -197,8 +195,8 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 			if !ok {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
-			copy(insts[i:], MakeInstruction(op, newIdx, numFree))
+			copy(insts[i:], MakeInstruction(opcode, newIdx, numFree))
 		}
-		i += 1 + read
+		i += 1 + offset
 	}
 }

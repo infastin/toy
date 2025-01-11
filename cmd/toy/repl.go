@@ -417,9 +417,7 @@ func (m *model) deleteBeforeCursor() {
 }
 
 func (m *model) newLine() {
-	m.input = slices.Insert(m.input, m.line+1, nil)
-	m.line++
-	m.col = 0
+	m.handleUserInput([]rune("\n"))
 }
 
 func (m *model) onEnter() (tea.Model, tea.Cmd) {

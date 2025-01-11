@@ -11,37 +11,21 @@ var (
 	// ErrStackOverflow is a stack overflow error.
 	ErrStackOverflow = errors.New("stack overflow")
 
-	// ErrInvalidIndexType represents an invalid index type.
+	// ErrInvalidIndexType represents an invalid index type error.
 	ErrInvalidIndexType = errors.New("invalid index type")
 
-	// ErrInvalidIndex represents an invalid index value.
-	ErrInvalidIndexValue = errors.New("invalid index")
+	// ErrInvalidIndex represents an invalid index value error.
+	ErrInvalidIndex = errors.New("invalid index")
 
 	// ErrInvalidOperator represents an error for invalid operator usage.
 	ErrInvalidOperator = errors.New("invalid operator")
 
-	// ErrNotIndexable is an error where an Object is not indexable.
-	ErrNotIndexable = errors.New("not indexable")
-
-	// ErrNoSuchField is an error where an Object doesn't have fields.
-	ErrNoFields = errors.New("no fields")
-
-	// ErrNotSliceable is an error where an Object is not sliceable.
-	ErrNotSliceable = errors.New("not sliceable")
-
 	// ErrNoSuchField is an error where a field with the given name does not exist.
 	ErrNoSuchField = errors.New("no such field")
-
-	// ErrNotHashable is an error where an Object is not hashable.
-	ErrNotHashable = errors.New("not hashable")
 
 	// ErrNotConvertable is an error where an Object of some type
 	// cannot be converted to another type.
 	ErrNotConvertible = errors.New("not convertible")
-
-	// ErrNotImplemented is an error where an Object has not implemented a
-	// required method.
-	ErrNotImplemented = errors.New("not implemented")
 )
 
 // InvalidArgumentTypeError represents an invalid argument value type error.

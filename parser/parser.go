@@ -698,8 +698,13 @@ func (p *Parser) parseStmt() (stmt Stmt) {
 		token.Nil, token.Import, token.LParen, token.LBrace,
 		token.LBrack, token.Add, token.Sub, token.Mul, token.And, token.Xor,
 		token.Not, token.Immutable, token.Tuple:
-		s := p.parseSimpleStmt(false)
-		p.expectSemi()
+		s := p.parseSimpleStmt(labelOk)
+		// because of the required look-ahead, labeled statements are
+		// parsed by parseSimpleStmt - don't expect a semicolon after
+		// them
+		if _, isLabeledStmt := s.(*LabeledStmt); !isLabeledStmt {
+			p.expectSemi()
+		}
 		return s
 	case token.Return:
 		return p.parseReturnStmt()
@@ -751,7 +756,7 @@ func (p *Parser) parseForStmt() Stmt {
 
 	var s1 Stmt
 	if p.token != token.Semicolon { // skipping init
-		s1 = p.parseSimpleStmt(true)
+		s1 = p.parseSimpleStmt(forInOk)
 	}
 
 	// for _ in seq {}            or
@@ -770,11 +775,11 @@ func (p *Parser) parseForStmt() Stmt {
 	if p.token == token.Semicolon {
 		p.next()
 		if p.token != token.Semicolon {
-			s2 = p.parseSimpleStmt(false) // cond
+			s2 = p.parseSimpleStmt(0) // cond
 		}
 		p.expect(token.Semicolon)
 		if p.token != token.LBrace {
-			s3 = p.parseSimpleStmt(false) // post
+			s3 = p.parseSimpleStmt(0) // post
 		}
 	} else {
 		// for cond {}
@@ -878,7 +883,7 @@ func (p *Parser) parseIfHeader() (init Stmt, cond Expr) {
 		p.error(p.pos, "missing init in if statement")
 		return
 	}
-	init = p.parseSimpleStmt(false)
+	init = p.parseSimpleStmt(0)
 
 	var condStmt Stmt
 	switch p.token {
@@ -887,7 +892,7 @@ func (p *Parser) parseIfHeader() (init Stmt, cond Expr) {
 		init = nil
 	case token.Semicolon:
 		p.next()
-		condStmt = p.parseSimpleStmt(false)
+		condStmt = p.parseSimpleStmt(0)
 	default:
 		p.error(p.pos, "missing condition in if statement")
 	}
@@ -964,7 +969,13 @@ func (p *Parser) parseExportStmt() Stmt {
 	}
 }
 
-func (p *Parser) parseSimpleStmt(forIn bool) Stmt {
+const (
+	basic = iota
+	labelOk
+	forInOk
+)
+
+func (p *Parser) parseSimpleStmt(mode int) Stmt {
 	if p.trace {
 		defer untracep(tracep(p, "SimpleStmt"))
 	}
@@ -982,7 +993,7 @@ func (p *Parser) parseSimpleStmt(forIn bool) Stmt {
 			TokenPos: pos,
 		}
 	case token.In:
-		if forIn {
+		if mode == forInOk {
 			p.next()
 			y := p.parseExpr()
 			var (
@@ -1023,10 +1034,20 @@ func (p *Parser) parseSimpleStmt(forIn bool) Stmt {
 	}
 
 	switch p.token {
+	case token.Colon:
+		// labeled statement
+		colon := p.pos
+		p.next()
+		if label, isIdent := x[0].(*Ident); mode == labelOk && isIdent {
+			return &LabeledStmt{Label: label, Colon: colon, Stmt: p.parseStmt()}
+		}
+		p.error(colon, "illegal label declaration")
+		return &BadStmt{From: x[0].Pos(), To: colon + 1}
 	case token.Define,
 		token.AddAssign, token.SubAssign, token.MulAssign, token.QuoAssign,
 		token.RemAssign, token.AndAssign, token.OrAssign, token.XorAssign,
 		token.ShlAssign, token.ShrAssign, token.AndNotAssign:
+		// define or assign statement
 		pos, tok := p.pos, p.token
 		p.next()
 		y := p.parseExpr()

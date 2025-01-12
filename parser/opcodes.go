@@ -117,7 +117,7 @@ var OpcodeOperands = [...][]int{
 	OpMap:             {2},
 	OpTuple:           {2, 1},
 	OpImmutable:       {},
-	OpIndex:           {},
+	OpIndex:           {1},
 	OpField:           {},
 	OpSliceIndex:      {1},
 	OpSplat:           {},

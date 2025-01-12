@@ -368,7 +368,7 @@ func TestMap_Index(t *testing.T) {
 	m := new(toy.Map)
 	err := m.IndexSet(toy.Int(1), toy.String("abcdef"))
 	expectNoError(t, err)
-	res, err := m.IndexGet(toy.Int(1))
+	res, _, err := m.IndexGet(toy.Int(1))
 	expectNoError(t, err)
 	expectEqual(t, toy.String("abcdef"), res)
 }

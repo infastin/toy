@@ -161,16 +161,16 @@ func (ht *hashtable) grow() {
 	ht.bucket0[0] = bucket{} // clear out unused initial bucket
 }
 
-func (ht *hashtable) lookup(k Object) (v Object, err error) {
+func (ht *hashtable) lookup(k Object) (v Object, found bool, err error) {
 	h, err := Hash(k)
 	if err != nil {
-		return nil, err // unhashable
+		return nil, false, err // unhashable
 	}
 	if h == 0 {
 		h = 1 // zero is reserved
 	}
 	if ht.table == nil {
-		return Nil, nil // empty
+		return Nil, false, nil // empty
 	}
 	// Inspect each bucket in the bucket list.
 	for p := &ht.table[h&(uint64(len(ht.table)-1))]; p != nil; p = p.next {
@@ -180,13 +180,13 @@ func (ht *hashtable) lookup(k Object) (v Object, err error) {
 				continue
 			}
 			if eq, err := Equals(k, e.key); err != nil {
-				return nil, err
+				return nil, false, err
 			} else if eq {
-				return e.value, nil // found
+				return e.value, true, nil // found
 			}
 		}
 	}
-	return Nil, nil // not found
+	return Nil, false, nil // not found
 }
 
 // count returns the number of distinct elements of iter that are elements of ht.
@@ -367,7 +367,7 @@ func (ht *hashtable) equals(other *hashtable) (bool, error) {
 	}
 	for e := ht.head; e != nil; e = e.next {
 		key, xval := e.key, e.value
-		if yval, _ := other.lookup(key); yval == Nil {
+		if yval, found, _ := other.lookup(key); !found {
 			return false, nil
 		} else if eq, err := Equals(xval, yval); err != nil {
 			return false, err

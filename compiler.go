@@ -19,11 +19,13 @@ type compilationScope struct {
 	instructions []byte
 	sourceMap    map[int]parser.Pos
 	deferMap     []parser.Pos
+	labels       map[string]parser.Pos
 }
 
 // loop represents a loop construct that
 // the compiler uses to track the current loop.
 type loop struct {
+	label     string
 	continues []int
 	breaks    []int
 }
@@ -70,6 +72,7 @@ func NewCompiler(
 ) *Compiler {
 	mainScope := compilationScope{
 		sourceMap: make(map[int]parser.Pos),
+		labels:    make(map[string]parser.Pos),
 	}
 
 	// symbol table
@@ -231,27 +234,58 @@ func (c *Compiler) Compile(node parser.Node) error {
 			c.changeOperand(jumpPos1, curPos)
 		}
 	case *parser.ForStmt:
-		return c.compileForStmt(node)
+		return c.compileForStmt(node, "")
 	case *parser.ForInStmt:
-		return c.compileForInStmt(node)
+		return c.compileForInStmt(node, "")
 	case *parser.BranchStmt:
+		if c.loopIndex < 0 {
+			return c.errorf(node, "%s not allowed outside loop", node.Token.String())
+		}
+
+		var curLoop *loop
+		if node.Label != nil {
+			for i := c.loopIndex; i >= 0; i-- {
+				curLoop = c.loops[i]
+				if curLoop.label == node.Label.Name {
+					break
+				}
+			}
+			if curLoop.label != node.Label.Name {
+				return c.errorf(node, "invalid %s label: %s", node.Token.String(), node.Label.Name)
+			}
+		} else {
+			curLoop = c.loops[c.loopIndex]
+		}
+
 		switch node.Token {
 		case token.Break:
-			curLoop := c.currentLoop()
-			if curLoop == nil {
-				return c.errorf(node, "break not allowed outside loop")
-			}
 			pos := c.emit(node, parser.OpJump, 0)
 			curLoop.breaks = append(curLoop.breaks, pos)
 		case token.Continue:
-			curLoop := c.currentLoop()
-			if curLoop == nil {
-				return c.errorf(node, "continue not allowed outside loop")
-			}
 			pos := c.emit(node, parser.OpJump, 0)
 			curLoop.continues = append(curLoop.continues, pos)
 		default:
 			panic(fmt.Errorf("invalid branch statement: %s", node.Token.String()))
+		}
+	case *parser.LabeledStmt:
+		if _, ok := c.scopes[c.scopeIndex].labels[node.Label.Name]; ok {
+			return c.errorf(node, "label '%s' already declared", node.Label.Name)
+		} else {
+			c.scopes[c.scopeIndex].labels[node.Label.Name] = node.Label.Pos()
+		}
+		switch stmt := node.Stmt.(type) {
+		case *parser.ForStmt:
+			if err := c.compileForStmt(stmt, node.Label.Name); err != nil {
+				return err
+			}
+		case *parser.ForInStmt:
+			if err := c.compileForInStmt(stmt, node.Label.Name); err != nil {
+				return err
+			}
+		default:
+			if err := c.Compile(node.Stmt); err != nil {
+				return err
+			}
 		}
 	case *parser.BlockStmt:
 		if len(node.Stmts) == 0 {
@@ -323,13 +357,9 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 		c.emit(node, parser.OpField)
 	case *parser.IndexExpr:
-		if err := c.Compile(node.Expr); err != nil {
+		if err := c.compileIndexExpr(node, false); err != nil {
 			return err
 		}
-		if err := c.Compile(node.Index); err != nil {
-			return err
-		}
-		c.emit(node, parser.OpIndex)
 	case *parser.SliceExpr:
 		var opSliceOperand int
 		if node.Low != nil {
@@ -663,6 +693,21 @@ func (c *Compiler) GetImportFileExt() []string {
 	return c.importFileExt
 }
 
+func (c *Compiler) compileIndexExpr(node *parser.IndexExpr, withOk bool) error {
+	if err := c.Compile(node.Expr); err != nil {
+		return err
+	}
+	if err := c.Compile(node.Index); err != nil {
+		return err
+	}
+	opIndexOperand := 0
+	if withOk {
+		opIndexOperand = 1
+	}
+	c.emit(node, parser.OpIndex, opIndexOperand)
+	return nil
+}
+
 func (c *Compiler) compileAssign(
 	node parser.Node,
 	lhs, rhs []parser.Expr,
@@ -830,10 +875,16 @@ func (c *Compiler) compileAssignDefine(
 			}
 		}
 	} else {
-		// if call completes successfully, the tuple with the values to unpack
-		// will be at the top of the stack
-		if err := c.Compile(rhs[0]); err != nil {
-			return err
+		// rhs should be an indexable
+		if idx, ok := rhs[0].(*parser.IndexExpr); ok {
+			// x, ok := xs[0]
+			if err := c.compileIndexExpr(idx, true); err != nil {
+				return err
+			}
+		} else {
+			if err := c.Compile(rhs[0]); err != nil {
+				return err
+			}
 		}
 		// since we can't check how many values an indexable contains at compile time
 		// we have to check it at the runtime
@@ -890,7 +941,7 @@ func (c *Compiler) compileAssignDefine(
 	}
 
 	if unpacking {
-		// there will be tuple left, so we pop it
+		// there will be indexable left, so we pop it
 		c.emit(node, parser.OpPop)
 	}
 
@@ -920,7 +971,7 @@ func (c *Compiler) compileLogical(node *parser.BinaryExpr) error {
 	return nil
 }
 
-func (c *Compiler) compileForStmt(stmt *parser.ForStmt) error {
+func (c *Compiler) compileForStmt(stmt *parser.ForStmt, label string) error {
 	c.symbolTable = c.symbolTable.Fork(true)
 	defer func() {
 		c.symbolTable = c.symbolTable.Parent(false)
@@ -947,7 +998,7 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) error {
 	}
 
 	// enter loop
-	loop := c.enterLoop()
+	loop := c.enterLoop(label)
 
 	// body statement
 	if err := c.Compile(stmt.Body); err != nil {
@@ -987,7 +1038,7 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) error {
 	return nil
 }
 
-func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
+func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt, label string) error {
 	c.symbolTable = c.symbolTable.Fork(true)
 	defer func() {
 		c.symbolTable = c.symbolTable.Parent(false)
@@ -1041,7 +1092,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	preCondPos := len(c.currentInstructions())
 
 	// enter loop
-	loop := c.enterLoop()
+	loop := c.enterLoop(label)
 
 	// get next entry
 	// k, v, ok := :it.next()
@@ -1188,8 +1239,8 @@ func (c *Compiler) storeCompiledModule(
 	c.compiledModules[modulePath] = module
 }
 
-func (c *Compiler) enterLoop() *loop {
-	loop := &loop{}
+func (c *Compiler) enterLoop(label string) *loop {
+	loop := &loop{label: label}
 	c.loops = append(c.loops, loop)
 	c.loopIndex++
 	if c.trace != nil {
@@ -1234,6 +1285,7 @@ func (c *Compiler) addDeferPos(pos parser.Pos) int {
 func (c *Compiler) enterScope() {
 	scope := compilationScope{
 		sourceMap: make(map[int]parser.Pos),
+		labels:    make(map[string]parser.Pos),
 	}
 	c.scopes = append(c.scopes, scope)
 	c.scopeIndex++

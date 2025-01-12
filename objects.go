@@ -95,7 +95,7 @@ type IndexAccessible interface {
 	//
 	// Client code should not call this method.
 	// Instead, use the standalone IndexGet function.
-	IndexGet(index Object) (value Object, err error)
+	IndexGet(index Object) (value Object, found bool, err error)
 }
 
 // IndexAssignable represents an object that supports index access and assignment.
@@ -376,25 +376,25 @@ func UnaryOp(op token.Token, x Object) (Object, error) {
 //
 // Returns an error if the index access operation can't be performed
 // on the given object or if the operation has failed.
-func IndexGet(x, index Object) (Object, error) {
+func IndexGet(x, index Object) (value Object, found bool, err error) {
 	if i, ok := index.(Int); ok {
 		if xi, ok := x.(Indexable); ok {
 			if i < 0 || int64(i) >= int64(xi.Len()) {
-				return Nil, nil
+				return Nil, false, nil
 			}
-			return xi.At(int(i)), nil
+			return xi.At(int(i)), true, nil
 		}
 	}
 	xi, ok := x.(IndexAccessible)
 	if !ok {
-		return nil, fmt.Errorf("'%s' is not index accessible", x.TypeName())
+		return nil, false, fmt.Errorf("'%s' is not index accessible", x.TypeName())
 	}
-	res, err := xi.IndexGet(index)
+	res, found, err := xi.IndexGet(index)
 	if err != nil {
-		return nil, fmt.Errorf("operation '%s[%s]' has failed: %w",
+		return nil, false, fmt.Errorf("operation '%s[%s]' has failed: %w",
 			x.TypeName(), index.TypeName(), err)
 	}
-	return res, nil
+	return res, found, nil
 }
 
 // IndexSet assigns a value to the specified index in the object.
@@ -437,10 +437,14 @@ func FieldGet(x Object, name string) (Object, error) {
 	if !ok {
 		return nil, fmt.Errorf("'%s' is not field accesible", x.TypeName())
 	}
-	res, err := xi.IndexGet(String(name))
+	res, found, err := xi.IndexGet(String(name))
 	if err != nil {
 		return nil, fmt.Errorf("operation '%s.%s' has failed: %w",
 			x.TypeName(), name, err)
+	}
+	if !found {
+		return nil, fmt.Errorf("operation '%s.%s' has failed: %w",
+			x.TypeName(), name, ErrNoSuchField)
 	}
 	return res, nil
 }
@@ -465,7 +469,7 @@ func FieldSet(x Object, name string, value Object) error {
 	}
 	xi, ok := x.(IndexAssignable)
 	if !ok {
-		return fmt.Errorf("'%s' is not filed assignable", x.TypeName())
+		return fmt.Errorf("'%s' is not field assignable", x.TypeName())
 	}
 	if err := xi.IndexSet(String(name), value); err != nil {
 		return fmt.Errorf("operation '%s.%s = %s' has failed: %w",
@@ -1339,15 +1343,15 @@ func (o *Array) BinaryOp(op token.Token, other Object, right bool) (Object, erro
 	return nil, ErrInvalidOperator
 }
 
-func (o *Array) IndexGet(index Object) (res Object, err error) {
+func (o *Array) IndexGet(index Object) (res Object, found bool, err error) {
 	intIdx, ok := index.(Int)
 	if !ok {
-		return nil, ErrInvalidIndexType
+		return nil, false, ErrInvalidIndexType
 	}
 	if intIdx < 0 || int64(intIdx) >= int64(len(o.elems)) {
-		return Nil, nil
+		return Nil, false, nil
 	}
-	return o.elems[intIdx], nil
+	return o.elems[intIdx], true, nil
 }
 
 func (o *Array) IndexSet(index, value Object) (err error) {
@@ -1528,11 +1532,11 @@ func (o *Map) BinaryOp(op token.Token, other Object, right bool) (Object, error)
 	return nil, ErrInvalidOperator
 }
 
-func (o *Map) IndexGet(index Object) (res Object, err error) { return o.ht.lookup(index) }
-func (o *Map) IndexSet(index, value Object) (err error)      { return o.ht.insert(index, value) }
-func (o *Map) Iterate() Iterator                             { return o.ht.iterate() }
-func (o *Map) Elements() iter.Seq[Object]                    { return o.ht.elements() }
-func (o *Map) Entries() iter.Seq2[Object, Object]            { return o.ht.entries() }
+func (o *Map) IndexGet(index Object) (res Object, found bool, err error) { return o.ht.lookup(index) }
+func (o *Map) IndexSet(index, value Object) (err error)                  { return o.ht.insert(index, value) }
+func (o *Map) Iterate() Iterator                                         { return o.ht.iterate() }
+func (o *Map) Elements() iter.Seq[Object]                                { return o.ht.elements() }
+func (o *Map) Entries() iter.Seq2[Object, Object]                        { return o.ht.entries() }
 
 func (o *Map) Delete(key Object) (Object, error) { return o.ht.delete(key) }
 func (o *Map) Clear() error                      { return o.ht.clear() }

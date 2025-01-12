@@ -190,6 +190,29 @@ func (s *EmptyStmt) String() string {
 	return ";"
 }
 
+// LabeledStmt represents a labeled statement.
+type LabeledStmt struct {
+	Label *Ident
+	Colon Pos
+	Stmt  Stmt
+}
+
+func (s *LabeledStmt) stmtNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (s *LabeledStmt) Pos() Pos {
+	return s.Label.Pos()
+}
+
+// End returns the position of first character immediately after the node.
+func (s *LabeledStmt) End() Pos {
+	return s.Stmt.End()
+}
+
+func (s *LabeledStmt) String() string {
+	return s.Label.String() + ": " + s.Stmt.String()
+}
+
 // ExportStmt represents an export statement.
 type ExportStmt struct {
 	ExportPos Pos

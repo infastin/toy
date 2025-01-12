@@ -279,19 +279,26 @@ func (v *VM) run() {
 			value := v.stack[v.sp-1]
 			v.stack[v.sp-1] = AsImmutable(value)
 		case parser.OpIndex:
+			v.ip++
+			withOk := int(v.curInsts[v.ip])
 			index := v.stack[v.sp-1]
 			left := v.stack[v.sp-2]
-			v.sp -= 2
-			val, err := IndexGet(left, index)
+
+			val, found, err := IndexGet(left, index)
 			if err != nil {
+				v.sp -= 2
 				v.err = err
 				return
 			}
 			if val == nil {
 				val = Nil
 			}
-			v.stack[v.sp] = val
-			v.sp++
+			if withOk == 1 {
+				val = Tuple{val, Bool(found)}
+			}
+
+			v.stack[v.sp-2] = val
+			v.sp--
 		case parser.OpField:
 			name := v.stack[v.sp-1].(String)
 			left := v.stack[v.sp-2]
@@ -706,7 +713,7 @@ func (v *VM) IsStackEmpty() bool {
 func indexAssign(dst, src Object, selectors []Object) error {
 	numSel := len(selectors)
 	for sidx := numSel - 1; sidx > 0; sidx-- {
-		next, err := IndexGet(dst, selectors[sidx])
+		next, _, err := IndexGet(dst, selectors[sidx])
 		if err != nil {
 			return err
 		}

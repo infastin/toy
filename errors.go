@@ -73,3 +73,53 @@ type MissingArgumentError struct {
 func (e *MissingArgumentError) Error() string {
 	return fmt.Sprintf("missing argument for '%s'", e.Name)
 }
+
+// UnexpectedArgumentError represents an unexpected argument error.
+type UnexpectedArgumentError struct {
+	Name string
+}
+
+func (e *UnexpectedArgumentError) Error() string {
+	return fmt.Sprintf("unexpected argument '%s'", e.Name)
+}
+
+// InvalidValueTypeError represents an invalid value type error.
+type InvalidValueTypeError struct {
+	Name string
+	Want string
+	Got  string
+}
+
+func (e *InvalidValueTypeError) Error() string {
+	return fmt.Sprintf("invalid type for the value of '%s': want '%s', got '%s'",
+		e.Name, e.Want, e.Got)
+}
+
+// InvalidKeyTypeError represents an invalid key type error.
+type InvalidKeyTypeError struct {
+	Want string
+	Got  string
+}
+
+func (e *InvalidKeyTypeError) Error() string {
+	return fmt.Sprintf("invalid key type: want '%s', got '%s'",
+		e.Want, e.Got)
+}
+
+// MissingEntryError represents a missing entry error.
+type MissingEntryError struct {
+	Name string
+}
+
+func (e *MissingEntryError) Error() string {
+	return fmt.Sprintf("missing entry for '%s'", e.Name)
+}
+
+// UnexpectedEntryError represents an unexpected entry error.
+type UnexpectedEntryError struct {
+	Name string
+}
+
+func (e *UnexpectedEntryError) Error() string {
+	return fmt.Sprintf("unexpected entry with key '%s'", e.Name)
+}

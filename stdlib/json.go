@@ -32,13 +32,13 @@ func sequenceToJSON(enc *jx.Encoder, seq toy.Sequence) (err error) {
 func mappingToJSON(enc *jx.Encoder, mapping toy.Mapping) (err error) {
 	enc.ObjStart()
 	for key, value := range toy.Entries(mapping) {
-		key, ok := key.(toy.String)
+		keyStr, ok := key.(toy.String)
 		if !ok {
-			continue
+			return fmt.Errorf("unsupported key type: %s", key.TypeName())
 		}
-		enc.FieldStart(string(key))
+		enc.FieldStart(string(keyStr))
 		if err := objectToJSON(enc, value); err != nil {
-			return fmt.Errorf("%s: %w", string(key), err)
+			return fmt.Errorf("%s: %w", string(keyStr), err)
 		}
 	}
 	enc.ObjEnd()

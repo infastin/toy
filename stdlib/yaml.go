@@ -42,42 +42,42 @@ func mappingToYAML(mapping toy.Mapping) (_ *yaml.Node, err error) {
 		nodes     []*yaml.Node
 	)
 	for key, value := range toy.Entries(mapping) {
-		key, ok := key.(toy.String)
+		keyStr, ok := key.(toy.String)
 		if !ok {
-			continue
+			return nil, fmt.Errorf("unsupported key type: %s", key.TypeName())
 		}
-		if key == "_yaml" {
+		if keyStr == "_yaml" {
 			switch x := value.(type) {
 			case toy.String:
 				nodeStyle, err = parseStyle(string(x))
 				if err != nil {
-					return nil, fmt.Errorf("%s: %w", string(key), err)
+					return nil, fmt.Errorf("%s: %w", string(keyStr), err)
 				}
 			case toy.Sequence:
 				for i, elem := range toy.Entries(x) {
 					style, ok := elem.(toy.String)
 					if !ok {
-						return nil, fmt.Errorf("%s[%d]: want 'string', got '%s'", string(key), i, elem.TypeName())
+						return nil, fmt.Errorf("%s[%d]: want 'string', got '%s'", string(keyStr), i, elem.TypeName())
 					}
 					tmp, err := parseStyle(string(style))
 					if err != nil {
-						return nil, fmt.Errorf("%s[%d]: %w", string(key), i, err)
+						return nil, fmt.Errorf("%s[%d]: %w", string(keyStr), i, err)
 					}
 					nodeStyle |= tmp
 				}
 			default:
-				return nil, fmt.Errorf("%s: want 'string or sequence', got '%s'", string(key), value.TypeName())
+				return nil, fmt.Errorf("%s: want 'string or sequence', got '%s'", string(keyStr), value.TypeName())
 			}
 			continue
 		}
 		node, err := objectToYAML(value)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", string(key), err)
+			return nil, fmt.Errorf("%s: %w", string(keyStr), err)
 		}
 		nodes = append(nodes,
 			&yaml.Node{
 				Kind:  yaml.ScalarNode,
-				Value: string(key),
+				Value: string(keyStr),
 			},
 			node,
 		)

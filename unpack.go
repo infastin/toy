@@ -17,7 +17,7 @@ type Unpacker interface {
 	Unpack(o Object) error
 }
 
-// UnpackArgs unpacks function arguments into the supplied parameter variables,
+// UnpackArgs unpacks function arguments into the supplied parameter variables.
 // pairs is an alternating list of names and pointers to variables.
 //
 // The variable must either be one of Go's primitive types (int*, float*, bool and string),
@@ -46,11 +46,11 @@ func UnpackArgs(args []Object, pairs ...any) error {
 		}
 		return name
 	}
-	if !slices.Contains(pairs, "...") && len(args) > nparams {
+	if len(args) > nparams && !slices.Contains(pairs, "...") {
 		i := 0
 		for ; i < nparams; i++ {
 			name := pairs[2*i].(string)
-			if name == "..." || strings.HasSuffix(name, "?") {
+			if strings.HasSuffix(name, "?") {
 				break // optional
 			}
 		}
@@ -68,11 +68,10 @@ func UnpackArgs(args []Object, pairs ...any) error {
 				*p = args[i:]
 				break
 			}
-			panic(fmt.Errorf("expected *[]Object type for variadic parameters, got %T", pairs[2*i+1]))
+			panic(fmt.Sprintf("expected *[]Object type for remaining arguments, got %T", pairs[2*i+1]))
 		}
 		if err := unpackArg(pairs[2*i+1], arg); err != nil {
-			var e *InvalidArgumentTypeError
-			if errors.As(err, &e) {
+			if e := (*InvalidArgumentTypeError)(nil); errors.As(err, &e) {
 				e.Name = name
 				e.Got = arg.TypeName()
 			}
@@ -86,6 +85,188 @@ func UnpackArgs(args []Object, pairs ...any) error {
 		}
 		// We needn't check the first len(args).
 		if i < len(args) {
+			continue
+		}
+		if defined.Bit(i) == 0 {
+			return &MissingArgumentError{Name: name}
+		}
+	}
+	return nil
+}
+
+// UnpackMapping unpacks Mapping entries into the supplied parameter variables
+// with the names corresponding to the keys of the entries.
+//
+// If the parameter name ends with "?", it is optional.
+// If a parameter is marked optional, then all following parameters are
+// implicitly optional whether or not they are marked.
+//
+// If the parameter name is "...", all remaining entries
+// are unpacked into the supplied pointer to []Tuple.
+func UnpackMapping(m Mapping, pairs ...any) error {
+	var defined big.Int
+	nparams := len(pairs) / 2
+	paramName := func(x any) string {
+		name := x.(string)
+		if name[len(name)-1] == '?' {
+			name = name[:len(name)-1]
+		}
+		return name
+	}
+	var rest *[]Tuple
+loop:
+	for key, value := range Entries(m) {
+		name, ok := key.(String)
+		if !ok {
+			return &InvalidKeyTypeError{
+				Want: "string",
+				Got:  key.TypeName(),
+			}
+		}
+		for i := 0; i < nparams; i++ {
+			pName := paramName(pairs[2*i])
+			if pName == "..." {
+				if rest != nil {
+					break
+				}
+				if p, ok := pairs[2*i+1].(*[]Tuple); ok {
+					rest = p
+					*rest = (*rest)[:0]
+				} else {
+					panic(fmt.Sprintf("expected *[]Tuple type for remaining arguments, got %T", pairs[2*i+1]))
+				}
+			} else if pName == string(name) {
+				// found it
+				defined.SetBit(&defined, i, 1)
+				if err := unpackArg(pairs[2*i+1], value); err != nil {
+					if e := (*InvalidArgumentTypeError)(nil); errors.As(err, &e) {
+						err = &InvalidValueTypeError{
+							Name: pName,
+							Want: e.Want,
+							Got:  value.TypeName(),
+						}
+					} else if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
+						e.Name = pName
+						e.Got = value.TypeName()
+					}
+					return err
+				}
+				continue loop
+			}
+		}
+		if rest == nil {
+			return &UnexpectedEntryError{Name: string(name)}
+		}
+		*rest = append(*rest, Tuple{key, value})
+	}
+	for i := 0; i < nparams; i++ {
+		name := pairs[2*i].(string)
+		if name == "..." || strings.HasSuffix(name, "?") {
+			break // optional
+		}
+		if defined.Bit(i) == 0 {
+			return &MissingEntryError{Name: name}
+		}
+	}
+	return nil
+}
+
+// UnpackMapArgs expects first function argument to be Map and then
+// unpacks its entries into the supplied parameter variables
+// with the names corresponding to the keys of the entries.
+//
+// If the parameter name ends with "?", it is optional.
+// If a parameter is marked optional, then all following parameters are
+// implicitly optional whether or not they are marked.
+//
+// If the parameter name is "...", all remaining entries
+// are unpacked into the supplied pointer to []Tuple.
+func UnpackMapArgs(args []Object, pairs ...any) error {
+	if len(args) != 1 {
+		return &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
+	}
+	m, ok := args[0].(*Map)
+	if !ok {
+		return &InvalidArgumentTypeError{
+			Name: "args",
+			Want: "map",
+			Got:  args[0].TypeName(),
+		}
+	}
+	var defined big.Int
+	nparams := len(pairs) / 2
+	paramName := func(x any) string {
+		name := x.(string)
+		if name[len(name)-1] == '?' {
+			name = name[:len(name)-1]
+		}
+		return name
+	}
+	if m.Len() > nparams && !slices.Contains(pairs, "...") {
+		i := 0
+		for ; i < nparams; i++ {
+			name := pairs[2*i].(string)
+			if strings.HasSuffix(name, "?") {
+				break // optional
+			}
+		}
+		return &WrongNumArgumentsError{
+			WantMin: i,
+			WantMax: nparams,
+			Got:     m.Len(),
+		}
+	}
+	var rest *[]Tuple
+loop:
+	for key, value := range Entries(m) {
+		name, ok := key.(String)
+		if !ok {
+			return &InvalidKeyTypeError{
+				Want: "string",
+				Got:  key.TypeName(),
+			}
+		}
+		for i := 0; i < nparams; i++ {
+			pName := paramName(pairs[2*i])
+			if pName == "..." {
+				if rest != nil {
+					break
+				}
+				if p, ok := pairs[2*i+1].(*[]Tuple); ok {
+					rest = p
+					*rest = (*rest)[:0]
+				} else {
+					panic(fmt.Sprintf("expected *[]Tuple type for remaining arguments, got %T", pairs[2*i+1]))
+				}
+			} else if pName == string(name) {
+				// found it
+				defined.SetBit(&defined, i, 1)
+				if err := unpackArg(pairs[2*i+1], value); err != nil {
+					if e := (*InvalidArgumentTypeError)(nil); errors.As(err, &e) {
+						e.Name = pName
+						e.Got = value.TypeName()
+					}
+					return err
+				}
+				continue loop
+			}
+		}
+		if rest == nil {
+			return &UnexpectedArgumentError{Name: string(name)}
+		}
+		*rest = append(*rest, Tuple{key, value})
+	}
+	for i := 0; i < nparams; i++ {
+		name := pairs[2*i].(string)
+		if name == "..." || strings.HasSuffix(name, "?") {
+			break // optional
+		}
+		// We needn't check the first m.Len().
+		if i < m.Len() {
 			continue
 		}
 		if defined.Bit(i) == 0 {

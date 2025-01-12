@@ -27,7 +27,7 @@ type compiler struct {
 func newCompiler() *compiler {
 	s := new(compiler)
 
-	replPrintFunc := func(_ *toy.VM, args ...toy.Object) (ret toy.Object, err error) {
+	replPrintFunc := func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		if len(args) == 1 && args[0] == toy.Nil {
 			return toy.Nil, nil
 		}
@@ -44,7 +44,7 @@ func newCompiler() *compiler {
 		return toy.Nil, nil
 	}
 
-	printFunc := func(_ *toy.VM, args ...toy.Object) (ret toy.Object, err error) {
+	printFunc := func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var b strings.Builder
 		for _, arg := range args {
 			var s toy.String
@@ -59,9 +59,28 @@ func newCompiler() *compiler {
 		return toy.Nil, nil
 	}
 
+	printfFunc := func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+		var (
+			format string
+			rest   []toy.Object
+		)
+		if err := toy.UnpackArgs(args, "format", &format, "...", &rest); err != nil {
+			return nil, err
+		}
+		str, err := toy.Format(format, rest...)
+		if err != nil {
+			return nil, err
+		}
+		if len(str) != 0 {
+			s.output = append(s.output, str)
+		}
+		return toy.Nil, nil
+	}
+
 	toy.BuiltinFuncs = append(toy.BuiltinFuncs,
 		&toy.BuiltinFunction{Name: "__replPrint__", Func: replPrintFunc},
-		&toy.BuiltinFunction{Name: "print", Func: printFunc})
+		&toy.BuiltinFunction{Name: "print", Func: printFunc},
+		&toy.BuiltinFunction{Name: "printf", Func: printfFunc})
 
 	s.globals = make([]toy.Object, toy.GlobalsSize)
 

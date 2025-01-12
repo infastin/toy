@@ -1803,9 +1803,9 @@ func (o *rangeType) Copy() Object {
 
 func (o *rangeType) Len() int {
 	if o.start <= o.stop {
-		return (o.stop - o.start) / o.step
+		return ((o.stop - o.start - 1) / o.step) + 1
 	}
-	return (o.start - o.stop) / o.step
+	return ((o.start - o.stop - 1) / o.step) + 1
 }
 
 func (o *rangeType) At(i int) Object {
@@ -1833,12 +1833,12 @@ func (o *rangeType) Slice(low, high int) Object {
 func (o *rangeType) Items() []Object {
 	var elems []Object
 	if o.start <= o.stop {
-		elems = make([]Object, 0, (o.stop-o.start)/o.step)
+		elems = make([]Object, 0, ((o.stop-o.start-1)/o.step)+1)
 		for i := o.start; i < o.stop; i += o.step {
 			elems = append(elems, Int(i))
 		}
 	} else {
-		elems = make([]Object, 0, (o.start-o.stop)/o.step)
+		elems = make([]Object, 0, ((o.start-o.stop-1)/o.step)+1)
 		for i := o.start; i > o.stop; i -= o.step {
 			elems = append(elems, Int(i))
 		}

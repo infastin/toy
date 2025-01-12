@@ -21,14 +21,12 @@ var (
 		{Name: "clear", Func: builtinClear},
 
 		{Name: "format", Func: builtinFormat},
-		{Name: "range", Func: builtinRange},
-
-		{Name: "error", Func: builtinError},
 		{Name: "fail", Func: builtinFail},
-
 		{Name: "min", Func: builtinMin},
 		{Name: "max", Func: builtinMax},
 
+		{Name: "error", Func: builtinError},
+		{Name: "range", Func: builtinRange},
 		{Name: "string", Func: builtinConvert[String]},
 		{Name: "int", Func: builtinConvert[Int]},
 		{Name: "bool", Func: builtinConvert[Bool]},

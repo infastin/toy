@@ -343,19 +343,11 @@ func builtinRange(_ *VM, args ...Object) (Object, error) {
 	if step <= 0 {
 		return nil, fmt.Errorf("invalid range step: must be > 0, got %d", step)
 	}
-	var elems []Object
-	if start <= stop {
-		elems = make([]Object, 0, (stop-start)/step)
-		for i := start; i < stop; i += step {
-			elems = append(elems, Int(i))
-		}
-	} else {
-		elems = make([]Object, 0, (start-stop)/step)
-		for i := start; i > stop; i -= step {
-			elems = append(elems, Int(i))
-		}
-	}
-	return NewArray(elems), nil
+	return &rangeType{
+		start: start,
+		stop:  stop,
+		step:  step,
+	}, nil
 }
 
 func builtinError(_ *VM, args ...Object) (_ Object, err error) {

@@ -1769,8 +1769,8 @@ type objectPtr struct {
 	p *Object
 }
 
-func (o *objectPtr) TypeName() string { return "<free-var>" }
-func (o *objectPtr) String() string   { return "free-var" }
+func (o *objectPtr) TypeName() string { return "free-var" }
+func (o *objectPtr) String() string   { return "<free-var>" }
 func (o *objectPtr) IsFalsy() bool    { return o.p == nil }
 func (o *objectPtr) Copy() Object     { return o }
 
@@ -1779,7 +1779,117 @@ type splatSequence struct {
 	s Sequence
 }
 
-func (o *splatSequence) TypeName() string { return "<splat-sequence>" }
-func (o *splatSequence) String() string   { return "splat-sequence" }
+func (o *splatSequence) TypeName() string { return "splat-sequence" }
+func (o *splatSequence) String() string   { return "<splat-sequence>" }
 func (o *splatSequence) IsFalsy() bool    { return o.s == nil }
 func (o *splatSequence) Copy() Object     { return o }
+
+// rangeType represents a range value.
+type rangeType struct {
+	start, stop, step int
+}
+
+func (o *rangeType) TypeName() string { return "range" }
+func (o *rangeType) String() string   { return "<range>" }
+func (o *rangeType) IsFalsy() bool    { return false }
+
+func (o *rangeType) Copy() Object {
+	return &rangeType{
+		start: o.start,
+		stop:  o.stop,
+		step:  o.step,
+	}
+}
+
+func (o *rangeType) Len() int {
+	if o.start <= o.stop {
+		return (o.stop - o.start) / o.step
+	}
+	return (o.start - o.stop) / o.step
+}
+
+func (o *rangeType) At(i int) Object {
+	if o.start <= o.stop {
+		return Int(o.start + i*o.step)
+	}
+	return Int(o.start - i*o.step)
+}
+
+func (o *rangeType) Slice(low, high int) Object {
+	if o.start <= o.stop {
+		return &rangeType{
+			start: o.start + low*o.step,
+			stop:  o.start + high*o.step,
+			step:  o.step,
+		}
+	}
+	return &rangeType{
+		start: o.start - low*o.step,
+		stop:  o.start - high*o.step,
+		step:  o.step,
+	}
+}
+
+func (o *rangeType) Items() []Object {
+	var elems []Object
+	if o.start <= o.stop {
+		elems = make([]Object, 0, (o.stop-o.start)/o.step)
+		for i := o.start; i < o.stop; i += o.step {
+			elems = append(elems, Int(i))
+		}
+	} else {
+		elems = make([]Object, 0, (o.start-o.stop)/o.step)
+		for i := o.start; i > o.stop; i -= o.step {
+			elems = append(elems, Int(i))
+		}
+	}
+	return elems
+}
+
+func (o *rangeType) Iterate() Iterator {
+	step := o.step
+	if o.start > o.stop {
+		step = -step
+	}
+	return &rangeIterator{
+		pos:  0,
+		len:  o.Len(),
+		cur:  o.start,
+		step: step,
+	}
+}
+
+type rangeIterator struct {
+	pos  int
+	len  int
+	cur  int
+	step int
+}
+
+func (it *rangeIterator) TypeName() string { return "range-iterator" }
+func (it *rangeIterator) String() string   { return "<range-iterator>" }
+func (it *rangeIterator) IsFalsy() bool    { return true }
+
+func (it *rangeIterator) Copy() Object {
+	return &rangeIterator{
+		pos:  it.pos,
+		len:  it.len,
+		cur:  it.cur,
+		step: it.step,
+	}
+}
+
+func (it *rangeIterator) Next(key, value *Object) bool {
+	if it.pos < it.len {
+		if key != nil {
+			*key = Int(it.pos)
+		}
+		if value != nil {
+			*value = Int(it.cur)
+		}
+		it.pos++
+		it.cur += it.step
+		return true
+	}
+	return false
+}

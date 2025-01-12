@@ -17,7 +17,6 @@ var OSModule = &toy.BuiltinModule{
 		"path": OSPathModule,
 		"env":  OSEnvModule,
 		"exec": OSExecModule,
-		"proc": OSProcModule,
 		"user": OSUserModule,
 
 		"platform": toy.String(runtime.GOOS),

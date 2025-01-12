@@ -5,8 +5,10 @@ import "github.com/infastin/toy"
 var StdLib = toy.ModuleMap{
 	"base64": Base64Module,
 	"fmt":    FmtModule,
+	"hex":    HexModule,
 	"json":   JSONModule,
 	"math":   MathModule,
+	"net":    NetModule,
 	"os":     OSModule,
 	"path":   PathModule,
 	"rand":   RandModule,

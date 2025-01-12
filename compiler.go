@@ -164,11 +164,9 @@ func (c *Compiler) Compile(node parser.Node) error {
 				node.Token.String())
 		}
 	case *parser.IntLit:
-		c.emit(node, parser.OpConstant,
-			c.addConstant(Int(node.Value)))
+		c.emit(node, parser.OpConstant, c.addConstant(Int(node.Value)))
 	case *parser.FloatLit:
-		c.emit(node, parser.OpConstant,
-			c.addConstant(Float(node.Value)))
+		c.emit(node, parser.OpConstant, c.addConstant(Float(node.Value)))
 	case *parser.BoolLit:
 		if node.Value {
 			c.emit(node, parser.OpTrue)
@@ -352,32 +350,30 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if err := c.Compile(node.Expr); err != nil {
 			return err
 		}
-		if err := c.Compile(node.Sel); err != nil {
-			return err
-		}
+		c.emit(node.Sel, parser.OpConstant, c.addConstant(String(node.Sel.Name)))
 		c.emit(node, parser.OpField)
 	case *parser.IndexExpr:
 		if err := c.compileIndexExpr(node, false); err != nil {
 			return err
 		}
 	case *parser.SliceExpr:
-		var opSliceOperand int
+		var indices int
 		if node.Low != nil {
 			if err := c.Compile(node.Low); err != nil {
 				return err
 			}
-			opSliceOperand |= 0x1
+			indices |= 0x1
 		}
 		if node.High != nil {
 			if err := c.Compile(node.High); err != nil {
 				return err
 			}
-			opSliceOperand |= 0x2
+			indices |= 0x2
 		}
 		if err := c.Compile(node.Expr); err != nil {
 			return err
 		}
-		c.emit(node, parser.OpSliceIndex, opSliceOperand)
+		c.emit(node, parser.OpSliceIndex, indices)
 	case *parser.FuncLit:
 		c.enterScope()
 
@@ -479,14 +475,14 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if len(node.Results) > 1 {
 			c.emit(node, parser.OpTuple, len(node.Results), 0)
 		}
-		var opReturnOperand int
+		var hasResults int
 		if len(node.Results) != 0 {
-			opReturnOperand = 1
+			hasResults = 1
 		}
 		if len(c.currentDeferMap()) != 0 {
 			c.emitDeferLoop()
 		}
-		c.emit(node, parser.OpReturn, opReturnOperand)
+		c.emit(node, parser.OpReturn, hasResults)
 	case *parser.DeferStmt:
 		if err := c.Compile(node.CallExpr.Func); err != nil {
 			return err
@@ -700,11 +696,11 @@ func (c *Compiler) compileIndexExpr(node *parser.IndexExpr, withOk bool) error {
 	if err := c.Compile(node.Index); err != nil {
 		return err
 	}
-	opIndexOperand := 0
+	returnBool := 0
 	if withOk {
-		opIndexOperand = 1
+		returnBool = 1
 	}
-	c.emit(node, parser.OpIndex, opIndexOperand)
+	c.emit(node, parser.OpIndex, returnBool)
 	return nil
 }
 
@@ -717,8 +713,7 @@ func (c *Compiler) compileAssign(
 		return c.compileAssignDefine(node, lhs, rhs, op)
 	}
 
-	ident, selectors := resolveAssignLHS(lhs[0])
-	numSel := len(selectors)
+	ident, expr, sel := resolveAssignLHS(lhs[0])
 
 	symbol, _, exists := c.symbolTable.Resolve(ident, false)
 	if !exists {
@@ -760,40 +755,44 @@ func (c *Compiler) compileAssign(
 		c.emit(node, parser.OpBinaryOp, int(token.Shr))
 	}
 
-	// compile selector expressions (right to left)
-	for i := numSel - 1; i >= 0; i-- {
-		if err := c.Compile(selectors[i]); err != nil {
+	var isField bool
+	if sel != nil {
+		// compile left side of the selector expression
+		if err := c.Compile(expr); err != nil {
+			return err
+		}
+		// compile selector
+		if ident, ok := sel.(*parser.Ident); ok {
+			isField = true
+			c.emit(sel, parser.OpConstant, c.addConstant(String(ident.Name)))
+		} else if err := c.Compile(sel); err != nil {
 			return err
 		}
 	}
 
-	switch symbol.Scope {
-	case ScopeGlobal:
-		if numSel > 0 {
-			c.emit(node, parser.OpSetSelGlobal, symbol.Index, numSel)
+	if sel != nil {
+		if isField {
+			c.emit(node, parser.OpSetField)
 		} else {
-			c.emit(node, parser.OpSetGlobal, symbol.Index)
+			c.emit(node, parser.OpSetIndex)
 		}
-	case ScopeLocal:
-		if numSel > 0 {
-			c.emit(node, parser.OpSetSelLocal, symbol.Index, numSel)
-		} else {
+	} else {
+		switch symbol.Scope {
+		case ScopeGlobal:
+			c.emit(node, parser.OpSetGlobal, symbol.Index)
+		case ScopeLocal:
 			if op == token.Define && !symbol.LocalAssigned {
 				c.emit(node, parser.OpDefineLocal, symbol.Index)
 			} else {
 				c.emit(node, parser.OpSetLocal, symbol.Index)
 			}
-		}
-		// mark the symbol as local-assigned
-		symbol.LocalAssigned = true
-	case ScopeFree:
-		if numSel > 0 {
-			c.emit(node, parser.OpSetSelFree, symbol.Index, numSel)
-		} else {
+			// mark the symbol as local-assigned
+			symbol.LocalAssigned = true
+		case ScopeFree:
 			c.emit(node, parser.OpSetFree, symbol.Index)
+		default:
+			panic(fmt.Errorf("invalid assignment variable scope: %s", symbol.Scope))
 		}
-	default:
-		panic(fmt.Errorf("invalid assignment variable scope: %s", symbol.Scope))
 	}
 
 	return nil
@@ -814,11 +813,12 @@ func (c *Compiler) compileAssignDefine(
 	}
 
 	type lhsResolved struct {
-		ident     string
-		selectors []parser.Expr
-		symbol    *Symbol
-		exists    bool
-		isFunc    bool
+		ident  string
+		expr   parser.Expr
+		sel    parser.Expr
+		symbol *Symbol
+		exists bool
+		isFunc bool
 	}
 
 	var redecl int
@@ -826,10 +826,9 @@ func (c *Compiler) compileAssignDefine(
 
 	// we have to resolve everything first
 	for j := range lhs {
-		ident, selectors := resolveAssignLHS(lhs[j])
-		numSel := len(selectors)
+		ident, expr, sel := resolveAssignLHS(lhs[j])
 
-		if op == token.Define && numSel > 0 {
+		if op == token.Define && sel != nil {
 			// using selector on new variable does not make sense
 			return c.errorf(node, "operator := not allowed with selector")
 		}
@@ -859,11 +858,12 @@ func (c *Compiler) compileAssignDefine(
 		}
 
 		resolved = append(resolved, &lhsResolved{
-			ident:     ident,
-			selectors: selectors,
-			symbol:    symbol,
-			exists:    exists,
-			isFunc:    isFunc,
+			ident:  ident,
+			expr:   expr,
+			sel:    sel,
+			symbol: symbol,
+			exists: exists,
+			isFunc: isFunc,
 		})
 	}
 
@@ -892,15 +892,21 @@ func (c *Compiler) compileAssignDefine(
 	}
 
 	for j, lr := range resolved {
-		numSel := len(lr.selectors)
-
 		if op == token.Define && !lr.exists && !lr.isFunc {
 			lr.symbol = c.symbolTable.Define(lr.ident)
 		}
 
-		// compile selector expressions (right to left)
-		for i := numSel - 1; i >= 0; i-- {
-			if err := c.Compile(lr.selectors[i]); err != nil {
+		var isField bool
+		if lr.sel != nil {
+			// compile left side of the selector expression
+			if err := c.Compile(lr.expr); err != nil {
+				return err
+			}
+			// compile selector
+			if ident, ok := lr.sel.(*parser.Ident); ok {
+				isField = true
+				c.emit(lr.sel, parser.OpConstant, c.addConstant(String(ident.Name)))
+			} else if err := c.Compile(lr.sel); err != nil {
 				return err
 			}
 		}
@@ -910,33 +916,29 @@ func (c *Compiler) compileAssignDefine(
 			c.emit(node, parser.OpIdxElem, j)
 		}
 
-		switch lr.symbol.Scope {
-		case ScopeGlobal:
-			if numSel > 0 {
-				c.emit(node, parser.OpSetSelGlobal, lr.symbol.Index, numSel)
+		if lr.sel != nil {
+			if isField {
+				c.emit(node, parser.OpSetField)
 			} else {
-				c.emit(node, parser.OpSetGlobal, lr.symbol.Index)
+				c.emit(node, parser.OpSetIndex)
 			}
-		case ScopeLocal:
-			if numSel > 0 {
-				c.emit(node, parser.OpSetSelLocal, lr.symbol.Index, numSel)
-			} else {
+		} else {
+			switch lr.symbol.Scope {
+			case ScopeGlobal:
+				c.emit(node, parser.OpSetGlobal, lr.symbol.Index)
+			case ScopeLocal:
 				if op == token.Define && !lr.symbol.LocalAssigned {
 					c.emit(node, parser.OpDefineLocal, lr.symbol.Index)
 				} else {
 					c.emit(node, parser.OpSetLocal, lr.symbol.Index)
 				}
-			}
-			// mark the symbol as local-assigned
-			lr.symbol.LocalAssigned = true
-		case ScopeFree:
-			if numSel > 0 {
-				c.emit(node, parser.OpSetSelFree, lr.symbol.Index, numSel)
-			} else {
+				// mark the symbol as local-assigned
+				lr.symbol.LocalAssigned = true
+			case ScopeFree:
 				c.emit(node, parser.OpSetFree, lr.symbol.Index)
+			default:
+				panic(fmt.Errorf("invalid assignment variable scope: %s", lr.symbol.Scope))
 			}
-		default:
-			panic(fmt.Errorf("invalid assignment variable scope: %s", lr.symbol.Scope))
 		}
 	}
 
@@ -1072,20 +1074,20 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt, label string) error 
 		c.emit(stmt, parser.OpDefineLocal, itSymbol.Index)
 	}
 
-	var opNextOperand int
+	var setKeyVal int
 
 	// define key variable
 	var keySymbol *Symbol
 	if stmt.Key.Name != "_" {
 		keySymbol = c.symbolTable.Define(stmt.Key.Name)
-		opNextOperand |= 0x1
+		setKeyVal |= 0x1
 	}
 
 	// define value variable
 	var valueSymbol *Symbol
 	if stmt.Value.Name != "_" {
 		valueSymbol = c.symbolTable.Define(stmt.Value.Name)
-		opNextOperand |= 0x2
+		setKeyVal |= 0x2
 	}
 
 	// pre-condition position
@@ -1101,7 +1103,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt, label string) error 
 	} else {
 		c.emit(stmt, parser.OpGetLocal, itSymbol.Index)
 	}
-	c.emit(stmt, parser.OpIteratorNext, opNextOperand)
+	c.emit(stmt, parser.OpIteratorNext, setKeyVal)
 
 	// condition jump position
 	postCondPos := c.emit(stmt, parser.OpJumpFalsy, 0)
@@ -1255,13 +1257,6 @@ func (c *Compiler) leaveLoop() {
 	}
 	c.loops = c.loops[:len(c.loops)-1]
 	c.loopIndex--
-}
-
-func (c *Compiler) currentLoop() *loop {
-	if c.loopIndex >= 0 {
-		return c.loops[c.loopIndex]
-	}
-	return nil
 }
 
 func (c *Compiler) currentInstructions() []byte {
@@ -1528,18 +1523,34 @@ func (c *Compiler) getPathModule(moduleName string) (pathFile string, err error)
 	return "", fmt.Errorf("module '%s' not found at: %s", moduleName, pathFile)
 }
 
-func resolveAssignLHS(expr parser.Expr) (name string, selectors []parser.Expr) {
+// For the given expression, returns the name of the leftmost identifier,
+// an expression containing all but the last selector,
+// and the last selector for the given expression.
+// If the given expression is just an identifier, returns the name
+// of the identifier, and the other results are set to nil.
+func resolveAssignLHS(expr parser.Expr) (name string, x, sel parser.Expr) {
 	switch term := expr.(type) {
 	case *parser.SelectorExpr:
-		name, selectors = resolveAssignLHS(term.Expr)
-		selectors = append(selectors, term.Sel)
+		x, sel = term.Expr, term.Sel
 	case *parser.IndexExpr:
-		name, selectors = resolveAssignLHS(term.Expr)
-		selectors = append(selectors, term.Index)
+		x, sel = term.Expr, term.Index
 	case *parser.Ident:
-		name = term.Name
+		return term.Name, nil, nil
 	}
-	return name, selectors
+	ident := x
+loop:
+	for {
+		switch term := ident.(type) {
+		case *parser.SelectorExpr:
+			ident = term.Expr
+		case *parser.IndexExpr:
+			ident = term.Expr
+		case *parser.Ident:
+			ident = term
+			break loop
+		}
+	}
+	return ident.String(), x, sel
 }
 
 func iterateInstructions(b []byte, fn func(pos int, opcode parser.Opcode, operands []int) bool) {

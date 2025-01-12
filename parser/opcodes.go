@@ -18,8 +18,10 @@ const (
 	OpMap                           // Map object
 	OpTuple                         // Tuple object
 	OpImmutable                     // Immutable object
-	OpIndex                         // Index operation
-	OpField                         // Field operation
+	OpIndex                         // Index access operation
+	OpSetIndex                      // Index assignment operation
+	OpField                         // Field access operation
+	OpSetField                      // Field assignment operation
 	OpSliceIndex                    // Slice operation
 	OpSplat                         // Splat operation
 	OpCall                          // Call function
@@ -28,16 +30,13 @@ const (
 	OpPushDefer                     // Push deferred call to the stack
 	OpGetGlobal                     // Get global variable
 	OpSetGlobal                     // Set global variable
-	OpSetSelGlobal                  // Set global variable using selectors
 	OpGetLocal                      // Get local variable
 	OpSetLocal                      // Set local variable
 	OpDefineLocal                   // Define local variable
-	OpSetSelLocal                   // Set local variable using selectors
 	OpGetFreePtr                    // Get free variable pointer object
 	OpGetFree                       // Get free variables
 	OpSetFree                       // Set free variables
 	OpGetLocalPtr                   // Get local variable as a pointer
-	OpSetSelFree                    // Set free variables using selectors
 	OpGetBuiltin                    // Get builtin function
 	OpIdxAssignAssert               // Assert indexable size during tuple-assignment
 	OpIdxElem                       // Push element from indexable
@@ -64,13 +63,14 @@ var OpcodeNames = [...]string{
 	OpNull:            "NULL",
 	OpGetGlobal:       "GETG",
 	OpSetGlobal:       "SETG",
-	OpSetSelGlobal:    "SETSG",
 	OpArray:           "ARR",
 	OpMap:             "MAP",
 	OpTuple:           "TUPLE",
 	OpImmutable:       "IMMUT",
 	OpIndex:           "INDEX",
+	OpSetIndex:        "SETINDEX",
 	OpField:           "FIELD",
+	OpSetField:        "SETFIELD",
 	OpSliceIndex:      "SLICE",
 	OpSplat:           "SPLAT",
 	OpCall:            "CALL",
@@ -80,11 +80,9 @@ var OpcodeNames = [...]string{
 	OpGetLocal:        "GETL",
 	OpSetLocal:        "SETL",
 	OpDefineLocal:     "DEFL",
-	OpSetSelLocal:     "SETSL",
 	OpGetFreePtr:      "GETFP",
 	OpGetFree:         "GETF",
 	OpGetLocalPtr:     "GETLP",
-	OpSetSelFree:      "SETSF",
 	OpSetFree:         "SETF",
 	OpGetBuiltin:      "BUILTIN",
 	OpIdxAssignAssert: "IDXASSERT",
@@ -112,13 +110,14 @@ var OpcodeOperands = [...][]int{
 	OpNull:            {},
 	OpGetGlobal:       {2},
 	OpSetGlobal:       {2},
-	OpSetSelGlobal:    {2, 1},
 	OpArray:           {2, 1},
 	OpMap:             {2},
 	OpTuple:           {2, 1},
 	OpImmutable:       {},
 	OpIndex:           {1},
+	OpSetIndex:        {},
 	OpField:           {},
+	OpSetField:        {},
 	OpSliceIndex:      {1},
 	OpSplat:           {},
 	OpCall:            {1, 1, 1},
@@ -128,12 +127,10 @@ var OpcodeOperands = [...][]int{
 	OpGetLocal:        {1},
 	OpSetLocal:        {1},
 	OpDefineLocal:     {1},
-	OpSetSelLocal:     {1, 1},
 	OpGetFreePtr:      {1},
 	OpGetFree:         {1},
 	OpSetFree:         {1},
 	OpGetLocalPtr:     {1},
-	OpSetSelFree:      {1, 1},
 	OpGetBuiltin:      {1},
 	OpIdxAssignAssert: {2},
 	OpIdxElem:         {2},

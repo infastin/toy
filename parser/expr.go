@@ -554,7 +554,7 @@ func (e *ParenExpr) String() string {
 // SelectorExpr represents a selector expression.
 type SelectorExpr struct {
 	Expr Expr
-	Sel  Expr
+	Sel  *Ident
 }
 
 func (e *SelectorExpr) exprNode() {}

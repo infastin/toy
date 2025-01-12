@@ -367,12 +367,7 @@ func (p *Parser) parseSelector(x Expr) Expr {
 	if p.trace {
 		defer untracep(tracep(p, "Selector"))
 	}
-	sel := p.parseIdent()
-	return &SelectorExpr{Expr: x, Sel: &StringLit{
-		Value:    sel.Name,
-		ValuePos: sel.NamePos,
-		Literal:  sel.Name,
-	}}
+	return &SelectorExpr{Expr: x, Sel: p.parseIdent()}
 }
 
 func (p *Parser) parseOperand() Expr {

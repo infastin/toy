@@ -189,21 +189,6 @@ func (v *VM) run() {
 			v.sp--
 			globalIndex := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 			v.globals[globalIndex] = v.stack[v.sp]
-		case parser.OpSetSelGlobal:
-			v.ip += 3
-			globalIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
-			numSelectors := int(v.curInsts[v.ip])
-			// selectors and RHS value
-			selectors := make([]Object, numSelectors)
-			for i := 0; i < numSelectors; i++ {
-				selectors[i] = v.stack[v.sp-numSelectors+i]
-			}
-			val := v.stack[v.sp-numSelectors-1]
-			v.sp -= numSelectors + 1
-			if err := indexAssign(v.globals[globalIndex], val, selectors); err != nil {
-				v.err = err
-				return
-			}
 		case parser.OpGetGlobal:
 			v.ip += 2
 			globalIndex := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
@@ -299,6 +284,15 @@ func (v *VM) run() {
 
 			v.stack[v.sp-2] = val
 			v.sp--
+		case parser.OpSetIndex:
+			index := v.stack[v.sp-1]
+			left := v.stack[v.sp-2]
+			right := v.stack[v.sp-3]
+			v.sp -= 3
+			if err := IndexSet(left, index, right); err != nil {
+				v.err = err
+				return
+			}
 		case parser.OpField:
 			name := v.stack[v.sp-1].(String)
 			left := v.stack[v.sp-2]
@@ -313,6 +307,15 @@ func (v *VM) run() {
 			}
 			v.stack[v.sp] = val
 			v.sp++
+		case parser.OpSetField:
+			sel := v.stack[v.sp-1].(String)
+			left := v.stack[v.sp-2]
+			right := v.stack[v.sp-3]
+			v.sp -= 3
+			if err := FieldSet(left, string(sel), right); err != nil {
+				v.err = err
+				return
+			}
 		case parser.OpSliceIndex:
 			v.ip++
 			left := v.stack[v.sp-1]
@@ -513,26 +516,6 @@ func (v *VM) run() {
 				val = obj
 			}
 			v.stack[sp] = val // also use a copy of popped value
-		case parser.OpSetSelLocal:
-			localIndex := int(v.curInsts[v.ip+1])
-			numSelectors := int(v.curInsts[v.ip+2])
-			v.ip += 2
-
-			// selectors and RHS value
-			selectors := make([]Object, numSelectors)
-			for i := 0; i < numSelectors; i++ {
-				selectors[i] = v.stack[v.sp-numSelectors+i]
-			}
-			val := v.stack[v.sp-numSelectors-1]
-			v.sp -= numSelectors + 1
-			dst := v.stack[v.curFrame.basePointer+localIndex]
-			if obj, ok := dst.(*objectPtr); ok {
-				dst = *obj.p
-			}
-			if err := indexAssign(dst, val, selectors); err != nil {
-				v.err = err
-				return
-			}
 		case parser.OpGetLocal:
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
@@ -632,22 +615,6 @@ func (v *VM) run() {
 			}
 			v.stack[v.sp] = freeVar
 			v.sp++
-		case parser.OpSetSelFree:
-			v.ip += 2
-			freeIndex := int(v.curInsts[v.ip-1])
-			numSelectors := int(v.curInsts[v.ip])
-
-			// selectors and RHS value
-			selectors := make([]Object, numSelectors)
-			for i := 0; i < numSelectors; i++ {
-				selectors[i] = v.stack[v.sp-numSelectors+i]
-			}
-			val := v.stack[v.sp-numSelectors-1]
-			v.sp -= numSelectors + 1
-			if err := indexAssign(*v.curFrame.freeVars[freeIndex].p, val, selectors); err != nil {
-				v.err = err
-				return
-			}
 		case parser.OpIteratorInit:
 			dst := v.stack[v.sp-1]
 			v.sp--
@@ -708,19 +675,4 @@ func (v *VM) run() {
 // IsStackEmpty tests if the stack is empty or not.
 func (v *VM) IsStackEmpty() bool {
 	return v.sp == 0
-}
-
-func indexAssign(dst, src Object, selectors []Object) error {
-	numSel := len(selectors)
-	for sidx := numSel - 1; sidx > 0; sidx-- {
-		next, _, err := IndexGet(dst, selectors[sidx])
-		if err != nil {
-			return err
-		}
-		dst = next
-	}
-	if err := IndexSet(dst, selectors[0], src); err != nil {
-		return err
-	}
-	return nil
 }

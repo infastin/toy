@@ -119,6 +119,7 @@ func (o *CompiledFunction) Call(v *VM, args ...Object) (Object, error) {
 		return nil, ErrStackOverflow
 	}
 
+	// save current call frame
 	frame := v.curFrame
 
 	// update call frame
@@ -133,11 +134,19 @@ func (o *CompiledFunction) Call(v *VM, args ...Object) (Object, error) {
 	copy(v.stack[v.sp:], args)
 	v.sp = v.sp + o.numLocals
 
-	if frame.term {
+	if frame.subvm {
+		// we should run in the subVM
+		// NOTE: we could use proper coroutines
+		// that are already in the runtime, but
+		// it's not possible to link with them because of the
+		// changes to cmd/link in go1.23
+		// See: https://github.com/golang/go/issues/67401
 		v.run()
 		if v.err != nil {
+			// subVM closed with an error
 			return nil, nil
 		}
+		// pop result from the stack and return it
 		ret := v.stack[v.sp-1]
 		v.sp--
 		return ret, nil

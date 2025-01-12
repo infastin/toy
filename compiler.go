@@ -480,7 +480,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			hasResults = 1
 		}
 		if len(c.currentDeferMap()) != 0 {
-			c.emitDeferLoop()
+			c.emit(nil, parser.OpRunDefer)
 		}
 		c.emit(node, parser.OpReturn, hasResults)
 	case *parser.DeferStmt:
@@ -497,7 +497,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 		}
 		deferIdx := c.addDeferPos(node.CallExpr.Pos())
-		c.emit(node, parser.OpSaveDefer, len(node.CallExpr.Args), splat, deferIdx)
+		c.emit(node, parser.OpDefer, len(node.CallExpr.Args), splat, deferIdx)
 	case *parser.SplatExpr:
 		if err := c.Compile(node.Expr); err != nil {
 			return err
@@ -516,7 +516,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return err
 			}
 		}
-		c.emit(node, parser.OpCall, len(node.Args), splat, 0)
+		c.emit(node, parser.OpCall, len(node.Args), splat)
 	case *parser.ImportExpr:
 		if node.ModuleName == "" {
 			return c.errorf(node, "empty module name")
@@ -529,7 +529,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 					return err
 				}
 				c.emit(node, parser.OpConstant, c.addConstant(compiled))
-				c.emit(node, parser.OpCall, 0, 0, 0)
+				c.emit(node, parser.OpCall, 0, 0)
 			case *BuiltinModule:
 				c.emit(node, parser.OpConstant, c.addConstant(mod))
 			default:
@@ -556,7 +556,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 
 			c.emit(node, parser.OpConstant, c.addConstant(compiled))
-			c.emit(node, parser.OpCall, 0, 0, 0)
+			c.emit(node, parser.OpCall, 0, 0)
 		} else {
 			return c.errorf(node, "module '%s' not found", node.ModuleName)
 		}
@@ -574,7 +574,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 		c.emit(node, parser.OpImmutable)
 		if len(c.currentDeferMap()) != 0 {
-			c.emitDeferLoop()
+			c.emit(nil, parser.OpRunDefer)
 		}
 		c.emit(node, parser.OpReturn, 1)
 	case *parser.ImmutableExpr:
@@ -625,15 +625,9 @@ func (c *Compiler) Compile(node parser.Node) error {
 func (c *Compiler) Bytecode() *Bytecode {
 	insts := c.currentInstructions()
 	if len(c.currentDeferMap()) != 0 {
-		curPos := len(insts)
-		insts = append(insts, MakeInstruction(parser.OpPushDefer)...)
-		jumpPos := len(insts)
-		insts = append(insts, MakeInstruction(parser.OpJumpFalsy, 0)...)
-		insts = append(insts, MakeInstruction(parser.OpCall, 0, 0, 1)...)
-		insts = append(insts, MakeInstruction(parser.OpJump, curPos)...)
-		copy(insts[jumpPos:], MakeInstruction(parser.OpJumpFalsy, len(insts)))
+		insts = append(insts, parser.OpRunDefer)
 	}
-	insts = append(insts, MakeInstruction(parser.OpSuspend)...)
+	insts = append(insts, parser.OpSuspend)
 	return &Bytecode{
 		FileSet: c.file.Set(),
 		MainFunction: &CompiledFunction{
@@ -1460,7 +1454,7 @@ func (c *Compiler) optimizeFunc(node parser.Node) int {
 	// append "return"
 	if appendReturn {
 		if len(c.currentDeferMap()) != 0 {
-			c.emitDeferLoop()
+			c.emit(nil, parser.OpRunDefer)
 		}
 		c.emit(node, parser.OpReturn, 0)
 	}
@@ -1479,16 +1473,6 @@ func (c *Compiler) emit(node parser.Node, opcode parser.Opcode, operands ...int)
 			FormatInstructions(c.scopes[c.scopeIndex].instructions[pos:], pos)[0]))
 	}
 	return pos
-}
-
-func (c *Compiler) emitDeferLoop() {
-	curPos := len(c.currentInstructions())
-	c.emit(nil, parser.OpPushDefer)
-	jumpPos := c.emit(nil, parser.OpJumpFalsy, 0)
-	c.emit(nil, parser.OpCall, 0, 0, 1)
-	c.emit(nil, parser.OpPop)
-	c.emit(nil, parser.OpJump, curPos)
-	c.changeOperand(jumpPos, len(c.currentInstructions()))
 }
 
 func (c *Compiler) printTrace(a ...any) {

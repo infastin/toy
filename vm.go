@@ -2,7 +2,6 @@ package toy
 
 import (
 	"fmt"
-	"slices"
 	"sync/atomic"
 
 	"github.com/infastin/toy/parser"
@@ -11,10 +10,9 @@ import (
 
 // deferredCall represents a deferred function call.
 type deferredCall struct {
-	fn    Callable
-	args  []Object
-	splat int
-	pos   parser.Pos
+	fn   Callable
+	args []Object
+	pos  parser.Pos
 }
 
 // frame represents a function call frame.
@@ -24,7 +22,9 @@ type frame struct {
 	ip          int
 	basePointer int
 	deferred    []*deferredCall
-	term        bool // if true, returning to this frame will stop vm
+	// this flag tells compiled functions
+	// to run in the subVM
+	subvm bool
 }
 
 // VM is a virtual machine that executes the bytecode compiled by Compiler.
@@ -381,17 +381,9 @@ func (v *VM) run() {
 		case parser.OpCall:
 			numArgs := int(v.curInsts[v.ip+1])
 			splat := int(v.curInsts[v.ip+2])
-			onStack := int(v.curInsts[v.ip+3])
-			v.ip += 3
-
-			if onStack == 1 {
-				splat = int(v.stack[v.sp-1].(Int))
-				numArgs = int(v.stack[v.sp-2].(Int))
-				v.sp -= 2
-			}
+			v.ip += 2
 
 			value := v.stack[v.sp-1-numArgs]
-
 			callable, ok := value.(Callable)
 			if !ok {
 				v.err = fmt.Errorf("not callable: %s", value.TypeName())
@@ -415,11 +407,14 @@ func (v *VM) run() {
 
 			if callee, ok := callable.(*CompiledFunction); ok {
 				if _, err := callee.Call(v, args...); err != nil {
-					v.err = err
+					v.err = fmt.Errorf("error during call to '%s': %w",
+						callee.TypeName(), err)
 					return
 				}
 			} else {
-				v.curFrame.term = true
+				// user functions can potentially call compiled functions,
+				// so we tell compiled functions that they should run in the subVM
+				v.curFrame.subvm = true
 				ret, err := callable.Call(v, args...)
 				if err != nil {
 					v.err = fmt.Errorf("error during call to '%s': %w",
@@ -427,10 +422,10 @@ func (v *VM) run() {
 					return
 				}
 				if v.err != nil {
+					// subVM closed with an error
 					return
 				}
-				v.curFrame.term = false
-
+				v.curFrame.subvm = false
 				// nil return -> nil
 				if ret == nil {
 					ret = Nil
@@ -454,10 +449,10 @@ func (v *VM) run() {
 			v.sp = v.frames[v.framesIndex].basePointer
 			v.stack[v.sp] = retVal
 			v.sp++
-			if v.curFrame.term {
+			if v.curFrame.subvm {
 				return
 			}
-		case parser.OpSaveDefer:
+		case parser.OpDefer:
 			numArgs := int(v.curInsts[v.ip+1])
 			splat := int(v.curInsts[v.ip+2])
 			deferIdx := int(v.curInsts[v.ip+3])
@@ -470,35 +465,50 @@ func (v *VM) run() {
 				return
 			}
 
-			args := slices.Clone(v.stack[v.sp-numArgs : v.sp])
-			v.sp -= numArgs + 1
-			v.curFrame.deferred = append(v.curFrame.deferred, &deferredCall{
-				fn:    callable,
-				args:  args,
-				splat: splat,
-				pos:   v.curFrame.fn.deferMap[deferIdx],
-			})
-		case parser.OpPushDefer:
-			if len(v.curFrame.deferred) == 0 {
-				v.stack[v.sp] = Bool(false)
-				v.sp++
-				break
+			args := make([]Object, 0, numArgs)
+			if splat == 1 {
+				for i := v.sp - numArgs; i < v.sp; i++ {
+					switch arg := v.stack[i].(type) {
+					case *splatSequence:
+						args = append(args, arg.s.Items()...)
+					default:
+						args = append(args, arg)
+					}
+				}
+			} else {
+				args = append(args, v.stack[v.sp-numArgs:v.sp]...)
 			}
-			call := v.curFrame.deferred[len(v.curFrame.deferred)-1]
-			v.curFrame.deferred = v.curFrame.deferred[:len(v.curFrame.deferred)-1]
-			v.curFrame.fn.sourceMap[v.ip] = call.pos
-			v.stack[v.sp] = call.fn
-			copy(v.stack[v.sp+1:], call.args)
-			numArgs := len(call.args)
-			v.stack[v.sp+1+numArgs] = Int(numArgs)
-			v.stack[v.sp+1+numArgs+1] = Int(call.splat)
-			v.stack[v.sp+1+numArgs+2] = Bool(true)
-			v.sp += 1 + numArgs + 3
+			v.sp -= numArgs + 1
+
+			v.curFrame.deferred = append(v.curFrame.deferred, &deferredCall{
+				fn:   callable,
+				args: args,
+				pos:  v.curFrame.fn.deferMap[deferIdx],
+			})
+		case parser.OpRunDefer:
+			for i := len(v.curFrame.deferred) - 1; i >= 0; i-- {
+				call := v.curFrame.deferred[i]
+				// tell compiled functions that they should run in the subVM
+				v.curFrame.subvm = true
+				// map RUNDEFER instruction to the position
+				// of the defered call, so that we get
+				// a correct error message in case of an error
+				v.curFrame.fn.sourceMap[v.ip-1] = call.pos
+				if _, err := call.fn.Call(v, call.args...); err != nil {
+					v.err = fmt.Errorf("error during call to '%s': %w",
+						call.fn.TypeName(), err)
+					return
+				}
+				if v.err != nil {
+					// subVM closed with an error
+					return
+				}
+				v.curFrame.subvm = false
+			}
 		case parser.OpDefineLocal:
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
 			sp := v.curFrame.basePointer + localIndex
-
 			// local variables can be mutated by other actions
 			// so always store the copy of popped value
 			val := v.stack[v.sp-1]
@@ -508,7 +518,6 @@ func (v *VM) run() {
 			localIndex := int(v.curInsts[v.ip+1])
 			v.ip++
 			sp := v.curFrame.basePointer + localIndex
-
 			// update pointee of v.stack[sp] instead of replacing the pointer
 			// itself. this is needed because there can be free variables
 			// referencing the same local variables.

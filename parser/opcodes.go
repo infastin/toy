@@ -26,8 +26,8 @@ const (
 	OpSplat                         // Splat operation
 	OpCall                          // Call function
 	OpReturn                        // Return
-	OpSaveDefer                     // Save deferred call
-	OpPushDefer                     // Push deferred call to the stack
+	OpDefer                         // Defer function call
+	OpRunDefer                      // Run defered function calls
 	OpGetGlobal                     // Get global variable
 	OpSetGlobal                     // Set global variable
 	OpGetLocal                      // Get local variable
@@ -75,8 +75,8 @@ var OpcodeNames = [...]string{
 	OpSplat:           "SPLAT",
 	OpCall:            "CALL",
 	OpReturn:          "RET",
-	OpSaveDefer:       "SAVEDEFER",
-	OpPushDefer:       "PUSHDEFER",
+	OpDefer:           "DEFER",
+	OpRunDefer:        "RUNDEFER",
 	OpGetLocal:        "GETL",
 	OpSetLocal:        "SETL",
 	OpDefineLocal:     "DEFL",
@@ -120,10 +120,10 @@ var OpcodeOperands = [...][]int{
 	OpSetField:        {},
 	OpSliceIndex:      {1},
 	OpSplat:           {},
-	OpCall:            {1, 1, 1},
+	OpCall:            {1, 1},
 	OpReturn:          {1},
-	OpSaveDefer:       {1, 1, 1},
-	OpPushDefer:       {},
+	OpDefer:           {1, 1, 1},
+	OpRunDefer:        {},
 	OpGetLocal:        {1},
 	OpSetLocal:        {1},
 	OpDefineLocal:     {1},

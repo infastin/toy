@@ -34,7 +34,7 @@ func newCompiler() *compiler {
 		var b strings.Builder
 		for i, arg := range args {
 			if i != 0 {
-				b.WriteString(" ")
+				b.WriteByte(' ')
 			}
 			b.WriteString(arg.String())
 		}
@@ -46,10 +46,13 @@ func newCompiler() *compiler {
 
 	printFunc := func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var b strings.Builder
-		for _, arg := range args {
+		for i, arg := range args {
 			var s toy.String
 			if err := toy.Convert(&s, arg); err != nil {
 				return nil, err
+			}
+			if i != 0 {
+				b.WriteByte(' ')
 			}
 			b.WriteString(string(s))
 		}

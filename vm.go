@@ -414,7 +414,10 @@ func (v *VM) run() {
 			v.sp -= numArgs + 1
 
 			if callee, ok := callable.(*CompiledFunction); ok {
-				callee.Call(v, args...)
+				if _, err := callee.Call(v, args...); err != nil {
+					v.err = err
+					return
+				}
 			} else {
 				v.curFrame.term = true
 				ret, err := callable.Call(v, args...)

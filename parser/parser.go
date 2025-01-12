@@ -249,9 +249,11 @@ L:
 	return x
 }
 
-func (p *Parser) parseArgument() Expr {
+// parseListElement parses an element of a call argument list
+// or constructor argument list.
+func (p *Parser) parseListElement() Expr {
 	if p.trace {
-		defer untracep(tracep(p, "Argument"))
+		defer untracep(tracep(p, "ListElement"))
 	}
 	if p.token != token.Ellipsis {
 		return p.parseExpr()
@@ -275,7 +277,7 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 
 	var list []Expr
 	for p.token != token.RParen && p.token != token.EOF {
-		list = append(list, p.parseArgument())
+		list = append(list, p.parseListElement())
 		if !p.expectComma("call argument") {
 			break
 		}
@@ -533,7 +535,7 @@ func (p *Parser) parseArrayLit() Expr {
 
 	var elements []Expr
 	for p.token != token.RBrack && p.token != token.EOF {
-		elements = append(elements, p.parseArgument())
+		elements = append(elements, p.parseListElement())
 		if !p.expectComma("array element") {
 			break
 		}
@@ -576,7 +578,7 @@ func (p *Parser) parseTupleLit() Expr {
 
 	var elements []Expr
 	for p.token != token.RParen && p.token != token.EOF {
-		elements = append(elements, p.parseArgument())
+		elements = append(elements, p.parseListElement())
 		if !p.expectComma("tuple element") {
 			break
 		}

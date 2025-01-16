@@ -14,7 +14,7 @@ import (
 	"github.com/infastin/toy/stdlib"
 )
 
-var (
+const (
 	version         = "dev"
 	compilationDate = "2006-01-02 15:04:05"
 )

@@ -520,7 +520,7 @@ func (v *VM) run() {
 			sp := v.curFrame.basePointer + localIndex
 			// update pointee of v.stack[sp] instead of replacing the pointer
 			// itself. this is needed because there can be free variables
-			// referencing the same local variables.
+			// referencing the same local variables
 			val := v.stack[v.sp-1]
 			v.sp--
 			if obj, ok := v.stack[sp].(*objectPtr); ok {

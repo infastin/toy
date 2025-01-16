@@ -46,6 +46,7 @@ func (o *BuiltinFunction) WithReceiver(recv Object) *BuiltinFunction {
 
 // CompiledFunction represents a compiled function.
 type CompiledFunction struct {
+	receiver      Object
 	instructions  []byte
 	numLocals     int // number of local variables (including function parameters)
 	numParameters int
@@ -77,6 +78,9 @@ func (o *CompiledFunction) Copy() Object {
 }
 
 func (o *CompiledFunction) Call(v *VM, args ...Object) (Object, error) {
+	if o.receiver != nil {
+		args = append([]Object{o.receiver}, args...)
+	}
 	numArgs := len(args)
 
 	if o.varArgs {
@@ -153,6 +157,19 @@ func (o *CompiledFunction) Call(v *VM, args ...Object) (Object, error) {
 	}
 
 	return nil, nil
+}
+
+func (o *CompiledFunction) WithReceiver(recv Object) *CompiledFunction {
+	return &CompiledFunction{
+		receiver:      recv,
+		instructions:  o.instructions,
+		numLocals:     o.numLocals,
+		numParameters: o.numParameters,
+		varArgs:       o.varArgs,
+		sourceMap:     o.sourceMap,
+		deferMap:      o.deferMap,
+		free:          slices.Clone(o.free),
+	}
 }
 
 // sourcePos returns the source position of the instruction at ip.

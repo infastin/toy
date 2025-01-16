@@ -1284,18 +1284,14 @@ fn(a) {
 
 	expectCompile(t, `
 g := 55;
-
 fn() {
 	a := 66;
-
 	return fn() {
 		b := 77;
-
 		return fn() {
 			c := 88;
-
 			return g + a + b + c;
-	}
+		}
 	}
 }`,
 		bytecode(

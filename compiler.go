@@ -708,10 +708,21 @@ func (c *Compiler) compileAssign(
 	}
 
 	ident, expr, sel := resolveAssignLHS(lhs[0])
+	// we disallow statements like 1 += 1
+	// and allow statements like [1, 2, 3][0] += 1
+	if ident == "" && sel == nil {
+		return c.errorf(node, "cannot assign to '%s': not a selector expression", expr.String())
+	}
 
-	symbol, _, exists := c.symbolTable.Resolve(ident, false)
-	if !exists {
-		return c.errorf(node, "unresolved reference '%s'", ident)
+	// it's fine for symbol to be nil,
+	// since it won't be used with selector expressions
+	var symbol *Symbol
+	if ident != "" {
+		var exists bool
+		symbol, _, exists = c.symbolTable.Resolve(ident, false)
+		if !exists {
+			return c.errorf(node, "unresolved reference '%s'", ident)
+		}
 	}
 
 	// +=, -=, *=, /=
@@ -821,9 +832,16 @@ func (c *Compiler) compileAssignDefine(
 	// we have to resolve everything first
 	for j := range lhs {
 		ident, expr, sel := resolveAssignLHS(lhs[j])
-
+		// we disallow statements like 1 := 1 or 1 = 1
+		// and allow statements like [1, 2, 3][0] = 1
+		if ident == "" && sel == nil {
+			if op == token.Define {
+				return c.errorf(node, "non-name '%s' on left side of :=", expr.String())
+			}
+			return c.errorf(node, "cannot assign to '%s': not a selector expression", expr.String())
+		}
+		// we also disallow using selectors with define operator
 		if op == token.Define && sel != nil {
-			// using selector on new variable does not make sense
 			return c.errorf(node, "operator := not allowed with selector")
 		}
 
@@ -832,23 +850,30 @@ func (c *Compiler) compileAssignDefine(
 			_, isFunc = rhs[j].(*parser.FuncLit)
 		}
 
-		symbol, depth, exists := c.symbolTable.Resolve(ident, false)
-		if op == token.Define {
-			if depth == 0 && exists {
-				redecl += 1 // increment the number of variable redeclarations
+		// it's fine for symbol to be nil,
+		// since it won't be used with selector expressions
+		var symbol *Symbol
+		var exists bool
+		if ident != "" {
+			var depth int
+			symbol, depth, exists = c.symbolTable.Resolve(ident, false)
+			if op == token.Define {
+				if depth == 0 && exists {
+					redecl += 1 // increment the number of variable redeclarations
+				}
+				if isFunc {
+					symbol = c.symbolTable.Define(ident)
+				}
+			} else if !exists {
+				return c.errorf(node, "unresolved reference '%s'", ident)
 			}
-			if isFunc {
-				symbol = c.symbolTable.Define(ident)
+			if redecl == len(lhs) {
+				// if all variables have been redeclared, return an error
+				if redecl == 1 {
+					return c.errorf(node, "'%s' redeclared in this block", ident)
+				}
+				return c.errorf(node, "no new variables on the left side of :=")
 			}
-		} else if !exists {
-			return c.errorf(node, "unresolved reference '%s'", ident)
-		}
-		if redecl == len(lhs) {
-			// if all variables have been redeclared, return an error
-			if redecl == 1 {
-				return c.errorf(node, "'%s' redeclared in this block", ident)
-			}
-			return c.errorf(node, "no new variables on the left side of :=")
 		}
 
 		resolved = append(resolved, &lhsResolved{
@@ -887,6 +912,8 @@ func (c *Compiler) compileAssignDefine(
 
 	for j, lr := range resolved {
 		if op == token.Define && !lr.exists && !lr.isFunc {
+			// even if symbol is nil, we can't get
+			// here because define operator is disallowed with selectors
 			lr.symbol = c.symbolTable.Define(lr.ident)
 		}
 
@@ -1512,6 +1539,7 @@ func (c *Compiler) getPathModule(moduleName string) (pathFile string, err error)
 // and the last selector for the given expression.
 // If the given expression is just an identifier, returns the name
 // of the identifier, and the other results are set to nil.
+// If the leftmost expression is not an identifier, then name is set to "".
 func resolveAssignLHS(expr parser.Expr) (name string, x, sel parser.Expr) {
 	switch term := expr.(type) {
 	case *parser.SelectorExpr:
@@ -1520,21 +1548,22 @@ func resolveAssignLHS(expr parser.Expr) (name string, x, sel parser.Expr) {
 		x, sel = term.Expr, term.Index
 	case *parser.Ident:
 		return term.Name, nil, nil
+	default:
+		return "", expr, nil
 	}
-	ident := x
-loop:
+	left := x
 	for {
-		switch term := ident.(type) {
+		switch term := left.(type) {
 		case *parser.SelectorExpr:
-			ident = term.Expr
+			left = term.Expr
 		case *parser.IndexExpr:
-			ident = term.Expr
+			left = term.Expr
 		case *parser.Ident:
-			ident = term
-			break loop
+			return term.Name, x, sel
+		default:
+			return "", x, sel
 		}
 	}
-	return ident.String(), x, sel
 }
 
 func iterateInstructions(b []byte, fn func(pos int, opcode parser.Opcode, operands []int) bool) {

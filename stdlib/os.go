@@ -117,7 +117,10 @@ func (m *FileMode) Unpack(o toy.Object) error {
 	case toy.Int:
 		*m = FileMode(x)
 	default:
-		return &toy.InvalidArgumentTypeError{Want: "FileMode or int"}
+		return &toy.InvalidValueTypeError{
+			Want: "FileMode or int",
+			Got:  o.TypeName(),
+		}
 	}
 	return nil
 }

@@ -19,6 +19,7 @@ var (
 		{Name: "splice", Func: builtinSplice},
 		{Name: "insert", Func: builtinInsert},
 		{Name: "clear", Func: builtinClear},
+		{Name: "has", Func: builtinHas},
 
 		{Name: "format", Func: builtinFormat},
 		{Name: "fail", Func: builtinFail},
@@ -27,6 +28,7 @@ var (
 
 		{Name: "error", Func: builtinError},
 		{Name: "range", Func: builtinRange},
+
 		{Name: "string", Func: builtinConvert[String]},
 		{Name: "int", Func: builtinConvert[Int]},
 		{Name: "bool", Func: builtinConvert[Bool]},
@@ -306,6 +308,28 @@ func builtinClear(_ *VM, args ...Object) (Object, error) {
 		}
 	}
 	return Nil, nil
+}
+
+func builtinHas(vm *VM, args ...Object) (Object, error) {
+	var (
+		container Container
+		value     Object
+	)
+	if err := UnpackArgs(args, "container", &container, "value", &value); err != nil {
+		return nil, err
+	}
+	contains, err := container.Contains(value)
+	if err != nil {
+		if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
+			err = &InvalidArgumentTypeError{
+				Name: "value",
+				Want: e.Want,
+				Got:  e.Got,
+			}
+		}
+		return nil, err
+	}
+	return Bool(contains), nil
 }
 
 func builtinFormat(_ *VM, args ...Object) (Object, error) {

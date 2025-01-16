@@ -11,12 +11,6 @@ var (
 	// ErrStackOverflow is a stack overflow error.
 	ErrStackOverflow = errors.New("stack overflow")
 
-	// ErrInvalidIndexType represents an invalid index type error.
-	ErrInvalidIndexType = errors.New("invalid index type")
-
-	// ErrInvalidValueType represents an invalid value type error.
-	ErrInvalidValueType = errors.New("invalid value type")
-
 	// ErrInvalidOperator represents an error for invalid operator usage.
 	ErrInvalidOperator = errors.New("invalid operator")
 
@@ -27,6 +21,39 @@ var (
 	// cannot be converted to another type.
 	ErrNotConvertible = errors.New("not convertible")
 )
+
+// InvalidValueTypeError represents an invalid index type error.
+type InvalidIndexTypeError struct {
+	Want string
+	Got  string
+}
+
+func (e *InvalidIndexTypeError) Error() string {
+	return fmt.Sprintf("invalid index type: want '%s', got '%s'",
+		e.Want, e.Got)
+}
+
+// InvalidKeyTypeError represents an invalid key type error.
+type InvalidKeyTypeError struct {
+	Want string
+	Got  string
+}
+
+func (e *InvalidKeyTypeError) Error() string {
+	return fmt.Sprintf("invalid key type: want '%s', got '%s'",
+		e.Want, e.Got)
+}
+
+// InvalidValueTypeError represents an invalid value type error.
+type InvalidValueTypeError struct {
+	Want string
+	Got  string
+}
+
+func (e *InvalidValueTypeError) Error() string {
+	return fmt.Sprintf("invalid value type: want '%s', got '%s'",
+		e.Want, e.Got)
+}
 
 // InvalidArgumentTypeError represents an invalid argument value type error.
 type InvalidArgumentTypeError struct {
@@ -83,27 +110,16 @@ func (e *UnexpectedArgumentError) Error() string {
 	return fmt.Sprintf("unexpected argument '%s'", e.Name)
 }
 
-// InvalidValueTypeError represents an invalid value type error.
-type InvalidValueTypeError struct {
+// InvalidEntryValueTypeError represents an invalid entry value type error.
+type InvalidEntryValueTypeError struct {
 	Name string
 	Want string
 	Got  string
 }
 
-func (e *InvalidValueTypeError) Error() string {
-	return fmt.Sprintf("invalid type for the value of '%s': want '%s', got '%s'",
+func (e *InvalidEntryValueTypeError) Error() string {
+	return fmt.Sprintf("invalid type for entry value with key '%s': want '%s', got '%s'",
 		e.Name, e.Want, e.Got)
-}
-
-// InvalidKeyTypeError represents an invalid key type error.
-type InvalidKeyTypeError struct {
-	Want string
-	Got  string
-}
-
-func (e *InvalidKeyTypeError) Error() string {
-	return fmt.Sprintf("invalid key type: want '%s', got '%s'",
-		e.Want, e.Got)
 }
 
 // MissingEntryError represents a missing entry error.

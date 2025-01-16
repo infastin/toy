@@ -16,15 +16,15 @@ import (
 
 // Object represents an object in the VM.
 type Object interface {
-	// TypeName should return the name of the type.
+	// TypeName returns the name of the type.
 	TypeName() string
-	// String should return a string representation of the type's value.
+	// String returns a string representation of the type's value.
 	String() string
-	// IsFalsy should return true if the value of the type should be considered as falsy.
+	// IsFalsy returns true if the value of the type should be considered as falsy.
 	IsFalsy() bool
-	// Copy should return a copy of the type (and its value). Copy function
-	// will be used for copy() builtin function which is expected to deep-copy
-	// the values generally.
+	// Copy returns a copy of the type (and its value).
+	// Copy function will be used for copy() builtin function which
+	// is expected to deep-copy the values generally.
 	Copy() Object
 }
 
@@ -38,11 +38,11 @@ type Hashable interface {
 // Freezable represents an object that can create immutable copies.
 type Freezable interface {
 	Object
-	// AsImmutable should return an immutable copy of the type (and its value).
+	// AsImmutable returns an immutable copy of the type (and its value).
 	// AsImmutable function will be used for immutable() builtin keyword
 	// which is expected to deep-copy the values generally.
 	AsImmutable() Object
-	// Mutable should return true if the object is mutable.
+	// Mutable returns true if the object is mutable.
 	Mutable() bool
 }
 
@@ -65,7 +65,7 @@ type HasBinaryOp interface {
 	// BinaryOp performs a binary operation on the current object with the provided object.
 	// The right parameter indicates whether the current object is the right operand (true)
 	// or the left operand (false) in the operation.
-	// It should return the result of the operation and an error if the operation is not supported or has failed.
+	// It returns the result of the operation and an error if the operation is not supported or has failed.
 	// If BinaryOp returns an error, the VM will treat it as a run-time error.
 	//
 	// Client code should not call this method.
@@ -76,7 +76,7 @@ type HasBinaryOp interface {
 // HasBinaryOp represents an object that supports unary operations.
 type HasUnaryOp interface {
 	Object
-	// UnaryOp should return another object that is the result of a given unary operator.
+	// UnaryOp returns another object that is the result of a given unary operator.
 	// If UnaryOp returns an error, the VM will treat it as a run-time error.
 	//
 	// Client code should not call this method.
@@ -87,11 +87,12 @@ type HasUnaryOp interface {
 // IndexAccessible represents an object that supports index access.
 type IndexAccessible interface {
 	Object
-	// IndexGet should take an index Object and return a result Object or an
-	// error for indexable objects. Indexable is an object that can take an
-	// index and return an object. If error is returned, the runtime will treat
-	// it as a run-time error and ignore returned value.
-	// If nil is returned as value, it will be converted to NilType value by the runtime.
+	// IndexGet performs an index access operation with the provided index.
+	// It the value assigned to the specified index exist, returns it with found = true.
+	// Otherwise, returns Nil with found = false.
+	// It returns an error if the index is of invalid type or if the operation has failed.
+	// If an error is returned, it will be treated as a run-time error.
+	// If nil is returned as value, it will be converted to Nil by the runtime.
 	//
 	// Client code should not call this method.
 	// Instead, use the standalone IndexGet function.
@@ -102,9 +103,8 @@ type IndexAccessible interface {
 type IndexAssignable interface {
 	Object
 	IndexAccessible
-	// IndexSet should take an index Object and a value Object for index
-	// assignable objects. Index assignable is an object that can take an index
-	// and a value on the left-hand side of the assignment statement.
+	// IndexSet assigns the specified value to the specified index.
+	// It returns an error if the index is of invalid type or if the operation has failed.
 	// If an error is returned, it will be treated as a run-time error.
 	//
 	// Client code should not call this method.
@@ -115,7 +115,8 @@ type IndexAssignable interface {
 // FieldAccessible represents an object that supports field access.
 type FieldAccessible interface {
 	Object
-	// FieldGet should take a name of the field and return its value.
+	// FieldGet takes a name of the field and
+	// returns the value of the field with that name.
 	// If error is returned, the runtime will treat
 	// it as a run-time error and ignore returned value.
 	//
@@ -128,8 +129,9 @@ type FieldAccessible interface {
 type FieldAssignable interface {
 	Object
 	FieldAccessible
-	// FieldSet should take the name of a field and its new value Object
-	// and return an error if the field cannot be set.
+	// FieldSet takes a name of the field and
+	// sets the value of the field with that name to the specified value.
+	// Returns an error if the operation has failed.
 	// If error is returned, the runtime will treat it as a run-time error.
 	//
 	// Client code should not call this method.
@@ -140,7 +142,7 @@ type FieldAssignable interface {
 // Sized represents an object that can report its length or size.
 type Sized interface {
 	Object
-	// Len should return the length or size of the object.
+	// Len returns the length or size of the object.
 	Len() int
 }
 
@@ -162,7 +164,7 @@ type Sliceable interface {
 // Convertible represents an object that can be converted to another type.
 type Convertible interface {
 	Object
-	// Convert should take a pointer to an Object and try to convert the Convertible object
+	// Convert takes a pointer to an Object and try to convert the Convertible object
 	// to the type of the provided Object, and return an error if the conversion fails.
 	//
 	// Client code should not call this method.
@@ -179,10 +181,20 @@ type Callable interface {
 	Call(v *VM, args ...Object) (Object, error)
 }
 
+// Container represents an object that contains some value(s).
+type Container interface {
+	Object
+	// Contains checks if the specified object is containing within Container.
+	// Returns an error if the object is of invalid type or if the operation has failed.
+	// If the specified object is of invalid type
+	// Contains function will be used for has() builtin function.
+	Contains(value Object) (bool, error)
+}
+
 // Iterable represents an object that can be iterated.
 type Iterable interface {
 	Object
-	// Iterate should return an Iterator for the type.
+	// Iterate returns an Iterator for the object.
 	Iterate() Iterator
 }
 
@@ -190,7 +202,7 @@ type Iterable interface {
 type Sequence interface {
 	Iterable
 	Sized
-	// Items should return a slice containing all the elements in the Sequence.
+	// Items returns a slice containing all the elements in the Sequence.
 	Items() []Object
 }
 
@@ -204,7 +216,7 @@ type IndexableSequence interface {
 // Mapping represents an iterable object that maps one Object to another.
 type Mapping interface {
 	Iterable
-	// Items should return a slice containing all the entries in the Mapping.
+	// Items returns a slice containing all the entries in the Mapping.
 	Items() []Tuple
 }
 
@@ -995,6 +1007,20 @@ func (o String) BinaryOp(op token.Token, other Object, right bool) (Object, erro
 	return nil, ErrInvalidOperator
 }
 
+func (o String) Contains(value Object) (bool, error) {
+	switch x := value.(type) {
+	case String:
+		return strings.Contains(string(o), string(x)), nil
+	case Char:
+		return strings.ContainsRune(string(o), rune(x)), nil
+	default:
+		return false, &InvalidValueTypeError{
+			Want: "string or char",
+			Got:  value.TypeName(),
+		}
+	}
+}
+
 func (o String) Iterate() Iterator { return &stringIterator{s: []rune(o), i: 0} }
 
 type stringIterator struct {
@@ -1082,6 +1108,22 @@ func (o Bytes) BinaryOp(op token.Token, other Object, right bool) (Object, error
 		}
 	}
 	return nil, ErrInvalidOperator
+}
+
+func (o Bytes) Contains(value Object) (bool, error) {
+	switch x := value.(type) {
+	case Bytes:
+		return bytes.Contains(o, x), nil
+	case Char:
+		return bytes.ContainsRune(o, rune(x)), nil
+	case Int:
+		return bytes.IndexByte(o, byte(x)) != -1, nil
+	default:
+		return false, &InvalidValueTypeError{
+			Want: "bytes, char or int",
+			Got:  value.TypeName(),
+		}
+	}
 }
 
 func (o Bytes) Iterate() Iterator { return &bytesIterator{b: o, i: 0} }
@@ -1346,7 +1388,10 @@ func (o *Array) BinaryOp(op token.Token, other Object, right bool) (Object, erro
 func (o *Array) IndexGet(index Object) (res Object, found bool, err error) {
 	intIdx, ok := index.(Int)
 	if !ok {
-		return nil, false, ErrInvalidIndexType
+		return nil, false, &InvalidIndexTypeError{
+			Want: "int",
+			Got:  index.TypeName(),
+		}
 	}
 	if intIdx < 0 || int64(intIdx) >= int64(len(o.elems)) {
 		return Nil, false, nil
@@ -1360,7 +1405,10 @@ func (o *Array) IndexSet(index, value Object) (err error) {
 	}
 	intIdx, ok := index.(Int)
 	if !ok {
-		return ErrInvalidIndexType
+		return &InvalidIndexTypeError{
+			Want: "int",
+			Got:  index.TypeName(),
+		}
 	}
 	n := len(o.elems)
 	if intIdx < 0 || int64(intIdx) >= int64(n) {
@@ -1368,6 +1416,17 @@ func (o *Array) IndexSet(index, value Object) (err error) {
 	}
 	o.elems[intIdx] = value
 	return nil
+}
+
+func (o *Array) Contains(value Object) (bool, error) {
+	for _, obj := range o.elems {
+		if eq, err := Equals(obj, value); err != nil {
+			return false, err
+		} else if eq {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (o *Array) Iterate() Iterator {
@@ -1534,6 +1593,7 @@ func (o *Map) BinaryOp(op token.Token, other Object, right bool) (Object, error)
 
 func (o *Map) IndexGet(index Object) (res Object, found bool, err error) { return o.ht.lookup(index) }
 func (o *Map) IndexSet(index, value Object) (err error)                  { return o.ht.insert(index, value) }
+func (o *Map) Contains(key Object) (bool, error)                         { return o.ht.contains(key) }
 func (o *Map) Iterate() Iterator                                         { return o.ht.iterate() }
 func (o *Map) Elements() iter.Seq[Object]                                { return o.ht.elements() }
 func (o *Map) Entries() iter.Seq2[Object, Object]                        { return o.ht.entries() }
@@ -1645,6 +1705,17 @@ func (o Tuple) BinaryOp(op token.Token, other Object, right bool) (Object, error
 	return nil, ErrInvalidOperator
 }
 
+func (o Tuple) Contains(value Object) (bool, error) {
+	for _, obj := range o {
+		if eq, err := Equals(obj, value); err != nil {
+			return false, err
+		} else if eq {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (o Tuple) Iterate() Iterator { return &tupleIterator{t: o, i: 0} }
 
 func (o Tuple) Elements() iter.Seq[Object] {
@@ -1738,19 +1809,9 @@ func (o *Error) Compare(op token.Token, rhs Object) (bool, error) {
 	}
 	switch op {
 	case token.Equal:
-		for x := o; x != nil; x = x.cause {
-			if x == y {
-				return true, nil
-			}
-		}
-		return false, nil
+		return o == y, nil
 	case token.NotEqual:
-		for x := o; x != nil; x = x.cause {
-			if x == y {
-				return false, nil
-			}
-		}
-		return true, nil
+		return o != y, nil
 	}
 	return false, ErrInvalidOperator
 }
@@ -1766,6 +1827,22 @@ func (o *Error) FieldGet(name string) (res Object, err error) {
 		return Nil, nil
 	}
 	return nil, ErrNoSuchField
+}
+
+func (o *Error) Contains(value Object) (bool, error) {
+	y, ok := value.(*Error)
+	if !ok {
+		return false, &InvalidArgumentTypeError{
+			Want: "error",
+			Got:  value.TypeName(),
+		}
+	}
+	for x := o; x != nil; x = x.cause {
+		if x == y {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // objectPtr represents a free variable.
@@ -1860,6 +1937,21 @@ func (o *rangeType) Iterate() Iterator {
 		len:  o.Len(),
 		cur:  o.start,
 		step: step,
+	}
+}
+
+func (o *rangeType) Contains(value Object) (bool, error) {
+	other, ok := value.(Int)
+	if !ok {
+		return false, &InvalidArgumentTypeError{
+			Want: "int",
+			Got:  value.TypeName(),
+		}
+	}
+	if o.start <= o.stop {
+		return o.start <= int(other) && o.stop > int(other), nil
+	} else {
+		return o.start > int(other) && o.stop <= int(other), nil
 	}
 }
 

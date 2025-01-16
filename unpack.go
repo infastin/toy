@@ -12,8 +12,8 @@ import (
 // An Unpacker defines custom argument unpacking behavior.
 type Unpacker interface {
 	// Unpack unpacks the given object into Unpacker.
-	// In case of a type error, it should return InvalidArgumentTypeError
-	// with an only Want field set.
+	// If the given Object can't be unpacked into using Unpacker,
+	// it is recommended to return InvalidValueTypeError.
 	Unpack(o Object) error
 }
 
@@ -139,15 +139,12 @@ loop:
 				// found it
 				defined.SetBit(&defined, i, 1)
 				if err := unpackArg(pairs[2*i+1], value); err != nil {
-					if e := (*InvalidArgumentTypeError)(nil); errors.As(err, &e) {
-						err = &InvalidValueTypeError{
+					if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
+						err = &InvalidEntryValueTypeError{
 							Name: pName,
 							Want: e.Want,
 							Got:  value.TypeName(),
 						}
-					} else if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
-						e.Name = pName
-						e.Got = value.TypeName()
 					}
 					return err
 				}
@@ -285,20 +282,29 @@ func unpackArg(ptr any, o Object) error {
 	case *string:
 		s, ok := o.(String)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "string"}
+			return &InvalidValueTypeError{
+				Want: "string",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = string(s)
 	case *bool:
 		b, ok := o.(Bool)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "bool"}
+			return &InvalidValueTypeError{
+				Want: "bool",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = bool(b)
 	case *int, *int8, *int16, *int32, *int64,
 		*uint, *uint8, *uint16, *uint32, *uint64, *uintptr:
 		i, ok := o.(Int)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "int"}
+			return &InvalidValueTypeError{
+				Want: "int",
+				Got:  o.TypeName(),
+			}
 		}
 		switch p := ptr.(type) {
 		case *int:
@@ -327,7 +333,10 @@ func unpackArg(ptr any, o Object) error {
 	case *float32, *float64:
 		f, ok := o.(Float)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "float"}
+			return &InvalidValueTypeError{
+				Want: "float",
+				Got:  o.TypeName(),
+			}
 		}
 		switch p := ptr.(type) {
 		case *float32:
@@ -338,109 +347,172 @@ func unpackArg(ptr any, o Object) error {
 	case *Hashable:
 		h, ok := o.(Hashable)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "hashable"}
+			return &InvalidValueTypeError{
+				Want: "hashable",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = h
 	case *Freezable:
 		f, ok := o.(Freezable)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "freezable"}
+			return &InvalidValueTypeError{
+				Want: "freezable",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = f
 	case *Comparable:
 		c, ok := o.(Comparable)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "comparable"}
+			return &InvalidValueTypeError{
+				Want: "comparable",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = c
 	case *HasBinaryOp:
 		b, ok := o.(HasBinaryOp)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "object supporting binary operations"}
+			return &InvalidValueTypeError{
+				Want: "object supporting binary operations",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = b
 	case *HasUnaryOp:
 		u, ok := o.(HasUnaryOp)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "object supporting unary operations"}
+			return &InvalidValueTypeError{
+				Want: "object supporting unary operations",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = u
 	case *IndexAccessible:
 		i, ok := o.(IndexAccessible)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "index accesible"}
+			return &InvalidValueTypeError{
+				Want: "index accesible",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = i
 	case *IndexAssignable:
 		i, ok := o.(IndexAssignable)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "index assignable"}
+			return &InvalidValueTypeError{
+				Want: "index assignable",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = i
 	case *FieldAccessible:
 		f, ok := o.(FieldAccessible)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "field accesible"}
+			return &InvalidValueTypeError{
+				Want: "field accesible",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = f
 	case *FieldAssignable:
 		f, ok := o.(FieldAssignable)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "field assignable"}
+			return &InvalidValueTypeError{
+				Want: "field assignable",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = f
 	case *Sized:
 		s, ok := o.(Sized)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "sized"}
+			return &InvalidValueTypeError{
+				Want: "sized",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = s
 	case *Indexable:
 		i, ok := o.(Indexable)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "indexable"}
+			return &InvalidValueTypeError{
+				Want: "indexable",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = i
 	case *Sliceable:
 		s, ok := o.(Sliceable)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "sliceable"}
+			return &InvalidValueTypeError{
+				Want: "sliceable",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = s
 	case *Convertible:
 		c, ok := o.(Convertible)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "convertible"}
+			return &InvalidValueTypeError{
+				Want: "convertible",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = c
 	case *Callable:
 		f, ok := o.(Callable)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "callable"}
+			return &InvalidValueTypeError{
+				Want: "callable",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = f
+	case *Container:
+		c, ok := o.(Container)
+		if !ok {
+			return &InvalidValueTypeError{
+				Want: "container",
+				Got:  o.TypeName(),
+			}
+		}
+		*ptr = c
 	case *Iterable:
 		it, ok := o.(Iterable)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "iterable"}
+			return &InvalidValueTypeError{
+				Want: "iterable",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = it
 	case *Sequence:
 		seq, ok := o.(Sequence)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "sequence"}
+			return &InvalidValueTypeError{
+				Want: "sequence",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = seq
 	case *IndexableSequence:
 		iseq, ok := o.(IndexableSequence)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "indexable sequence"}
+			return &InvalidValueTypeError{
+				Want: "indexable sequence",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = iseq
 	case *Mapping:
 		m, ok := o.(Mapping)
 		if !ok {
-			return &InvalidArgumentTypeError{Want: "mapping"}
+			return &InvalidValueTypeError{
+				Want: "mapping",
+				Got:  o.TypeName(),
+			}
 		}
 		*ptr = m
 	default:
@@ -459,7 +531,10 @@ func unpackArg(ptr any, o Object) error {
 		// If *ptr implements Object, return an error.
 		if paramVar.Type().Implements(reflect.TypeFor[Object]()) {
 			// It should be safe to call TypeName on potentially nil object.
-			return &InvalidArgumentTypeError{Want: paramVar.Interface().(Object).TypeName()}
+			return &InvalidValueTypeError{
+				Want: paramVar.Interface().(Object).TypeName(),
+				Got:  o.TypeName(),
+			}
 		}
 		// Maybe ptr is a pointer to a pointer that implements Object.
 		if paramVar.Type().Kind() == reflect.Pointer {

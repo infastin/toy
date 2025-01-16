@@ -107,7 +107,7 @@ func TestArray(t *testing.T) {
 	expectRun(t, `fn(){ a1 := [1, 2, 3]; a2 := a1; a1[0] = 5; out = a2 }()`, nil, ARR{5, 2, 3})
 
 	// array index set
-	expectRunError(t, `a1 := [1, 2, 3]; a1[3] = 5`, nil, "index out of bounds")
+	expectRunError(t, `a1 := [1, 2, 3]; a1[3] = 5`, nil, "out of range")
 
 	// index operator
 	arr := ARR{1, 2, 3, 4, 5, 6}
@@ -159,13 +159,13 @@ func TestArray(t *testing.T) {
 		nil, ARR{})
 
 	expectRunError(t, fmt.Sprintf("%s[:%d]", arrStr, -1),
-		nil, "invalid slice index")
+		nil, "slice bounds out of range")
 	expectRunError(t, fmt.Sprintf("%s[%d:]", arrStr, arrLen+1),
-		nil, "invalid slice index")
+		nil, "slice bounds out of range")
 	expectRunError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 0, -1),
-		nil, "invalid slice index")
+		nil, "invalid slice indices")
 	expectRunError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 2, 1),
-		nil, "invalid slice index")
+		nil, "invalid slice indices")
 }
 
 func TestAssignment(t *testing.T) {
@@ -221,7 +221,7 @@ fn() {
 f1 := fn() {
 	f2 := fn() {
 		a := 1
-		a += 2    // it's a statement, not an expression
+		a += 2 // it's a statement, not an expression
 		return a
 	};
 	return f2();
@@ -277,7 +277,6 @@ out = fn() {
 	expectRun(t, `
 f1 := fn() {
 	a := 5
-
 	return fn() {
 		a += 3
 		return a

@@ -405,6 +405,34 @@ func (ht *hashtable) dump() {
 	}
 }
 
+func (ht *hashtable) contains(key Object) (bool, error) {
+	h, err := Hash(key)
+	if err != nil {
+		return false, err // unhashable
+	}
+	if h == 0 {
+		h = 1 // zero is reserved
+	}
+	if ht.table == nil {
+		return false, nil // empty
+	}
+	// Inspect each bucket in the bucket list.
+	for p := &ht.table[h&(uint64(len(ht.table)-1))]; p != nil; p = p.next {
+		for i := range p.entries {
+			e := &p.entries[i]
+			if e.hash != h {
+				continue
+			}
+			if eq, err := Equals(key, e.key); err != nil {
+				return false, err
+			} else if eq {
+				return true, nil // found
+			}
+		}
+	}
+	return false, nil // not found
+}
+
 func (ht *hashtable) iterate() *htIterator {
 	if !ht.immutable {
 		ht.itercount++

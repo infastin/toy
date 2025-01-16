@@ -278,7 +278,10 @@ func (d *Duration) Unpack(o toy.Object) error {
 		}
 		*d = Duration(dur)
 	default:
-		return &toy.InvalidArgumentTypeError{Want: "Duration or string"}
+		return &toy.InvalidValueTypeError{
+			Want: "Duration or string",
+			Got:  o.TypeName(),
+		}
 	}
 	return nil
 }

@@ -18,7 +18,10 @@ func (s *StringOrBytes) Unpack(o Object) error {
 	case Bytes:
 		*s = StringOrBytes(o)
 	default:
-		return &InvalidArgumentTypeError{Want: "string or bytes"}
+		return &InvalidValueTypeError{
+			Want: "string or bytes",
+			Got:  o.TypeName(),
+		}
 	}
 	return nil
 }
@@ -34,7 +37,10 @@ func (a *IntOrFloat) Unpack(o Object) error {
 	case Float:
 		*a = IntOrFloat(o)
 	default:
-		return &InvalidArgumentTypeError{Want: "int or float"}
+		return &InvalidValueTypeError{
+			Want: "int or float",
+			Got:  o.TypeName(),
+		}
 	}
 	return nil
 }

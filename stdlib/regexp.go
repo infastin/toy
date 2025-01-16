@@ -64,7 +64,10 @@ func (r *Regexp) Unpack(o toy.Object) error {
 		}
 		*r = Regexp(*rx)
 	default:
-		return &toy.InvalidArgumentTypeError{Want: "Regexp or string"}
+		return &toy.InvalidValueTypeError{
+			Want: "Regexp or string",
+			Got:  o.TypeName(),
+		}
 	}
 	return nil
 }

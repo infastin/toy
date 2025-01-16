@@ -14,12 +14,12 @@ var PathModule = &toy.BuiltinModule{
 		"separator":     toy.Char(os.PathSeparator),
 		"listSeparator": toy.Char(os.PathListSeparator),
 
-		"join":  &toy.BuiltinFunction{Name: "join", Func: pathJoin},
-		"base":  &toy.BuiltinFunction{Name: "base", Func: makeASRS("path", path.Base)},
-		"dir":   &toy.BuiltinFunction{Name: "dir", Func: makeASRS("path", path.Dir)},
-		"ext":   &toy.BuiltinFunction{Name: "ext", Func: makeASRS("path", path.Ext)},
-		"clean": &toy.BuiltinFunction{Name: "clean", Func: makeASRS("path", path.Clean)},
-		"split": &toy.BuiltinFunction{Name: "split", Func: pathSplit},
+		"join":  &toy.BuiltinFunction{Name: "path.join", Func: pathJoin},
+		"base":  &toy.BuiltinFunction{Name: "path.base", Func: makeASRS("path", path.Base)},
+		"dir":   &toy.BuiltinFunction{Name: "path.dir", Func: makeASRS("path", path.Dir)},
+		"ext":   &toy.BuiltinFunction{Name: "path.ext", Func: makeASRS("path", path.Ext)},
+		"clean": &toy.BuiltinFunction{Name: "path.clean", Func: makeASRS("path", path.Clean)},
+		"split": &toy.BuiltinFunction{Name: "path.split", Func: pathSplit},
 	},
 }
 

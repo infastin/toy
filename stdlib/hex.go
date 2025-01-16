@@ -9,8 +9,8 @@ import (
 var HexModule = &toy.BuiltinModule{
 	Name: "hex",
 	Members: map[string]toy.Object{
-		"encode": &toy.BuiltinFunction{Name: "encode", Func: hexEncode},
-		"decode": &toy.BuiltinFunction{Name: "decode", Func: hexDecode},
+		"encode": &toy.BuiltinFunction{Name: "hex.encode", Func: hexEncode},
+		"decode": &toy.BuiltinFunction{Name: "hex.decode", Func: hexDecode},
 	},
 }
 

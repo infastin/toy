@@ -16,8 +16,8 @@ import (
 var YAMLModule = &toy.BuiltinModule{
 	Name: "yaml",
 	Members: map[string]toy.Object{
-		"encode": &toy.BuiltinFunction{Name: "encode", Func: yamlEncode},
-		"decode": &toy.BuiltinFunction{Name: "decode", Func: yamlDecode},
+		"encode": &toy.BuiltinFunction{Name: "yaml.encode", Func: yamlEncode},
+		"decode": &toy.BuiltinFunction{Name: "yaml.decode", Func: yamlDecode},
 	},
 }
 

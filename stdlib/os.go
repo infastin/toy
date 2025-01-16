@@ -14,11 +14,6 @@ import (
 var OSModule = &toy.BuiltinModule{
 	Name: "os",
 	Members: map[string]toy.Object{
-		"path": OSPathModule,
-		"env":  OSEnvModule,
-		"exec": OSExecModule,
-		"user": OSUserModule,
-
 		"platform": toy.String(runtime.GOOS),
 		"arch":     toy.String(runtime.GOARCH),
 		"devnull":  toy.String(os.DevNull),
@@ -28,7 +23,7 @@ var OSModule = &toy.BuiltinModule{
 		"stderr": (*File)(os.Stderr),
 
 		"FileMode": &Enum{
-			Name: "FileMode",
+			Name: "os.FileMode",
 			Variants: map[string]toy.Object{
 				"DIR":         FileMode(os.ModeDir),
 				"APPEND":      FileMode(os.ModeAppend),
@@ -49,7 +44,7 @@ var OSModule = &toy.BuiltinModule{
 		},
 
 		"O": &Enum{
-			Name: "O",
+			Name: "os.O",
 			Variants: map[string]toy.Object{
 				"RDONLY": toy.Int(os.O_RDONLY),
 				"WRONLY": toy.Int(os.O_WRONLY),
@@ -63,7 +58,7 @@ var OSModule = &toy.BuiltinModule{
 		},
 
 		"Seek": &Enum{
-			Name: "Seek",
+			Name: "os.Seek",
 			Variants: map[string]toy.Object{
 				"SET": toy.Int(io.SeekStart),
 				"END": toy.Int(io.SeekEnd),
@@ -71,40 +66,40 @@ var OSModule = &toy.BuiltinModule{
 			},
 		},
 
-		"args":       &toy.BuiltinFunction{Name: "args", Func: osArgs},
-		"environ":    &toy.BuiltinFunction{Name: "environ", Func: osEnviron},
-		"hostname":   &toy.BuiltinFunction{Name: "hostname", Func: makeARSE(os.Hostname)},
-		"tempDir":    &toy.BuiltinFunction{Name: "tempDir", Func: makeARS(os.TempDir)},
-		"executable": &toy.BuiltinFunction{Name: "executable", Func: makeARSE(os.Executable)},
+		"args":       &toy.BuiltinFunction{Name: "os.args", Func: osArgs},
+		"environ":    &toy.BuiltinFunction{Name: "os.environ", Func: osEnviron},
+		"hostname":   &toy.BuiltinFunction{Name: "os.hostname", Func: makeARSE(os.Hostname)},
+		"tempDir":    &toy.BuiltinFunction{Name: "os.tempDir", Func: makeARS(os.TempDir)},
+		"executable": &toy.BuiltinFunction{Name: "os.executable", Func: makeARSE(os.Executable)},
 
-		"readfile":   &toy.BuiltinFunction{Name: "readfile", Func: osReadFile},
-		"writefile":  &toy.BuiltinFunction{Name: "writefile", Func: osWriteFile},
-		"readdir":    &toy.BuiltinFunction{Name: "readdir", Func: osReadDir},
-		"mkdir":      &toy.BuiltinFunction{Name: "mkdir", Func: osMkdir},
-		"mkdirTemp":  &toy.BuiltinFunction{Name: "mkdirTemp", Func: osMkdirTemp},
-		"remove":     &toy.BuiltinFunction{Name: "remove", Func: osRemove},
-		"rename":     &toy.BuiltinFunction{Name: "rename", Func: makeASSRE("oldpath", "newpath", os.Rename)},
-		"link":       &toy.BuiltinFunction{Name: "link", Func: makeASSRE("oldname", "newname", os.Link)},
-		"readlink":   &toy.BuiltinFunction{Name: "readlink", Func: makeASRSE("name", os.Readlink)},
-		"symlink":    &toy.BuiltinFunction{Name: "symlink", Func: makeASSRE("oldname", "newname", os.Symlink)},
-		"chdir":      &toy.BuiltinFunction{Name: "chdir", Func: makeASRE("dir", os.Chdir)},
-		"chmod":      &toy.BuiltinFunction{Name: "chmod", Func: osChmod},
-		"chown":      &toy.BuiltinFunction{Name: "chown", Func: osChown},
-		"lchown":     &toy.BuiltinFunction{Name: "lchown", Func: osLchown},
-		"open":       &toy.BuiltinFunction{Name: "open", Func: osOpen},
-		"create":     &toy.BuiltinFunction{Name: "create", Func: osCreate},
-		"createTemp": &toy.BuiltinFunction{Name: "createTemp", Func: osCreateTemp},
-		"stat":       &toy.BuiltinFunction{Name: "stat", Func: osStat},
-		"lstat":      &toy.BuiltinFunction{Name: "lstat", Func: osLstat},
-		"truncate":   &toy.BuiltinFunction{Name: "truncate", Func: osTruncate},
-		"getwd":      &toy.BuiltinFunction{Name: "getwd", Func: makeARSE(os.Getwd)},
+		"readfile":   &toy.BuiltinFunction{Name: "os.readfile", Func: osReadFile},
+		"writefile":  &toy.BuiltinFunction{Name: "os.writefile", Func: osWriteFile},
+		"readdir":    &toy.BuiltinFunction{Name: "os.readdir", Func: osReadDir},
+		"mkdir":      &toy.BuiltinFunction{Name: "os.mkdir", Func: osMkdir},
+		"mkdirTemp":  &toy.BuiltinFunction{Name: "os.mkdirTemp", Func: osMkdirTemp},
+		"remove":     &toy.BuiltinFunction{Name: "os.remove", Func: osRemove},
+		"rename":     &toy.BuiltinFunction{Name: "os.rename", Func: makeASSRE("oldpath", "newpath", os.Rename)},
+		"link":       &toy.BuiltinFunction{Name: "os.link", Func: makeASSRE("oldname", "newname", os.Link)},
+		"readlink":   &toy.BuiltinFunction{Name: "os.readlink", Func: makeASRSE("name", os.Readlink)},
+		"symlink":    &toy.BuiltinFunction{Name: "os.symlink", Func: makeASSRE("oldname", "newname", os.Symlink)},
+		"chdir":      &toy.BuiltinFunction{Name: "os.chdir", Func: makeASRE("dir", os.Chdir)},
+		"chmod":      &toy.BuiltinFunction{Name: "os.chmod", Func: osChmod},
+		"chown":      &toy.BuiltinFunction{Name: "os.chown", Func: osChown},
+		"lchown":     &toy.BuiltinFunction{Name: "os.lchown", Func: osLchown},
+		"open":       &toy.BuiltinFunction{Name: "os.open", Func: osOpen},
+		"create":     &toy.BuiltinFunction{Name: "os.create", Func: osCreate},
+		"createTemp": &toy.BuiltinFunction{Name: "os.createTemp", Func: osCreateTemp},
+		"stat":       &toy.BuiltinFunction{Name: "os.stat", Func: osStat},
+		"lstat":      &toy.BuiltinFunction{Name: "os.lstat", Func: osLstat},
+		"truncate":   &toy.BuiltinFunction{Name: "os.truncate", Func: osTruncate},
+		"getwd":      &toy.BuiltinFunction{Name: "os.getwd", Func: makeARSE(os.Getwd)},
 
-		"getuid":  &toy.BuiltinFunction{Name: "getuid", Func: makeARI(os.Getuid)},
-		"getgid":  &toy.BuiltinFunction{Name: "getgid", Func: makeARI(os.Getgid)},
-		"geteuid": &toy.BuiltinFunction{Name: "geteuid", Func: makeARI(os.Geteuid)},
-		"getegid": &toy.BuiltinFunction{Name: "getegid", Func: makeARI(os.Getegid)},
-		"getpid":  &toy.BuiltinFunction{Name: "getpid", Func: makeARI(os.Getpid)},
-		"getppid": &toy.BuiltinFunction{Name: "getppid", Func: makeARI(os.Getppid)},
+		"getuid":  &toy.BuiltinFunction{Name: "os.getuid", Func: makeARI(os.Getuid)},
+		"getgid":  &toy.BuiltinFunction{Name: "os.getgid", Func: makeARI(os.Getgid)},
+		"geteuid": &toy.BuiltinFunction{Name: "os.geteuid", Func: makeARI(os.Geteuid)},
+		"getegid": &toy.BuiltinFunction{Name: "os.getegid", Func: makeARI(os.Getegid)},
+		"getpid":  &toy.BuiltinFunction{Name: "os.getpid", Func: makeARI(os.Getpid)},
+		"getppid": &toy.BuiltinFunction{Name: "os.getppid", Func: makeARI(os.Getppid)},
 	},
 }
 
@@ -125,8 +120,8 @@ func (m *FileMode) Unpack(o toy.Object) error {
 	return nil
 }
 
-func (m FileMode) TypeName() string { return "FileMode" }
-func (m FileMode) String() string   { return fmt.Sprintf("FileMode(%q)", os.FileMode(m).String()) }
+func (m FileMode) TypeName() string { return "os.FileMode" }
+func (m FileMode) String() string   { return fmt.Sprintf("os.FileMode(%q)", os.FileMode(m).String()) }
 func (m FileMode) IsFalsy() bool    { return false }
 func (m FileMode) Copy() toy.Object { return m }
 
@@ -378,8 +373,8 @@ type FileInfo struct {
 	info os.FileInfo
 }
 
-func (f *FileInfo) TypeName() string { return "FileInfo" }
-func (f *FileInfo) String() string   { return fmt.Sprintf("FileInfo(%q)", f.info.Name()) }
+func (f *FileInfo) TypeName() string { return "os.FileInfo" }
+func (f *FileInfo) String() string   { return fmt.Sprintf("os.FileInfo(%q)", f.info.Name()) }
 func (f *FileInfo) IsFalsy() bool    { return false }
 func (f *FileInfo) Copy() toy.Object { return &FileInfo{info: f.info} }
 
@@ -459,8 +454,8 @@ type DirEntry struct {
 	entry os.DirEntry
 }
 
-func (e *DirEntry) TypeName() string { return "DirEntry" }
-func (e *DirEntry) String() string   { return fmt.Sprintf("DirEntry(%q)", e.entry.Name()) }
+func (e *DirEntry) TypeName() string { return "os.DirEntry" }
+func (e *DirEntry) String() string   { return fmt.Sprintf("os.DirEntry(%q)", e.entry.Name()) }
 func (e *DirEntry) IsFalsy() bool    { return false }
 func (e *DirEntry) Copy() toy.Object { return &DirEntry{entry: e.entry} }
 
@@ -512,8 +507,8 @@ func osDirEntryInfo(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 
 type File os.File
 
-func (f *File) TypeName() string { return "File" }
-func (f *File) String() string   { return fmt.Sprintf("File(%q)", (*os.File)(f).Name()) }
+func (f *File) TypeName() string { return "os.File" }
+func (f *File) String() string   { return fmt.Sprintf("os.File(%q)", (*os.File)(f).Name()) }
 func (f *File) IsFalsy() bool    { return false }
 
 func (f *File) Copy() toy.Object {

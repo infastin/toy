@@ -9,12 +9,12 @@ import (
 var OSEnvModule = &toy.BuiltinModule{
 	Name: "env",
 	Members: map[string]toy.Object{
-		"expand": &toy.BuiltinFunction{Name: "expand", Func: makeASRS("s", os.ExpandEnv)},
-		"clear":  &toy.BuiltinFunction{Name: "clear", Func: osEnvClear},
-		"get":    &toy.BuiltinFunction{Name: "get", Func: makeASRS("key", os.Getenv)},
-		"set":    &toy.BuiltinFunction{Name: "set", Func: makeASSRE("key", "value", os.Setenv)},
-		"unset":  &toy.BuiltinFunction{Name: "unset", Func: makeASRE("key", os.Unsetenv)},
-		"lookup": &toy.BuiltinFunction{Name: "lookup", Func: osEnvLookup},
+		"expand": &toy.BuiltinFunction{Name: "env.expand", Func: makeASRS("s", os.ExpandEnv)},
+		"clear":  &toy.BuiltinFunction{Name: "env.clear", Func: osEnvClear},
+		"get":    &toy.BuiltinFunction{Name: "env.get", Func: makeASRS("key", os.Getenv)},
+		"set":    &toy.BuiltinFunction{Name: "env.set", Func: makeASSRE("key", "value", os.Setenv)},
+		"unset":  &toy.BuiltinFunction{Name: "env.unset", Func: makeASRE("key", os.Unsetenv)},
+		"lookup": &toy.BuiltinFunction{Name: "env.lookup", Func: osEnvLookup},
 	},
 }
 

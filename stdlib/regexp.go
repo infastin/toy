@@ -10,10 +10,10 @@ import (
 var RegexpModule = &toy.BuiltinModule{
 	Name: "regexp",
 	Members: map[string]toy.Object{
-		"compile": &toy.BuiltinFunction{Name: "compile", Func: regexpCompile},
-		"match":   &toy.BuiltinFunction{Name: "match", Func: regexpMatch},
-		"find":    &toy.BuiltinFunction{Name: "find", Func: regexpFind},
-		"replace": &toy.BuiltinFunction{Name: "replace", Func: regexpReplace},
+		"compile": &toy.BuiltinFunction{Name: "regexp.compile", Func: regexpCompile},
+		"match":   &toy.BuiltinFunction{Name: "regexp.match", Func: regexpMatch},
+		"find":    &toy.BuiltinFunction{Name: "regexp.find", Func: regexpFind},
+		"replace": &toy.BuiltinFunction{Name: "regexp.replace", Func: regexpReplace},
 	},
 }
 
@@ -22,8 +22,8 @@ type RegexpMatch struct {
 	begin, end int
 }
 
-func (m RegexpMatch) TypeName() string { return "RegexpMatch" }
-func (m RegexpMatch) String() string   { return fmt.Sprintf("RegexpMatch(%q)", m.text) }
+func (m RegexpMatch) TypeName() string { return "regexp.Match" }
+func (m RegexpMatch) String() string   { return fmt.Sprintf("regexp.Match(%q)", m.text) }
 func (m RegexpMatch) IsFalsy() bool    { return len(m.text) == 0 }
 func (m RegexpMatch) Copy() toy.Object { return m }
 
@@ -72,7 +72,7 @@ func (r *Regexp) Unpack(o toy.Object) error {
 	return nil
 }
 
-func (r *Regexp) TypeName() string { return "Regexp" }
+func (r *Regexp) TypeName() string { return "regexp.Regexp" }
 func (r *Regexp) String() string   { return fmt.Sprintf("/%s/", (*regexp.Regexp)(r).String()) }
 func (r *Regexp) IsFalsy() bool    { return false }
 func (r *Regexp) Copy() toy.Object { return r }

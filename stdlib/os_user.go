@@ -12,22 +12,22 @@ import (
 var OSUserModule = &toy.BuiltinModule{
 	Name: "user",
 	Members: map[string]toy.Object{
-		"current":       &toy.BuiltinFunction{Name: "current", Func: osUserCurrent},
-		"lookup":        &toy.BuiltinFunction{Name: "lookup", Func: osUserLookup},
-		"lookupId":      &toy.BuiltinFunction{Name: "lookupId", Func: osUserLookupID},
-		"groups":        &toy.BuiltinFunction{Name: "groups", Func: osUserGroups},
-		"lookupGroup":   &toy.BuiltinFunction{Name: "lookupGroup", Func: osUserLookupGroup},
-		"lookupGroupId": &toy.BuiltinFunction{Name: "lookupGroupId", Func: osUserLookupGroupID},
-		"cacheDir":      &toy.BuiltinFunction{Name: "cacheDir", Func: makeARSE(os.UserCacheDir)},
-		"configDir":     &toy.BuiltinFunction{Name: "configDir", Func: makeARSE(os.UserConfigDir)},
-		"homeDir":       &toy.BuiltinFunction{Name: "homeDir", Func: makeARSE(os.UserHomeDir)},
+		"current":       &toy.BuiltinFunction{Name: "user.current", Func: osUserCurrent},
+		"lookup":        &toy.BuiltinFunction{Name: "user.lookup", Func: osUserLookup},
+		"lookupId":      &toy.BuiltinFunction{Name: "user.lookupId", Func: osUserLookupID},
+		"groups":        &toy.BuiltinFunction{Name: "user.groups", Func: osUserGroups},
+		"lookupGroup":   &toy.BuiltinFunction{Name: "user.lookupGroup", Func: osUserLookupGroup},
+		"lookupGroupId": &toy.BuiltinFunction{Name: "user.lookupGroupId", Func: osUserLookupGroupID},
+		"cacheDir":      &toy.BuiltinFunction{Name: "user.cacheDir", Func: makeARSE(os.UserCacheDir)},
+		"configDir":     &toy.BuiltinFunction{Name: "user.configDir", Func: makeARSE(os.UserConfigDir)},
+		"homeDir":       &toy.BuiltinFunction{Name: "user.homeDir", Func: makeARSE(os.UserHomeDir)},
 	},
 }
 
 type User user.User
 
-func (u *User) TypeName() string { return "User" }
-func (u *User) String() string   { return fmt.Sprintf("User(%q)", u.Name) }
+func (u *User) TypeName() string { return "user.User" }
+func (u *User) String() string   { return fmt.Sprintf("user.User(%q)", u.Name) }
 func (u *User) IsFalsy() bool    { return false }
 
 func (u *User) Copy() toy.Object {
@@ -54,8 +54,8 @@ func (u *User) FieldGet(name string) (toy.Object, error) {
 
 type Group user.Group
 
-func (g *Group) TypeName() string { return "Group" }
-func (g *Group) String() string   { return fmt.Sprintf("Group(%q)", g.Name) }
+func (g *Group) TypeName() string { return "user.Group" }
+func (g *Group) String() string   { return fmt.Sprintf("user.Group(%q)", g.Name) }
 func (g *Group) IsFalsy() bool    { return false }
 
 func (g *Group) Copy() toy.Object {

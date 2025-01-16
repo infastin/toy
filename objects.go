@@ -1050,7 +1050,7 @@ func (it *stringIterator) Next(key, value *Object) bool {
 // Bytes represents a byte array.
 type Bytes []byte
 
-func (o Bytes) String() string   { return fmt.Sprintf("Bytes(%q)", []byte(o)) }
+func (o Bytes) String() string   { return fmt.Sprintf("bytes(%q)", []byte(o)) }
 func (o Bytes) TypeName() string { return "bytes" }
 func (o Bytes) IsFalsy() bool    { return len(o) == 0 }
 func (o Bytes) Copy() Object     { return slices.Clone(o) }

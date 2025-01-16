@@ -13,12 +13,12 @@ import (
 var RandModule = &toy.BuiltinModule{
 	Name: "rand",
 	Members: map[string]toy.Object{
-		"int":          &toy.BuiltinFunction{Name: "int", Func: randInt},
-		"float":        &toy.BuiltinFunction{Name: "float", Func: randFloat},
-		"text":         &toy.BuiltinFunction{Name: "text", Func: randText},
-		"alpha":        &toy.BuiltinFunction{Name: "alpha", Func: randAlpha},
-		"alphanumeric": &toy.BuiltinFunction{Name: "alphanumeric", Func: randAlphanumeric},
-		"ascii":        &toy.BuiltinFunction{Name: "ascii", Func: randASCII},
+		"int":          &toy.BuiltinFunction{Name: "rand.int", Func: randInt},
+		"float":        &toy.BuiltinFunction{Name: "rand.float", Func: randFloat},
+		"text":         &toy.BuiltinFunction{Name: "rand.text", Func: randText},
+		"alpha":        &toy.BuiltinFunction{Name: "rand.alpha", Func: randAlpha},
+		"alphanumeric": &toy.BuiltinFunction{Name: "rand.alphanumeric", Func: randAlphanumeric},
+		"ascii":        &toy.BuiltinFunction{Name: "rand.ascii", Func: randASCII},
 	},
 }
 

@@ -10,10 +10,10 @@ import (
 var FmtModule = &toy.BuiltinModule{
 	Name: "fmt",
 	Members: map[string]toy.Object{
-		"print":   &toy.BuiltinFunction{Name: "print", Func: fmtPrint},
-		"println": &toy.BuiltinFunction{Name: "println", Func: fmtPrintln},
-		"printf":  &toy.BuiltinFunction{Name: "printf", Func: fmtPrintf},
-		"printfn": &toy.BuiltinFunction{Name: "printfn", Func: fmtPrintfn},
+		"print":   &toy.BuiltinFunction{Name: "fmt.print", Func: fmtPrint},
+		"println": &toy.BuiltinFunction{Name: "fmt.println", Func: fmtPrintln},
+		"printf":  &toy.BuiltinFunction{Name: "fmt.printf", Func: fmtPrintf},
+		"printfn": &toy.BuiltinFunction{Name: "fmt.printfn", Func: fmtPrintfn},
 	},
 }
 

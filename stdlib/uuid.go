@@ -13,17 +13,17 @@ import (
 var UUIDModule = &toy.BuiltinModule{
 	Name: "uuid",
 	Members: map[string]toy.Object{
-		"v4":        &toy.BuiltinFunction{Name: "v4", Func: uuidV4},
-		"v7":        &toy.BuiltinFunction{Name: "v7", Func: uuidV7},
-		"parse":     &toy.BuiltinFunction{Name: "parse", Func: uuidParse},
-		"fromBytes": &toy.BuiltinFunction{Name: "fromBytes", Func: uuidFromBytes},
+		"uuid4":     &toy.BuiltinFunction{Name: "uuid.uuid4", Func: uuidV4},
+		"uuid7":     &toy.BuiltinFunction{Name: "uuid.uuid7", Func: uuidV7},
+		"parse":     &toy.BuiltinFunction{Name: "uuid.parse", Func: uuidParse},
+		"fromBytes": &toy.BuiltinFunction{Name: "uuid.fromBytes", Func: uuidFromBytes},
 	},
 }
 
 type UUID uuid.UUID
 
-func (u UUID) TypeName() string { return "UUID" }
-func (u UUID) String() string   { return fmt.Sprintf("UUID(%q)", uuid.UUID(u).String()) }
+func (u UUID) TypeName() string { return "uuid.UUID" }
+func (u UUID) String() string   { return fmt.Sprintf("uuid.UUID(%q)", uuid.UUID(u).String()) }
 func (u UUID) IsFalsy() bool    { return u == UUID(uuid.Nil) }
 func (u UUID) Copy() toy.Object { return u }
 func (u UUID) Hash() uint64     { return hash.Bytes(u[:]) }

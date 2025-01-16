@@ -11,15 +11,15 @@ import (
 var TimeModule = &toy.BuiltinModule{
 	Name: "time",
 	Members: map[string]toy.Object{
-		"parse":         &toy.BuiltinFunction{Name: "parse", Func: timeParse},
-		"now":           &toy.BuiltinFunction{Name: "now", Func: timeNow},
-		"date":          &toy.BuiltinFunction{Name: "date", Func: timeDate},
-		"parseDuration": &toy.BuiltinFunction{Name: "parseDuration", Func: timeParseDuration},
-		"since":         &toy.BuiltinFunction{Name: "since", Func: timeSince},
-		"until":         &toy.BuiltinFunction{Name: "until", Func: timeUntil},
-		"unix":          &toy.BuiltinFunction{Name: "unix", Func: timeUnix},
-		"unixMicro":     &toy.BuiltinFunction{Name: "unixMicro", Func: timeUnixMicro},
-		"unixMilli":     &toy.BuiltinFunction{Name: "unixMilli", Func: timeUnixMilli},
+		"parse":         &toy.BuiltinFunction{Name: "time.parse", Func: timeParse},
+		"now":           &toy.BuiltinFunction{Name: "time.now", Func: timeNow},
+		"date":          &toy.BuiltinFunction{Name: "time.date", Func: timeDate},
+		"parseDuration": &toy.BuiltinFunction{Name: "time.parseDuration", Func: timeParseDuration},
+		"since":         &toy.BuiltinFunction{Name: "time.since", Func: timeSince},
+		"until":         &toy.BuiltinFunction{Name: "time.until", Func: timeUntil},
+		"unix":          &toy.BuiltinFunction{Name: "time.unix", Func: timeUnix},
+		"unixMicro":     &toy.BuiltinFunction{Name: "time.unixMicro", Func: timeUnixMicro},
+		"unixMilli":     &toy.BuiltinFunction{Name: "time.unixMilli", Func: timeUnixMilli},
 
 		"nsec": Duration(time.Nanosecond),
 		"usec": Duration(time.Microsecond),
@@ -50,7 +50,7 @@ var TimeModule = &toy.BuiltinModule{
 
 type Time time.Time
 
-func (t Time) TypeName() string { return "Time" }
+func (t Time) TypeName() string { return "time.Time" }
 func (t Time) String() string   { return (time.Time)(t).String() }
 func (t Time) IsFalsy() bool    { return (time.Time)(t).IsZero() }
 func (t Time) Copy() toy.Object { return t }
@@ -286,7 +286,7 @@ func (d *Duration) Unpack(o toy.Object) error {
 	return nil
 }
 
-func (d Duration) TypeName() string { return "Duration" }
+func (d Duration) TypeName() string { return "time.Duration" }
 func (d Duration) String() string   { return (time.Duration)(d).String() }
 func (d Duration) IsFalsy() bool    { return d == 0 }
 func (d Duration) Copy() toy.Object { return d }

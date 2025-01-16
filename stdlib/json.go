@@ -13,8 +13,8 @@ import (
 var JSONModule = &toy.BuiltinModule{
 	Name: "json",
 	Members: map[string]toy.Object{
-		"encode": &toy.BuiltinFunction{Name: "encode", Func: jsonEncode},
-		"decode": &toy.BuiltinFunction{Name: "decode", Func: jsonDecode},
+		"encode": &toy.BuiltinFunction{Name: "json.encode", Func: jsonEncode},
+		"decode": &toy.BuiltinFunction{Name: "json.decode", Func: jsonDecode},
 	},
 }
 

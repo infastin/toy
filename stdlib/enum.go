@@ -15,10 +15,10 @@ func (e *Enum) TypeName() string { return fmt.Sprintf("enum:%s", e.Name) }
 func (e *Enum) String() string   { return fmt.Sprintf("<enum:%s>", e.Name) }
 func (e *Enum) IsFalsy() bool    { return false }
 
-func (e *Enum) Copy() toy.Object {
+func (e *Enum) Clone() toy.Object {
 	variants := make(map[string]toy.Object)
 	for name, variant := range e.Variants {
-		variants[name] = variant.Copy()
+		variants[name] = variant.Clone()
 	}
 	return &Enum{Name: e.Name, Variants: variants}
 }

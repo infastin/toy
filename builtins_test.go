@@ -111,6 +111,19 @@ func Test_builtinAppend(t *testing.T) {
 		target  Object
 	}{
 		{
+			name:    "no-args",
+			wantErr: &MissingArgumentError{Name: "arr"},
+		},
+		{
+			name: "not-array",
+			args: []Object{Int(1)},
+			wantErr: &InvalidArgumentTypeError{
+				Name: "arr",
+				Want: "array",
+				Got:  "int",
+			},
+		},
+		{
 			name:   "multiple",
 			args:   []Object{makeArray(), Int(1), Int(2)},
 			want:   makeArray(1, 2),
@@ -128,19 +141,6 @@ func Test_builtinAppend(t *testing.T) {
 			want:   makeArray("not empty"),
 			target: makeArray("not empty"),
 		},
-		{
-			name: "not array",
-			args: []Object{Int(1)},
-			wantErr: &InvalidArgumentTypeError{
-				Name: "arr",
-				Want: "array",
-				Got:  "int",
-			},
-		},
-		{
-			name:    "no args",
-			wantErr: &MissingArgumentError{Name: "arr"},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -157,6 +157,89 @@ func Test_builtinAppend(t *testing.T) {
 			}
 			if tt.target != nil {
 				expectEqual(t, tt.target, tt.args[0], "builtinAppend: incorrect target value")
+			}
+		})
+	}
+}
+
+func Test_builtinCopy(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []Object
+		want    Object
+		wantErr error
+		target  Object
+	}{
+		{
+			name:    "no-args",
+			wantErr: &MissingArgumentError{Name: "dst"},
+		},
+		{
+			name:    "1-arg",
+			args:    []Object{makeArray()},
+			wantErr: &MissingArgumentError{Name: "src"},
+		},
+		{
+			name: "invalid-arg",
+			args: []Object{Int(1)},
+			wantErr: &InvalidArgumentTypeError{
+				Name: "dst",
+				Want: "array",
+				Got:  "int",
+			},
+		},
+		{
+			name: "3-args",
+			args: []Object{makeArray(), makeArray(), Int(0)},
+			wantErr: &WrongNumArgumentsError{
+				WantMin: 2,
+				WantMax: 2,
+				Got:     3,
+			},
+		},
+		{
+			name: "2-invalid-arg",
+			args: []Object{makeArray(), Int(1)},
+			wantErr: &InvalidArgumentTypeError{
+				Name: "src",
+				Want: "array",
+				Got:  "int",
+			},
+		},
+		{
+			name:   "copy-from-empty",
+			args:   []Object{makeArray(1, 2, 3), makeArray()},
+			want:   Int(0),
+			target: makeArray(1, 2, 3),
+		},
+		{
+			name:   "copy-to-empty",
+			args:   []Object{makeArray(), makeArray(1, 2, 3)},
+			want:   Int(0),
+			target: makeArray(),
+		},
+		{
+			name:   "copy-some",
+			args:   []Object{makeArray(1, 2, 3), makeArray(2, 4)},
+			want:   Int(2),
+			target: makeArray(2, 4, 3),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := builtinCopy(nil, tt.args...)
+			if tt.wantErr != nil || err != nil {
+				expectNotNil(t, err, "builtinCopy: expected an error")
+				expectNotNil(t, tt.wantErr, "builtinCopy: encountered unexpected error")
+				expectEqual(t, tt.wantErr.Error(), err.Error(), "builtinCopy: wrong error message")
+			}
+			if tt.want != nil || got != nil {
+				expectNotNil(t, got, "builtinCopy: expected a result")
+				expectNotNil(t, tt.want, "builtinCopy: got unexpected result")
+				expectEqual(t, tt.want, got, "builtinCopy: wrong result")
+			}
+			if tt.target != nil {
+				expectEqual(t, tt.target, tt.args[0], "builtinCopy: incorrect target value")
 			}
 		})
 	}
@@ -669,32 +752,32 @@ func Test_builtinRange(t *testing.T) {
 		{
 			name: "same-bound",
 			args: []Object{Int(0), Int(0)},
-			want: makeArray(),
+			want: &rangeType{start: 0, stop: 0, step: 1},
 		},
 		{
 			name: "positive-range",
 			args: []Object{Int(0), Int(5)},
-			want: makeArray(0, 1, 2, 3, 4),
+			want: &rangeType{start: 0, stop: 5, step: 1},
 		},
 		{
 			name: "negative-range",
 			args: []Object{Int(0), Int(-5)},
-			want: makeArray(0, -1, -2, -3, -4),
+			want: &rangeType{start: 0, stop: -5, step: 1},
 		},
 		{
 			name: "positive-with-step",
 			args: []Object{Int(0), Int(5), Int(2)},
-			want: makeArray(0, 2, 4),
+			want: &rangeType{start: 0, stop: 5, step: 2},
 		},
 		{
 			name: "positive-with-step",
 			args: []Object{Int(0), Int(-10), Int(2)},
-			want: makeArray(0, -2, -4, -6, -8),
+			want: &rangeType{start: 0, stop: -10, step: 2},
 		},
 		{
 			name: "large-range",
 			args: []Object{Int(-10), Int(10), Int(3)},
-			want: makeArray(-10, -7, -4, -1, 2, 5, 8),
+			want: &rangeType{start: -10, stop: 10, step: 3},
 		},
 	}
 	for _, tt := range tests {

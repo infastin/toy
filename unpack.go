@@ -71,9 +71,12 @@ func UnpackArgs(args []Object, pairs ...any) error {
 			panic(fmt.Sprintf("expected *[]Object type for remaining arguments, got %T", pairs[2*i+1]))
 		}
 		if err := unpackArg(pairs[2*i+1], arg); err != nil {
-			if e := (*InvalidArgumentTypeError)(nil); errors.As(err, &e) {
-				e.Name = name
-				e.Got = arg.TypeName()
+			if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
+				err = &InvalidArgumentTypeError{
+					Name: name,
+					Want: e.Want,
+					Got:  e.Got,
+				}
 			}
 			return err
 		}
@@ -143,7 +146,7 @@ loop:
 						err = &InvalidEntryValueTypeError{
 							Name: pName,
 							Want: e.Want,
-							Got:  value.TypeName(),
+							Got:  e.Got,
 						}
 					}
 					return err
@@ -243,9 +246,12 @@ loop:
 				// found it
 				defined.SetBit(&defined, i, 1)
 				if err := unpackArg(pairs[2*i+1], value); err != nil {
-					if e := (*InvalidArgumentTypeError)(nil); errors.As(err, &e) {
-						e.Name = pName
-						e.Got = value.TypeName()
+					if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
+						err = &InvalidArgumentTypeError{
+							Name: pName,
+							Want: e.Want,
+							Got:  e.Got,
+						}
 					}
 					return err
 				}

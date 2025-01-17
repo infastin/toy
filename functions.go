@@ -17,10 +17,10 @@ func (o *BuiltinFunction) TypeName() string { return "builtin-function:" + o.Nam
 func (o *BuiltinFunction) String() string   { return "<builtin-function>" }
 func (o *BuiltinFunction) IsFalsy() bool    { return false }
 
-func (o *BuiltinFunction) Copy() Object {
+func (o *BuiltinFunction) Clone() Object {
 	var receiver Object
 	if o.Receiver != nil {
-		receiver = o.Receiver.Copy()
+		receiver = o.Receiver.Clone()
 	}
 	return &BuiltinFunction{
 		Name:     o.Name,
@@ -65,7 +65,7 @@ func (o *CompiledFunction) TypeName() string { return "compiled-function" }
 func (o *CompiledFunction) String() string   { return "<compiled-function>" }
 func (o *CompiledFunction) IsFalsy() bool    { return false }
 
-func (o *CompiledFunction) Copy() Object {
+func (o *CompiledFunction) Clone() Object {
 	return &CompiledFunction{
 		instructions:  o.instructions,
 		numLocals:     o.numLocals,
@@ -73,7 +73,7 @@ func (o *CompiledFunction) Copy() Object {
 		varArgs:       o.varArgs,
 		sourceMap:     o.sourceMap,
 		deferMap:      o.deferMap,
-		free:          slices.Clone(o.free), // DO NOT Copy() of elements; these are variable pointers
+		free:          slices.Clone(o.free), // DO NOT Clone() of elements; these are variable pointers
 	}
 }
 

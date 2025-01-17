@@ -22,10 +22,10 @@ type RegexpMatch struct {
 	begin, end int
 }
 
-func (m RegexpMatch) TypeName() string { return "regexp.Match" }
-func (m RegexpMatch) String() string   { return fmt.Sprintf("regexp.Match(%q)", m.text) }
-func (m RegexpMatch) IsFalsy() bool    { return len(m.text) == 0 }
-func (m RegexpMatch) Copy() toy.Object { return m }
+func (m RegexpMatch) TypeName() string  { return "regexp.Match" }
+func (m RegexpMatch) String() string    { return fmt.Sprintf("regexp.Match(%q)", m.text) }
+func (m RegexpMatch) IsFalsy() bool     { return len(m.text) == 0 }
+func (m RegexpMatch) Clone() toy.Object { return m }
 
 func (m RegexpMatch) Convert(p any) error {
 	switch p := p.(type) {
@@ -72,10 +72,10 @@ func (r *Regexp) Unpack(o toy.Object) error {
 	return nil
 }
 
-func (r *Regexp) TypeName() string { return "regexp.Regexp" }
-func (r *Regexp) String() string   { return fmt.Sprintf("/%s/", (*regexp.Regexp)(r).String()) }
-func (r *Regexp) IsFalsy() bool    { return false }
-func (r *Regexp) Copy() toy.Object { return r }
+func (r *Regexp) TypeName() string  { return "regexp.Regexp" }
+func (r *Regexp) String() string    { return fmt.Sprintf("/%s/", (*regexp.Regexp)(r).String()) }
+func (r *Regexp) IsFalsy() bool     { return false }
+func (r *Regexp) Clone() toy.Object { return r }
 
 func (r *Regexp) FieldGet(name string) (toy.Object, error) {
 	m, ok := regexpRegexpMethods[name]

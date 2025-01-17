@@ -234,7 +234,7 @@ func (c *Compiled) Clone() *Compiled {
 	// copy global objects
 	for idx, g := range c.globals {
 		if g != nil {
-			clone.globals[idx] = g.Copy()
+			clone.globals[idx] = g.Clone()
 		}
 	}
 

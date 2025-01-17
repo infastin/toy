@@ -50,11 +50,11 @@ var TimeModule = &toy.BuiltinModule{
 
 type Time time.Time
 
-func (t Time) TypeName() string { return "time.Time" }
-func (t Time) String() string   { return (time.Time)(t).String() }
-func (t Time) IsFalsy() bool    { return (time.Time)(t).IsZero() }
-func (t Time) Copy() toy.Object { return t }
-func (t Time) Hash() uint64     { return hash.Int64(time.Time(t).UnixNano()) }
+func (t Time) TypeName() string  { return "time.Time" }
+func (t Time) String() string    { return (time.Time)(t).String() }
+func (t Time) IsFalsy() bool     { return (time.Time)(t).IsZero() }
+func (t Time) Clone() toy.Object { return t }
+func (t Time) Hash() uint64      { return hash.Int64(time.Time(t).UnixNano()) }
 
 func (t Time) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(Time)
@@ -286,10 +286,10 @@ func (d *Duration) Unpack(o toy.Object) error {
 	return nil
 }
 
-func (d Duration) TypeName() string { return "time.Duration" }
-func (d Duration) String() string   { return (time.Duration)(d).String() }
-func (d Duration) IsFalsy() bool    { return d == 0 }
-func (d Duration) Copy() toy.Object { return d }
+func (d Duration) TypeName() string  { return "time.Duration" }
+func (d Duration) String() string    { return (time.Duration)(d).String() }
+func (d Duration) IsFalsy() bool     { return d == 0 }
+func (d Duration) Clone() toy.Object { return d }
 
 func (d Duration) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(Duration)

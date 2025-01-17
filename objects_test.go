@@ -1,7 +1,9 @@
 package toy_test
 
 import (
+	"bytes"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/infastin/toy"
@@ -377,12 +379,19 @@ func TestString_BinaryOp(t *testing.T) {
 	lstr := "abcde"
 	rstr := "01234"
 	for l := 0; l < len(lstr); l++ {
+		ls := lstr[l:]
 		for r := 0; r < len(rstr); r++ {
-			ls := lstr[l:]
 			rs := rstr[r:]
 			testBinaryOp(t, toy.String(ls), token.Add, toy.String(rs), toy.String(ls+rs))
 			rc := []rune(rstr)[r]
 			testBinaryOp(t, toy.String(ls), token.Add, toy.Char(rc), toy.String(ls+string(rc)))
+		}
+		for i := -4; i < 4; i++ {
+			var lsr string
+			if i >= 0 {
+				lsr = strings.Repeat(ls, i)
+			}
+			testBinaryOp(t, toy.String(ls), token.Mul, toy.Int(i), toy.String(lsr))
 		}
 	}
 }
@@ -391,10 +400,19 @@ func TestBytes_BinaryOp(t *testing.T) {
 	lbytes := []byte("abcde")
 	rbytes := []byte("01234")
 	for l := 0; l < len(lbytes); l++ {
+		lb := lbytes[l:]
 		for r := 0; r < len(rbytes); r++ {
-			lb := lbytes[l:]
 			rb := rbytes[r:]
 			testBinaryOp(t, toy.Bytes(lb), token.Add, toy.Bytes(rb), toy.Bytes(slices.Concat(lb, rb)))
+		}
+		for i := -4; i < 4; i++ {
+			var lbr []byte
+			if i >= 0 {
+				lbr = bytes.Repeat(lb, i)
+			} else {
+				lbr = []byte{}
+			}
+			testBinaryOp(t, toy.Bytes(lb), token.Mul, toy.Int(i), toy.Bytes(lbr))
 		}
 	}
 }

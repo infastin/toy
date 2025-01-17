@@ -86,10 +86,10 @@ func (m *BuiltinModule) TypeName() string { return fmt.Sprintf("module:%s", m.Na
 func (m *BuiltinModule) String() string   { return fmt.Sprintf("<module:%s>", m.Name) }
 func (m *BuiltinModule) IsFalsy() bool    { return false }
 
-func (m *BuiltinModule) Copy() Object {
+func (m *BuiltinModule) Clone() Object {
 	fields := make(map[string]Object)
 	for name, value := range m.Members {
-		fields[name] = value.Copy()
+		fields[name] = value.Clone()
 	}
 	return &BuiltinModule{Name: m.Name, Members: m.Members}
 }

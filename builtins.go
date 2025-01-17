@@ -11,10 +11,11 @@ import (
 var (
 	BuiltinFuncs = []*BuiltinFunction{
 		{Name: "typename", Func: builtinTypeName},
-		{Name: "copy", Func: builtinCopy},
+		{Name: "clone", Func: builtinClone},
 
 		{Name: "len", Func: builtinLen},
 		{Name: "append", Func: builtinAppend},
+		{Name: "copy", Func: builtinCopy},
 		{Name: "delete", Func: builtinDelete},
 		{Name: "splice", Func: builtinSplice},
 		{Name: "insert", Func: builtinInsert},
@@ -84,7 +85,7 @@ func builtinTypeName(_ *VM, args ...Object) (Object, error) {
 	return String(args[0].TypeName()), nil
 }
 
-func builtinCopy(_ *VM, args ...Object) (Object, error) {
+func builtinClone(_ *VM, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -92,7 +93,7 @@ func builtinCopy(_ *VM, args ...Object) (Object, error) {
 			Got:     len(args),
 		}
 	}
-	return args[0].Copy(), nil
+	return args[0].Clone(), nil
 }
 
 func builtinLen(_ *VM, args ...Object) (Object, error) {
@@ -116,6 +117,18 @@ func builtinAppend(_ *VM, args ...Object) (Object, error) {
 		immutable: arr.immutable,
 		itercount: 0,
 	}, nil
+}
+
+func builtinCopy(_ *VM, args ...Object) (Object, error) {
+	var dst, src *Array
+	if err := UnpackArgs(args, "dst", &dst, "src", &src); err != nil {
+		return nil, err
+	}
+	if err := dst.checkMutable("copy to"); err != nil {
+		return nil, err
+	}
+	n := copy(dst.elems, src.elems)
+	return Int(n), nil
 }
 
 func builtinDelete(_ *VM, args ...Object) (Object, error) {

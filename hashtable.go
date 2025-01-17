@@ -334,16 +334,16 @@ func (ht *hashtable) clear() error {
 	return nil
 }
 
-func (ht *hashtable) copyAll(other *hashtable) error {
+func (ht *hashtable) cloneAll(other *hashtable) error {
 	for e := other.head; e != nil; e = e.next {
-		if err := ht.insert(e.key.Copy(), e.value.Copy()); err != nil {
+		if err := ht.insert(e.key.Clone(), e.value.Clone()); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (ht *hashtable) copyAllImmutable(other *hashtable) error {
+func (ht *hashtable) cloneAllImmutable(other *hashtable) error {
 	for e := other.head; e != nil; e = e.next {
 		if err := ht.insert(AsImmutable(e.key), AsImmutable(e.value)); err != nil {
 			return err
@@ -448,7 +448,7 @@ type htIterator struct {
 func (it *htIterator) TypeName() string { return "hashtable-iterator" }
 func (it *htIterator) String() string   { return "<hashtable-iterator>" }
 func (it *htIterator) IsFalsy() bool    { return true }
-func (it *htIterator) Copy() Object     { return &htIterator{ht: it.ht, e: it.e} }
+func (it *htIterator) Clone() Object    { return &htIterator{ht: it.ht, e: it.e} }
 
 func (it *htIterator) Next(key, value *Object) bool {
 	if it.e != nil {

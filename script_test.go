@@ -178,10 +178,10 @@ e := mod1.double(s)
 
 type Counter int64
 
-func (o Counter) TypeName() string { return "counter" }
-func (o Counter) String() string   { return fmt.Sprintf("Counter(%d)", int64(o)) }
-func (o Counter) IsFalsy() bool    { return o == 0 }
-func (o Counter) Copy() toy.Object { return o }
+func (o Counter) TypeName() string  { return "counter" }
+func (o Counter) String() string    { return fmt.Sprintf("Counter(%d)", int64(o)) }
+func (o Counter) IsFalsy() bool     { return o == 0 }
+func (o Counter) Clone() toy.Object { return o }
 
 func (o Counter) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	switch y := rhs.(type) {
@@ -423,10 +423,10 @@ func TestCompiled_RunContext(t *testing.T) {
 // customNumber is a user defined object that can compare to toy.Int.
 type customNumber float64
 
-func (n customNumber) TypeName() string { return "Number" }
-func (n customNumber) String() string   { return strconv.FormatFloat(float64(n), 'g', -1, 64) }
-func (n customNumber) IsFalsy() bool    { return n == 0 }
-func (n customNumber) Copy() toy.Object { return n }
+func (n customNumber) TypeName() string  { return "Number" }
+func (n customNumber) String() string    { return strconv.FormatFloat(float64(n), 'g', -1, 64) }
+func (n customNumber) IsFalsy() bool     { return n == 0 }
+func (n customNumber) Clone() toy.Object { return n }
 
 func (n customNumber) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	switch y := rhs.(type) {

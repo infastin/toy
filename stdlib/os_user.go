@@ -30,7 +30,7 @@ func (u *User) TypeName() string { return "user.User" }
 func (u *User) String() string   { return fmt.Sprintf("user.User(%q)", u.Name) }
 func (u *User) IsFalsy() bool    { return false }
 
-func (u *User) Copy() toy.Object {
+func (u *User) Clone() toy.Object {
 	c := new(User)
 	*c = *u
 	return c
@@ -58,7 +58,7 @@ func (g *Group) TypeName() string { return "user.Group" }
 func (g *Group) String() string   { return fmt.Sprintf("user.Group(%q)", g.Name) }
 func (g *Group) IsFalsy() bool    { return false }
 
-func (g *Group) Copy() toy.Object {
+func (g *Group) Clone() toy.Object {
 	c := new(Group)
 	*c = *g
 	return c

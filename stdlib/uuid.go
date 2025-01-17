@@ -22,11 +22,11 @@ var UUIDModule = &toy.BuiltinModule{
 
 type UUID uuid.UUID
 
-func (u UUID) TypeName() string { return "uuid.UUID" }
-func (u UUID) String() string   { return fmt.Sprintf("uuid.UUID(%q)", uuid.UUID(u).String()) }
-func (u UUID) IsFalsy() bool    { return u == UUID(uuid.Nil) }
-func (u UUID) Copy() toy.Object { return u }
-func (u UUID) Hash() uint64     { return hash.Bytes(u[:]) }
+func (u UUID) TypeName() string  { return "uuid.UUID" }
+func (u UUID) String() string    { return fmt.Sprintf("uuid.UUID(%q)", uuid.UUID(u).String()) }
+func (u UUID) IsFalsy() bool     { return u == UUID(uuid.Nil) }
+func (u UUID) Clone() toy.Object { return u }
+func (u UUID) Hash() uint64      { return hash.Bytes(u[:]) }
 
 func (u UUID) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(UUID)

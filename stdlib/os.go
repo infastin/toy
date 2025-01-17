@@ -120,10 +120,10 @@ func (m *FileMode) Unpack(o toy.Object) error {
 	return nil
 }
 
-func (m FileMode) TypeName() string { return "os.FileMode" }
-func (m FileMode) String() string   { return fmt.Sprintf("os.FileMode(%q)", os.FileMode(m).String()) }
-func (m FileMode) IsFalsy() bool    { return false }
-func (m FileMode) Copy() toy.Object { return m }
+func (m FileMode) TypeName() string  { return "os.FileMode" }
+func (m FileMode) String() string    { return fmt.Sprintf("os.FileMode(%q)", os.FileMode(m).String()) }
+func (m FileMode) IsFalsy() bool     { return false }
+func (m FileMode) Clone() toy.Object { return m }
 
 func (m FileMode) Convert(p any) error {
 	switch p := p.(type) {
@@ -373,10 +373,10 @@ type FileInfo struct {
 	info os.FileInfo
 }
 
-func (f *FileInfo) TypeName() string { return "os.FileInfo" }
-func (f *FileInfo) String() string   { return fmt.Sprintf("os.FileInfo(%q)", f.info.Name()) }
-func (f *FileInfo) IsFalsy() bool    { return false }
-func (f *FileInfo) Copy() toy.Object { return &FileInfo{info: f.info} }
+func (f *FileInfo) TypeName() string  { return "os.FileInfo" }
+func (f *FileInfo) String() string    { return fmt.Sprintf("os.FileInfo(%q)", f.info.Name()) }
+func (f *FileInfo) IsFalsy() bool     { return false }
+func (f *FileInfo) Clone() toy.Object { return &FileInfo{info: f.info} }
 
 func (f *FileInfo) FieldGet(name string) (toy.Object, error) {
 	switch name {
@@ -454,10 +454,10 @@ type DirEntry struct {
 	entry os.DirEntry
 }
 
-func (e *DirEntry) TypeName() string { return "os.DirEntry" }
-func (e *DirEntry) String() string   { return fmt.Sprintf("os.DirEntry(%q)", e.entry.Name()) }
-func (e *DirEntry) IsFalsy() bool    { return false }
-func (e *DirEntry) Copy() toy.Object { return &DirEntry{entry: e.entry} }
+func (e *DirEntry) TypeName() string  { return "os.DirEntry" }
+func (e *DirEntry) String() string    { return fmt.Sprintf("os.DirEntry(%q)", e.entry.Name()) }
+func (e *DirEntry) IsFalsy() bool     { return false }
+func (e *DirEntry) Clone() toy.Object { return &DirEntry{entry: e.entry} }
 
 func (e *DirEntry) FieldGet(name string) (toy.Object, error) {
 	switch name {
@@ -511,7 +511,7 @@ func (f *File) TypeName() string { return "os.File" }
 func (f *File) String() string   { return fmt.Sprintf("os.File(%q)", (*os.File)(f).Name()) }
 func (f *File) IsFalsy() bool    { return false }
 
-func (f *File) Copy() toy.Object {
+func (f *File) Clone() toy.Object {
 	c := new(File)
 	*c = *f
 	return c

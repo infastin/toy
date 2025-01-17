@@ -22,10 +22,8 @@ type Object interface {
 	String() string
 	// IsFalsy returns true if the object should be considered as falsy.
 	IsFalsy() bool
-	// Copy returns a copy of the object.
-	// Copy function will be used for copy() builtin function which
-	// is expected to deep-copy the object generally.
-	Copy() Object
+	// Clone returns a deep-copy of the object.
+	Clone() Object
 }
 
 // ObjectType represents an object type in the VM.
@@ -45,9 +43,8 @@ type Hashable interface {
 // Freezable represents an object that can create immutable copies.
 type Freezable interface {
 	Object
-	// AsImmutable returns an immutable copy of the object.
-	// AsImmutable function will be used for immutable() builtin keyword
-	// which is expected to deep-copy the object generally.
+	// AsImmutable returns an immutable deep-copy of the object.
+	// If the object is already immutable, the same object may be returned.
 	AsImmutable() Object
 	// Mutable returns true if the object is mutable.
 	Mutable() bool
@@ -256,11 +253,11 @@ func Hash(x Object) (uint64, error) {
 }
 
 // AsImmutable tries to create an immutable copy of the given Object.
-// If it fails, calls Copy() method otherwise.
+// If it fails, calls Clone() method otherwise.
 func AsImmutable(x Object) Object {
 	xf, ok := x.(Freezable)
 	if !ok {
-		return x.Copy()
+		return x.Clone()
 	}
 	return xf.AsImmutable()
 }
@@ -646,7 +643,7 @@ const Nil = NilType(0)
 func (o NilType) TypeName() string { return "nil" }
 func (o NilType) String() string   { return "<nil>" }
 func (o NilType) IsFalsy() bool    { return true }
-func (o NilType) Copy() Object     { return o }
+func (o NilType) Clone() Object    { return o }
 
 // Bool represents a boolean value.
 type Bool bool
@@ -665,7 +662,7 @@ func (o Bool) String() string {
 
 func (o Bool) TypeName() string { return "bool" }
 func (o Bool) IsFalsy() bool    { return !bool(o) }
-func (o Bool) Copy() Object     { return o }
+func (o Bool) Clone() Object    { return o }
 
 func (o Bool) Hash() uint64 {
 	if o {
@@ -694,7 +691,7 @@ type Float float64
 func (o Float) TypeName() string { return "float" }
 func (o Float) String() string   { return strconv.FormatFloat(float64(o), 'g', -1, 64) }
 func (o Float) IsFalsy() bool    { return math.IsNaN(float64(o)) }
-func (o Float) Copy() Object     { return o }
+func (o Float) Clone() Object    { return o }
 
 func (o Float) Hash() uint64 {
 	if float64(o) == math.Trunc(float64(o)) && float64(o) <= float64(math.MaxInt64) {
@@ -798,7 +795,7 @@ type Int int64
 func (o Int) TypeName() string { return "int" }
 func (o Int) String() string   { return strconv.FormatInt(int64(o), 10) }
 func (o Int) IsFalsy() bool    { return o == 0 }
-func (o Int) Copy() Object     { return o }
+func (o Int) Clone() Object    { return o }
 func (o Int) Hash() uint64     { return hash.Int64(int64(o)) }
 
 func (o Int) Convert(p any) error {
@@ -940,7 +937,7 @@ type String string
 func (o String) TypeName() string { return "string" }
 func (o String) String() string   { return strconv.Quote(string(o)) }
 func (o String) IsFalsy() bool    { return len(o) == 0 }
-func (o String) Copy() Object     { return o }
+func (o String) Clone() Object    { return o }
 func (o String) Hash() uint64     { return hash.String(string(o)) }
 
 func (o String) Len() int { return utf8.RuneCountInString(string(o)) }
@@ -1006,7 +1003,7 @@ func (o String) BinaryOp(op token.Token, other Object, right bool) (Object, erro
 		switch y := other.(type) {
 		case Int:
 			if y <= 0 {
-				return o, nil
+				return String(""), nil
 			}
 			return String(strings.Repeat(string(o), int(y))), nil
 		}
@@ -1038,7 +1035,7 @@ type stringIterator struct {
 func (it *stringIterator) TypeName() string { return "string-iterator" }
 func (it *stringIterator) String() string   { return "<string-iterator>" }
 func (it *stringIterator) IsFalsy() bool    { return true }
-func (it *stringIterator) Copy() Object     { return &stringIterator{s: it.s, i: it.i} }
+func (it *stringIterator) Clone() Object    { return &stringIterator{s: it.s, i: it.i} }
 
 func (it *stringIterator) Next(key, value *Object) bool {
 	if it.i < len(it.s) {
@@ -1060,7 +1057,7 @@ type Bytes []byte
 func (o Bytes) String() string   { return fmt.Sprintf("bytes(%q)", []byte(o)) }
 func (o Bytes) TypeName() string { return "bytes" }
 func (o Bytes) IsFalsy() bool    { return len(o) == 0 }
-func (o Bytes) Copy() Object     { return slices.Clone(o) }
+func (o Bytes) Clone() Object    { return slices.Clone(o) }
 func (o Bytes) Hash() uint64     { return hash.Bytes(o) }
 
 func (o Bytes) Len() int                   { return len(o) }
@@ -1109,7 +1106,7 @@ func (o Bytes) BinaryOp(op token.Token, other Object, right bool) (Object, error
 		switch y := other.(type) {
 		case Int:
 			if y <= 0 {
-				return o, nil
+				return Bytes{}, nil
 			}
 			return Bytes(bytes.Repeat(o, int(y))), nil
 		}
@@ -1143,7 +1140,7 @@ type bytesIterator struct {
 func (it *bytesIterator) TypeName() string { return "bytes-iterator" }
 func (it *bytesIterator) String() string   { return "<bytes-iterator>" }
 func (it *bytesIterator) IsFalsy() bool    { return true }
-func (it *bytesIterator) Copy() Object     { return &bytesIterator{b: it.b, i: it.i} }
+func (it *bytesIterator) Clone() Object    { return &bytesIterator{b: it.b, i: it.i} }
 
 func (it *bytesIterator) Next(key, value *Object) bool {
 	if it.i < len(it.b) {
@@ -1165,7 +1162,7 @@ type Char rune
 func (o Char) TypeName() string { return "char" }
 func (o Char) String() string   { return strconv.QuoteRune(rune(o)) }
 func (o Char) IsFalsy() bool    { return o == 0 }
-func (o Char) Copy() Object     { return o }
+func (o Char) Clone() Object    { return o }
 func (o Char) Hash() uint64     { return hash.Int32(int32(o)) }
 
 func (o Char) Convert(p any) error {
@@ -1270,13 +1267,13 @@ func (o *Array) String() string {
 
 func (o *Array) IsFalsy() bool { return len(o.elems) == 0 }
 
-func (o *Array) Copy() Object {
+func (o *Array) Clone() Object {
 	if o.immutable {
 		return o
 	}
 	elems := make([]Object, 0, len(o.elems))
 	for _, elem := range o.elems {
-		elems = append(elems, elem.Copy())
+		elems = append(elems, elem.Clone())
 	}
 	return &Array{elems: elems, immutable: false}
 }
@@ -1378,7 +1375,7 @@ func (o *Array) BinaryOp(op token.Token, other Object, right bool) (Object, erro
 				newElems = slices.Grow(o.elems, len(o.elems)*int(y-1))
 				for i := len(o.elems); i < cap(newElems); i += len(o.elems) {
 					for _, elem := range o.elems {
-						newElems = append(newElems, elem.Copy())
+						newElems = append(newElems, elem.Clone())
 					}
 				}
 			}
@@ -1491,7 +1488,7 @@ type arrayIterator struct {
 func (it *arrayIterator) TypeName() string { return "array-iterator" }
 func (it *arrayIterator) String() string   { return "<array-iterator>" }
 func (it *arrayIterator) IsFalsy() bool    { return true }
-func (it *arrayIterator) Copy() Object     { return &arrayIterator{a: it.a, i: it.i} }
+func (it *arrayIterator) Clone() Object    { return &arrayIterator{a: it.a, i: it.i} }
 
 func (it *arrayIterator) Next(key, value *Object) bool {
 	if it.i < len(it.a.elems) {
@@ -1543,10 +1540,10 @@ func (o *Map) String() string {
 
 func (o *Map) IsFalsy() bool { return o.ht.len == 0 }
 
-func (o *Map) Copy() Object {
+func (o *Map) Clone() Object {
 	m := new(Map)
 	m.ht.init(o.Len())
-	m.ht.copyAll(&o.ht)
+	m.ht.cloneAll(&o.ht)
 	return m
 }
 
@@ -1556,7 +1553,7 @@ func (o *Map) AsImmutable() Object {
 	}
 	m := new(Map)
 	m.ht.init(o.Len())
-	m.ht.copyAllImmutable(&o.ht)
+	m.ht.cloneAllImmutable(&o.ht)
 	m.ht.immutable = true
 	return m
 }
@@ -1638,10 +1635,10 @@ func (o Tuple) String() string {
 
 func (o Tuple) IsFalsy() bool { return len(o) == 0 }
 
-func (o Tuple) Copy() Object {
+func (o Tuple) Clone() Object {
 	t := make(Tuple, 0, len(o))
 	for _, elem := range o {
-		t = append(t, elem.Copy())
+		t = append(t, elem.Clone())
 	}
 	return t
 }
@@ -1700,7 +1697,7 @@ func (o Tuple) BinaryOp(op token.Token, other Object, right bool) (Object, error
 				newTuple := slices.Grow(o, len(o)*int(y-1))
 				for i := len(o); i < cap(newTuple); i += len(o) {
 					for _, elem := range o {
-						newTuple = append(newTuple, elem.Copy())
+						newTuple = append(newTuple, elem.Clone())
 					}
 				}
 				return newTuple, nil
@@ -1753,7 +1750,7 @@ type tupleIterator struct {
 func (it *tupleIterator) TypeName() string { return "tuple-iterator" }
 func (it *tupleIterator) String() string   { return "<tuple-iterator>" }
 func (it *tupleIterator) IsFalsy() bool    { return true }
-func (it *tupleIterator) Copy() Object     { return &tupleIterator{t: it.t, i: it.i} }
+func (it *tupleIterator) Clone() Object    { return &tupleIterator{t: it.t, i: it.i} }
 
 func (it *tupleIterator) Next(key, value *Object) bool {
 	if it.i < len(it.t) {
@@ -1799,10 +1796,10 @@ func (o *Error) String() string {
 
 func (o *Error) IsFalsy() bool { return true }
 
-func (o *Error) Copy() Object {
+func (o *Error) Clone() Object {
 	var cause *Error
 	if o.cause != nil {
-		cause = o.cause.Copy().(*Error)
+		cause = o.cause.Clone().(*Error)
 	}
 	return &Error{message: o.message, cause: cause}
 }
@@ -1860,7 +1857,7 @@ type objectPtr struct {
 func (o *objectPtr) TypeName() string { return "free-var" }
 func (o *objectPtr) String() string   { return "<free-var>" }
 func (o *objectPtr) IsFalsy() bool    { return o.p == nil }
-func (o *objectPtr) Copy() Object     { return o }
+func (o *objectPtr) Clone() Object    { return o }
 
 // splatSequence represents a sequence that supposed to be splat.
 type splatSequence struct {
@@ -1870,7 +1867,7 @@ type splatSequence struct {
 func (o *splatSequence) TypeName() string { return "splat-sequence" }
 func (o *splatSequence) String() string   { return "<splat-sequence>" }
 func (o *splatSequence) IsFalsy() bool    { return o.s == nil }
-func (o *splatSequence) Copy() Object     { return o }
+func (o *splatSequence) Clone() Object    { return o }
 
 // rangeType represents a range value.
 type rangeType struct {
@@ -1881,7 +1878,7 @@ func (o *rangeType) TypeName() string { return "range" }
 func (o *rangeType) String() string   { return "<range>" }
 func (o *rangeType) IsFalsy() bool    { return false }
 
-func (o *rangeType) Copy() Object {
+func (o *rangeType) Clone() Object {
 	return &rangeType{
 		start: o.start,
 		stop:  o.stop,
@@ -1973,7 +1970,7 @@ func (it *rangeIterator) TypeName() string { return "range-iterator" }
 func (it *rangeIterator) String() string   { return "<range-iterator>" }
 func (it *rangeIterator) IsFalsy() bool    { return true }
 
-func (it *rangeIterator) Copy() Object {
+func (it *rangeIterator) Clone() Object {
 	return &rangeIterator{
 		pos:  it.pos,
 		len:  it.len,

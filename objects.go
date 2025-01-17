@@ -16,16 +16,23 @@ import (
 
 // Object represents an object in the VM.
 type Object interface {
-	// TypeName returns the name of the type.
+	// TypeName returns the name of the object's type.
 	TypeName() string
-	// String returns a string representation of the type's value.
+	// String returns a string representation of the object.
 	String() string
-	// IsFalsy returns true if the value of the type should be considered as falsy.
+	// IsFalsy returns true if the object should be considered as falsy.
 	IsFalsy() bool
-	// Copy returns a copy of the type (and its value).
+	// Copy returns a copy of the object.
 	// Copy function will be used for copy() builtin function which
-	// is expected to deep-copy the values generally.
+	// is expected to deep-copy the object generally.
 	Copy() Object
+}
+
+// ObjectType represents an object type in the VM.
+type ObjectType interface {
+	Object
+	// Name returns the name of the type.
+	Name() string
 }
 
 // Hashable represents an object that is hashable (can be used in map).
@@ -38,19 +45,19 @@ type Hashable interface {
 // Freezable represents an object that can create immutable copies.
 type Freezable interface {
 	Object
-	// AsImmutable returns an immutable copy of the type (and its value).
+	// AsImmutable returns an immutable copy of the object.
 	// AsImmutable function will be used for immutable() builtin keyword
-	// which is expected to deep-copy the values generally.
+	// which is expected to deep-copy the object generally.
 	AsImmutable() Object
 	// Mutable returns true if the object is mutable.
 	Mutable() bool
 }
 
-// A Comparable is a value that defines its own equivalence relation and
+// A Comparable is an object that defines its own equivalence relation and
 // perhaps ordered comparisons.
 type Comparable interface {
 	Object
-	// Compare compares one value to another.
+	// Compare compares one object to another.
 	// The comparison operation must be one of Equal, NotEqual, Less, LessEq, Greater, or GreaterEq.
 	// If Compare returns an error, the VM will treat it as a run-time error.
 	//

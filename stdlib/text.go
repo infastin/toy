@@ -14,31 +14,31 @@ import (
 var TextModule = &toy.BuiltinModule{
 	Name: "text",
 	Members: map[string]toy.Object{
-		"contains":     &toy.BuiltinFunction{Name: "text.contains", Func: textContains},
-		"containsAny":  &toy.BuiltinFunction{Name: "text.containsAny", Func: makeASSRB("s", "chars", strings.ContainsAny)},
-		"hasPrefix":    &toy.BuiltinFunction{Name: "text.hasPrefix", Func: makeASSRB("s", "prefix", strings.HasPrefix)},
-		"hasSuffix":    &toy.BuiltinFunction{Name: "text.hasSuffix", Func: makeASSRB("s", "suffix", strings.HasSuffix)},
-		"trimLeft":     &toy.BuiltinFunction{Name: "text.trimLeft", Func: makeASSRS("s", "cutset", strings.TrimLeft)},
-		"trimRight":    &toy.BuiltinFunction{Name: "text.trimRight", Func: makeASSRS("s", "cutset", strings.TrimRight)},
-		"trimPrefix":   &toy.BuiltinFunction{Name: "text.trimPrefix", Func: makeASSRS("s", "prefix", strings.TrimPrefix)},
-		"trimSuffix":   &toy.BuiltinFunction{Name: "text.trimSuffix", Func: makeASSRS("s", "suffix", strings.TrimSuffix)},
-		"trimSpace":    &toy.BuiltinFunction{Name: "text.trimSpace", Func: makeASRS("s", strings.TrimSpace)},
-		"trim":         &toy.BuiltinFunction{Name: "text.trim", Func: makeASSRS("s", "cutset", strings.Trim)},
-		"toLower":      &toy.BuiltinFunction{Name: "text.toLower", Func: makeASRS("s", strings.ToLower)},
-		"toUpper":      &toy.BuiltinFunction{Name: "text.toUpper", Func: makeASRS("s", strings.ToUpper)},
-		"toTitle":      &toy.BuiltinFunction{Name: "text.toTitle", Func: textToTitle},
-		"join":         &toy.BuiltinFunction{Name: "text.join", Func: textJoin},
-		"split":        &toy.BuiltinFunction{Name: "text.split", Func: textSplit},
-		"splitAfter":   &toy.BuiltinFunction{Name: "text.splitAfter", Func: textSplitAfter},
-		"fields":       &toy.BuiltinFunction{Name: "text.fields", Func: textFields},
-		"replace":      &toy.BuiltinFunction{Name: "text.replace", Func: textReplace},
-		"cut":          &toy.BuiltinFunction{Name: "text.cut", Func: textCut},
-		"cutPrefix":    &toy.BuiltinFunction{Name: "text.cutPrefix", Func: textCutPrefix},
-		"cutSuffix":    &toy.BuiltinFunction{Name: "text.cutSuffix", Func: textCutSuffix},
-		"index":        &toy.BuiltinFunction{Name: "text.index", Func: textIndex},
-		"indexAny":     &toy.BuiltinFunction{Name: "text.indexAny", Func: textIndexAny},
-		"lastIndex":    &toy.BuiltinFunction{Name: "text.lastIndex", Func: textLastIndex},
-		"lastIndexAny": &toy.BuiltinFunction{Name: "text.lastIndexAny", Func: textLastIndexAny},
+		"contains":     toy.NewBuiltinFunction("text.contains", textContains),
+		"containsAny":  toy.NewBuiltinFunction("text.containsAny", makeASSRB("s", "chars", strings.ContainsAny)),
+		"hasPrefix":    toy.NewBuiltinFunction("text.hasPrefix", makeASSRB("s", "prefix", strings.HasPrefix)),
+		"hasSuffix":    toy.NewBuiltinFunction("text.hasSuffix", makeASSRB("s", "suffix", strings.HasSuffix)),
+		"trimLeft":     toy.NewBuiltinFunction("text.trimLeft", makeASSRS("s", "cutset", strings.TrimLeft)),
+		"trimRight":    toy.NewBuiltinFunction("text.trimRight", makeASSRS("s", "cutset", strings.TrimRight)),
+		"trimPrefix":   toy.NewBuiltinFunction("text.trimPrefix", makeASSRS("s", "prefix", strings.TrimPrefix)),
+		"trimSuffix":   toy.NewBuiltinFunction("text.trimSuffix", makeASSRS("s", "suffix", strings.TrimSuffix)),
+		"trimSpace":    toy.NewBuiltinFunction("text.trimSpace", makeASRS("s", strings.TrimSpace)),
+		"trim":         toy.NewBuiltinFunction("text.trim", makeASSRS("s", "cutset", strings.Trim)),
+		"toLower":      toy.NewBuiltinFunction("text.toLower", makeASRS("s", strings.ToLower)),
+		"toUpper":      toy.NewBuiltinFunction("text.toUpper", makeASRS("s", strings.ToUpper)),
+		"toTitle":      toy.NewBuiltinFunction("text.toTitle", textToTitle),
+		"join":         toy.NewBuiltinFunction("text.join", textJoin),
+		"split":        toy.NewBuiltinFunction("text.split", textSplit),
+		"splitAfter":   toy.NewBuiltinFunction("text.splitAfter", textSplitAfter),
+		"fields":       toy.NewBuiltinFunction("text.fields", textFields),
+		"replace":      toy.NewBuiltinFunction("text.replace", textReplace),
+		"cut":          toy.NewBuiltinFunction("text.cut", textCut),
+		"cutPrefix":    toy.NewBuiltinFunction("text.cutPrefix", textCutPrefix),
+		"cutSuffix":    toy.NewBuiltinFunction("text.cutSuffix", textCutSuffix),
+		"index":        toy.NewBuiltinFunction("text.index", textIndex),
+		"indexAny":     toy.NewBuiltinFunction("text.indexAny", textIndexAny),
+		"lastIndex":    toy.NewBuiltinFunction("text.lastIndex", textLastIndex),
+		"lastIndexAny": toy.NewBuiltinFunction("text.lastIndexAny", textLastIndexAny),
 	},
 }
 
@@ -55,7 +55,7 @@ func textContains(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, &toy.InvalidArgumentTypeError{
 			Name: "s",
 			Want: "string",
-			Got:  args[0].TypeName(),
+			Got:  toy.TypeName(args[0]),
 		}
 	}
 	switch a2 := args[1].(type) {
@@ -67,7 +67,7 @@ func textContains(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, &toy.InvalidArgumentTypeError{
 			Name: "subset",
 			Want: "string or char",
-			Got:  a2.TypeName(),
+			Got:  toy.TypeName(a2),
 		}
 	}
 }
@@ -93,7 +93,7 @@ func textJoin(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	for i, elem := range toy.Entries(elems) {
 		s, ok := elem.(toy.String)
 		if !ok {
-			return nil, fmt.Errorf("%s[%d]: want string, got %s", elems.TypeName(), i, elem.TypeName())
+			return nil, fmt.Errorf("%s[%d]: want string, got %s", toy.TypeName(elems), i, toy.TypeName(elem))
 		}
 		strs = append(strs, string(s))
 	}
@@ -217,7 +217,7 @@ func textIndex(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, &toy.InvalidArgumentTypeError{
 			Name: "s",
 			Want: "string",
-			Got:  args[0].TypeName(),
+			Got:  toy.TypeName(args[0]),
 		}
 	}
 	var idx int
@@ -230,7 +230,7 @@ func textIndex(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, &toy.InvalidArgumentTypeError{
 			Name: "subset",
 			Want: "string or char",
-			Got:  a.TypeName(),
+			Got:  toy.TypeName(a),
 		}
 	}
 	if idx <= 0 {
@@ -264,7 +264,7 @@ func textLastIndex(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, &toy.InvalidArgumentTypeError{
 			Name: "s",
 			Want: "string",
-			Got:  args[0].TypeName(),
+			Got:  toy.TypeName(args[0]),
 		}
 	}
 	var idx int
@@ -277,7 +277,7 @@ func textLastIndex(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, &toy.InvalidArgumentTypeError{
 			Name: "subset",
 			Want: "string or char",
-			Got:  a.TypeName(),
+			Got:  toy.TypeName(a),
 		}
 	}
 	if idx <= 0 {

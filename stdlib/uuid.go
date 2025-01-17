@@ -13,20 +13,51 @@ import (
 var UUIDModule = &toy.BuiltinModule{
 	Name: "uuid",
 	Members: map[string]toy.Object{
-		"uuid4":     &toy.BuiltinFunction{Name: "uuid.uuid4", Func: uuidV4},
-		"uuid7":     &toy.BuiltinFunction{Name: "uuid.uuid7", Func: uuidV7},
-		"parse":     &toy.BuiltinFunction{Name: "uuid.parse", Func: uuidParse},
-		"fromBytes": &toy.BuiltinFunction{Name: "uuid.fromBytes", Func: uuidFromBytes},
+		"UUID":      UUIDType,
+		"uuid4":     toy.NewBuiltinFunction("uuid.uuid4", uuidV4),
+		"uuid7":     toy.NewBuiltinFunction("uuid.uuid7", uuidV7),
+		"parse":     toy.NewBuiltinFunction("uuid.parse", uuidParse),
+		"fromBytes": toy.NewBuiltinFunction("uuid.fromBytes", uuidFromBytes),
 	},
 }
 
 type UUID uuid.UUID
 
-func (u UUID) TypeName() string  { return "uuid.UUID" }
-func (u UUID) String() string    { return fmt.Sprintf("uuid.UUID(%q)", uuid.UUID(u).String()) }
-func (u UUID) IsFalsy() bool     { return u == UUID(uuid.Nil) }
-func (u UUID) Clone() toy.Object { return u }
-func (u UUID) Hash() uint64      { return hash.Bytes(u[:]) }
+var UUIDType = toy.NewType[UUID]("uuid.UUID", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	if len(args) != 1 {
+		return nil, &toy.WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
+	}
+	switch x := args[0].(type) {
+	case toy.String:
+		u, err := uuid.Parse(string(x))
+		if err != nil {
+			return nil, err
+		}
+		return UUID(u), nil
+	case toy.Bytes:
+		u, err := uuid.ParseBytes(x)
+		if err != nil {
+			return nil, err
+		}
+		return UUID(u), nil
+	default:
+		var u UUID
+		if err := toy.Convert(&u, x); err != nil {
+			return nil, err
+		}
+		return u, nil
+	}
+})
+
+func (u UUID) Type() toy.ObjectType { return UUIDType }
+func (u UUID) String() string       { return fmt.Sprintf("uuid.UUID(%q)", uuid.UUID(u).String()) }
+func (u UUID) IsFalsy() bool        { return u == UUID(uuid.Nil) }
+func (u UUID) Clone() toy.Object    { return u }
+func (u UUID) Hash() uint64         { return hash.Bytes(u[:]) }
 
 func (u UUID) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(UUID)

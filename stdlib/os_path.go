@@ -12,24 +12,24 @@ import (
 var OSPathModule = &toy.BuiltinModule{
 	Name: "path",
 	Members: map[string]toy.Object{
-		"join":         &toy.BuiltinFunction{Name: "path.join", Func: osPathJoin},
-		"base":         &toy.BuiltinFunction{Name: "path.base", Func: makeASRS("path", filepath.Base)},
-		"dir":          &toy.BuiltinFunction{Name: "path.dir", Func: makeASRS("path", filepath.Dir)},
-		"ext":          &toy.BuiltinFunction{Name: "path.ext", Func: makeASRS("path", filepath.Ext)},
-		"clean":        &toy.BuiltinFunction{Name: "path.clean", Func: makeASRS("path", filepath.Clean)},
-		"split":        &toy.BuiltinFunction{Name: "path.split", Func: osPathSplit},
-		"splitList":    &toy.BuiltinFunction{Name: "path.splitList", Func: osPathSplitList},
-		"glob":         &toy.BuiltinFunction{Name: "path.glob", Func: osPathGlob},
-		"expand":       &toy.BuiltinFunction{Name: "path.expand", Func: osPathExpand},
-		"exists":       &toy.BuiltinFunction{Name: "path.exists", Func: osPathExists},
-		"isRegular":    &toy.BuiltinFunction{Name: "path.isRegular", Func: makeOSPathIs(os.ModeType)},
-		"isDir":        &toy.BuiltinFunction{Name: "path.isDir", Func: makeOSPathIs(os.ModeDir)},
-		"isSymlink":    &toy.BuiltinFunction{Name: "path.isSymlink", Func: makeOSPathIs(os.ModeSymlink)},
-		"isNamedPipe":  &toy.BuiltinFunction{Name: "path.isNamedPipe", Func: makeOSPathIs(os.ModeNamedPipe)},
-		"isSocket":     &toy.BuiltinFunction{Name: "path.isSocket", Func: makeOSPathIs(os.ModeSocket)},
-		"isDevice":     &toy.BuiltinFunction{Name: "path.isDevice", Func: makeOSPathIs(os.ModeDevice)},
-		"isCharDevice": &toy.BuiltinFunction{Name: "path.isCharDevice", Func: makeOSPathIs(os.ModeCharDevice)},
-		"isIrregular":  &toy.BuiltinFunction{Name: "path.isIrregular", Func: makeOSPathIs(os.ModeIrregular)},
+		"join":         toy.NewBuiltinFunction("path.join", osPathJoin),
+		"base":         toy.NewBuiltinFunction("path.base", makeASRS("path", filepath.Base)),
+		"dir":          toy.NewBuiltinFunction("path.dir", makeASRS("path", filepath.Dir)),
+		"ext":          toy.NewBuiltinFunction("path.ext", makeASRS("path", filepath.Ext)),
+		"clean":        toy.NewBuiltinFunction("path.clean", makeASRS("path", filepath.Clean)),
+		"split":        toy.NewBuiltinFunction("path.split", osPathSplit),
+		"splitList":    toy.NewBuiltinFunction("path.splitList", osPathSplitList),
+		"glob":         toy.NewBuiltinFunction("path.glob", osPathGlob),
+		"expand":       toy.NewBuiltinFunction("path.expand", osPathExpand),
+		"exists":       toy.NewBuiltinFunction("path.exists", osPathExists),
+		"isRegular":    toy.NewBuiltinFunction("path.isRegular", makeOSPathIs(os.ModeType)),
+		"isDir":        toy.NewBuiltinFunction("path.isDir", makeOSPathIs(os.ModeDir)),
+		"isSymlink":    toy.NewBuiltinFunction("path.isSymlink", makeOSPathIs(os.ModeSymlink)),
+		"isNamedPipe":  toy.NewBuiltinFunction("path.isNamedPipe", makeOSPathIs(os.ModeNamedPipe)),
+		"isSocket":     toy.NewBuiltinFunction("path.isSocket", makeOSPathIs(os.ModeSocket)),
+		"isDevice":     toy.NewBuiltinFunction("path.isDevice", makeOSPathIs(os.ModeDevice)),
+		"isCharDevice": toy.NewBuiltinFunction("path.isCharDevice", makeOSPathIs(os.ModeCharDevice)),
+		"isIrregular":  toy.NewBuiltinFunction("path.isIrregular", makeOSPathIs(os.ModeIrregular)),
 	},
 }
 
@@ -41,7 +41,7 @@ func osPathJoin(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 			return nil, &toy.InvalidArgumentTypeError{
 				Name: fmt.Sprintf("elems[%d]", i),
 				Want: "string",
-				Got:  arg.TypeName(),
+				Got:  toy.TypeName(arg),
 			}
 		}
 		elems = append(elems, string(str))
@@ -114,7 +114,7 @@ func osPathExists(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 }
 
 func makeOSPathIs(typ os.FileMode) toy.CallableFunc {
-	return func(v *toy.VM, args ...toy.Object) (toy.Object, error) {
+	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var name string
 		if err := toy.UnpackArgs(args, "name", &name); err != nil {
 			return nil, err

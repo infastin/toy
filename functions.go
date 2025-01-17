@@ -1,46 +1,68 @@
 package toy
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/infastin/toy/parser"
 )
 
+// functionTypeImpl represents the function type.
+type functionTypeImpl struct{}
+
+func (functionTypeImpl) Type() ObjectType { return nil }
+func (functionTypeImpl) String() string   { return "<function>" }
+func (functionTypeImpl) IsFalsy() bool    { return false }
+func (functionTypeImpl) Clone() Object    { return functionTypeImpl{} }
+func (functionTypeImpl) Name() string     { return "function" }
+
+// FunctionType is the type of all functions.
+var FunctionType = functionTypeImpl{}
+
 // BuiltinFunction represents a builtin function provided from Go.
 type BuiltinFunction struct {
-	Name     string
-	Receiver Object
-	Func     CallableFunc
+	name string
+	recv Object
+	fn   CallableFunc
 }
 
-func (o *BuiltinFunction) TypeName() string { return "builtin-function:" + o.Name }
-func (o *BuiltinFunction) String() string   { return "<builtin-function>" }
+// NewBuiltinFunction creates a new BuiltinFunction.
+func NewBuiltinFunction(name string, fn CallableFunc) *BuiltinFunction {
+	return &BuiltinFunction{
+		name: name,
+		recv: nil,
+		fn:   fn,
+	}
+}
+
+func (o *BuiltinFunction) Type() ObjectType { return FunctionType }
+func (o *BuiltinFunction) String() string   { return fmt.Sprintf("<builtin-function %q>", o.name) }
 func (o *BuiltinFunction) IsFalsy() bool    { return false }
 
 func (o *BuiltinFunction) Clone() Object {
-	var receiver Object
-	if o.Receiver != nil {
-		receiver = o.Receiver.Clone()
+	var recv Object
+	if o.recv != nil {
+		recv = o.recv.Clone()
 	}
 	return &BuiltinFunction{
-		Name:     o.Name,
-		Receiver: receiver,
-		Func:     o.Func,
+		name: o.name,
+		recv: recv,
+		fn:   o.fn,
 	}
 }
 
 func (o *BuiltinFunction) Call(v *VM, args ...Object) (Object, error) {
-	if o.Receiver != nil {
-		args = append([]Object{o.Receiver}, args...)
+	if o.recv != nil {
+		args = append([]Object{o.recv}, args...)
 	}
-	return o.Func(v, args...)
+	return o.fn(v, args...)
 }
 
 func (o *BuiltinFunction) WithReceiver(recv Object) *BuiltinFunction {
 	return &BuiltinFunction{
-		Name:     o.Name,
-		Receiver: recv,
-		Func:     o.Func,
+		name: o.name,
+		recv: recv,
+		fn:   o.fn,
 	}
 }
 
@@ -56,12 +78,7 @@ type CompiledFunction struct {
 	free          []*objectPtr
 }
 
-func (o *CompiledFunction) Instructions() []byte { return slices.Clone(o.instructions) }
-func (o *CompiledFunction) NumLocals() int       { return o.numLocals }
-func (o *CompiledFunction) NumParameters() int   { return o.numParameters }
-func (o *CompiledFunction) VarArgs() bool        { return o.varArgs }
-
-func (o *CompiledFunction) TypeName() string { return "compiled-function" }
+func (o *CompiledFunction) Type() ObjectType { return FunctionType }
 func (o *CompiledFunction) String() string   { return "<compiled-function>" }
 func (o *CompiledFunction) IsFalsy() bool    { return false }
 
@@ -171,6 +188,11 @@ func (o *CompiledFunction) WithReceiver(recv Object) *CompiledFunction {
 		free:          slices.Clone(o.free),
 	}
 }
+
+func (o *CompiledFunction) Instructions() []byte { return slices.Clone(o.instructions) }
+func (o *CompiledFunction) NumLocals() int       { return o.numLocals }
+func (o *CompiledFunction) NumParameters() int   { return o.numParameters }
+func (o *CompiledFunction) VarArgs() bool        { return o.varArgs }
 
 // sourcePos returns the source position of the instruction at ip.
 func (o *CompiledFunction) sourcePos(ip int) parser.Pos {

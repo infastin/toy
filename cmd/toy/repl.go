@@ -80,16 +80,17 @@ func newCompiler() *compiler {
 		return toy.Nil, nil
 	}
 
-	toy.BuiltinFuncs = append(toy.BuiltinFuncs,
-		&toy.BuiltinFunction{Name: "__replPrint__", Func: replPrintFunc},
-		&toy.BuiltinFunction{Name: "print", Func: printFunc},
-		&toy.BuiltinFunction{Name: "printf", Func: printfFunc})
+	toy.Universe = append(toy.Universe,
+		toy.NewVariable("__replPrint__", toy.NewBuiltinFunction("__replPrint__", replPrintFunc)),
+		toy.NewVariable("print", toy.NewBuiltinFunction("print", printFunc)),
+		toy.NewVariable("printf", toy.NewBuiltinFunction("printf", printfFunc)),
+	)
 
 	s.globals = make([]toy.Object, toy.GlobalsSize)
 
 	s.symbolTable = toy.NewSymbolTable()
-	for idx, fn := range toy.BuiltinFuncs {
-		s.symbolTable.DefineBuiltin(idx, fn.Name)
+	for i, v := range toy.Universe {
+		s.symbolTable.DefineBuiltin(i, v.Name())
 	}
 
 	s.modules = stdlib.StdLib.Copy()

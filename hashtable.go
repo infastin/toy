@@ -445,7 +445,9 @@ type htIterator struct {
 	e  *entry
 }
 
-func (it *htIterator) TypeName() string { return "hashtable-iterator" }
+var htIteratorType = NewType[*htIterator]("hashable-iterator", nil)
+
+func (it *htIterator) Type() ObjectType { return htIteratorType }
 func (it *htIterator) String() string   { return "<hashtable-iterator>" }
 func (it *htIterator) IsFalsy() bool    { return true }
 func (it *htIterator) Clone() Object    { return &htIterator{ht: it.ht, e: it.e} }

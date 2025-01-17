@@ -324,7 +324,7 @@ func (v *VM) run() {
 
 			s, ok := left.(Sliceable)
 			if !ok {
-				v.err = fmt.Errorf("not sliceable: %s", left.TypeName())
+				v.err = fmt.Errorf("not sliceable: %s", TypeName(left))
 			}
 			n := s.Len()
 
@@ -336,7 +336,7 @@ func (v *VM) run() {
 				if highInt, ok := high.(Int); ok {
 					highIdx = int(highInt)
 				} else {
-					v.err = fmt.Errorf("invalid slice index type: %s", high.TypeName())
+					v.err = fmt.Errorf("invalid slice index type: %s", TypeName(high))
 					return
 				}
 			}
@@ -349,7 +349,7 @@ func (v *VM) run() {
 				if lowInt, ok := low.(Int); ok {
 					lowIdx = int(lowInt)
 				} else {
-					v.err = fmt.Errorf("invalid slice index type: %s", low.TypeName())
+					v.err = fmt.Errorf("invalid slice index type: %s", TypeName(low))
 					return
 				}
 			}
@@ -374,7 +374,7 @@ func (v *VM) run() {
 			seq, ok := value.(Sequence)
 			if !ok {
 				v.err = fmt.Errorf("splat operator can only be used with sequence, got '%s' instead",
-					seq.TypeName())
+					TypeName(seq))
 				return
 			}
 			v.stack[v.sp-1] = &splatSequence{s: seq}
@@ -386,7 +386,7 @@ func (v *VM) run() {
 			value := v.stack[v.sp-1-numArgs]
 			callable, ok := value.(Callable)
 			if !ok {
-				v.err = fmt.Errorf("not callable: %s", value.TypeName())
+				v.err = fmt.Errorf("not callable: %s", TypeName(value))
 				return
 			}
 
@@ -408,7 +408,7 @@ func (v *VM) run() {
 			if callee, ok := callable.(*CompiledFunction); ok {
 				if _, err := callee.Call(v, args...); err != nil {
 					v.err = fmt.Errorf("error during call to '%s': %w",
-						callee.TypeName(), err)
+						TypeName(callee), err)
 					return
 				}
 			} else {
@@ -418,7 +418,7 @@ func (v *VM) run() {
 				ret, err := callable.Call(v, args...)
 				if err != nil {
 					v.err = fmt.Errorf("error during call to '%s': %w",
-						callable.TypeName(), err)
+						TypeName(callable), err)
 					return
 				}
 				if v.err != nil {
@@ -461,7 +461,7 @@ func (v *VM) run() {
 			value := v.stack[v.sp-1-numArgs]
 			callable, ok := value.(Callable)
 			if !ok {
-				v.err = fmt.Errorf("not callable: %s", value.TypeName())
+				v.err = fmt.Errorf("not callable: %s", TypeName(value))
 				return
 			}
 
@@ -496,7 +496,7 @@ func (v *VM) run() {
 				v.curFrame.fn.sourceMap[v.ip-1] = call.pos
 				if _, err := call.fn.Call(v, call.args...); err != nil {
 					v.err = fmt.Errorf("error during call to '%s': %w",
-						call.fn.TypeName(), err)
+						TypeName(call.fn), err)
 					return
 				}
 				if v.err != nil {
@@ -540,7 +540,7 @@ func (v *VM) run() {
 		case parser.OpGetBuiltin:
 			v.ip++
 			builtinIndex := int(v.curInsts[v.ip])
-			v.stack[v.sp] = BuiltinFuncs[builtinIndex]
+			v.stack[v.sp] = Universe[builtinIndex].Value()
 			v.sp++
 		case parser.OpIdxAssignAssert:
 			v.ip += 2
@@ -548,7 +548,7 @@ func (v *VM) run() {
 			val := v.stack[v.sp-1]
 			seq, ok := val.(Indexable)
 			if !ok {
-				v.err = fmt.Errorf("trying to assign non-indexable '%s' to %d variable(s)", val.TypeName(), n)
+				v.err = fmt.Errorf("trying to assign non-indexable '%s' to %d variable(s)", TypeName(val), n)
 				return
 			}
 			if n != seq.Len() {
@@ -561,7 +561,7 @@ func (v *VM) run() {
 			val := v.stack[v.sp-1]
 			seq, ok := v.stack[v.sp-1].(Indexable)
 			if !ok {
-				v.err = fmt.Errorf("trying to get %d'th element from non-indexable '%s'", eidx, val.TypeName())
+				v.err = fmt.Errorf("trying to get %d'th element from non-indexable '%s'", eidx, TypeName(val))
 				return
 			}
 			v.stack[v.sp] = seq.At(eidx)
@@ -572,7 +572,7 @@ func (v *VM) run() {
 			numFree := int(v.curInsts[v.ip])
 			fn, ok := v.constants[constIndex].(*CompiledFunction)
 			if !ok {
-				v.err = fmt.Errorf("not function: %s", fn.TypeName())
+				v.err = fmt.Errorf("not function: %s", TypeName(fn))
 				return
 			}
 			free := make([]*objectPtr, numFree)
@@ -632,7 +632,7 @@ func (v *VM) run() {
 			v.sp--
 			iterable, ok := dst.(Iterable)
 			if !ok {
-				v.err = fmt.Errorf("not iterable: %s", dst.TypeName())
+				v.err = fmt.Errorf("not iterable: %s", TypeName(dst))
 				return
 			}
 			iterator := iterable.Iterate()

@@ -75,8 +75,6 @@ const (
 	Else
 	For
 	Func
-	Immutable
-	Tuple
 	If
 	Return
 	Defer
@@ -151,8 +149,6 @@ var tokens = [...]string{
 	Else:         "else",
 	For:          "for",
 	Func:         "fn",
-	Immutable:    "immutable",
-	Tuple:        "tuple",
 	If:           "if",
 	Return:       "return",
 	Defer:        "defer",

@@ -14,12 +14,12 @@ var PathModule = &toy.BuiltinModule{
 		"separator":     toy.Char(os.PathSeparator),
 		"listSeparator": toy.Char(os.PathListSeparator),
 
-		"join":  &toy.BuiltinFunction{Name: "path.join", Func: pathJoin},
-		"base":  &toy.BuiltinFunction{Name: "path.base", Func: makeASRS("path", path.Base)},
-		"dir":   &toy.BuiltinFunction{Name: "path.dir", Func: makeASRS("path", path.Dir)},
-		"ext":   &toy.BuiltinFunction{Name: "path.ext", Func: makeASRS("path", path.Ext)},
-		"clean": &toy.BuiltinFunction{Name: "path.clean", Func: makeASRS("path", path.Clean)},
-		"split": &toy.BuiltinFunction{Name: "path.split", Func: pathSplit},
+		"join":  toy.NewBuiltinFunction("path.join", pathJoin),
+		"base":  toy.NewBuiltinFunction("path.base", makeASRS("path", path.Base)),
+		"dir":   toy.NewBuiltinFunction("path.dir", makeASRS("path", path.Dir)),
+		"ext":   toy.NewBuiltinFunction("path.ext", makeASRS("path", path.Ext)),
+		"clean": toy.NewBuiltinFunction("path.clean", makeASRS("path", path.Clean)),
+		"split": toy.NewBuiltinFunction("path.split", pathSplit),
 	},
 }
 
@@ -31,7 +31,7 @@ func pathJoin(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 			return nil, &toy.InvalidArgumentTypeError{
 				Name: fmt.Sprintf("elems[%d]", i),
 				Want: "string",
-				Got:  arg.TypeName(),
+				Got:  toy.TypeName(arg),
 			}
 		}
 		elems = append(elems, string(str))

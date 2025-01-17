@@ -13,8 +13,8 @@ import (
 var JSONModule = &toy.BuiltinModule{
 	Name: "json",
 	Members: map[string]toy.Object{
-		"encode": &toy.BuiltinFunction{Name: "json.encode", Func: jsonEncode},
-		"decode": &toy.BuiltinFunction{Name: "json.decode", Func: jsonDecode},
+		"encode": toy.NewBuiltinFunction("json.encode", jsonEncode),
+		"decode": toy.NewBuiltinFunction("json.decode", jsonDecode),
 	},
 }
 
@@ -34,7 +34,7 @@ func mappingToJSON(enc *jx.Encoder, mapping toy.Mapping) (err error) {
 	for key, value := range toy.Entries(mapping) {
 		keyStr, ok := key.(toy.String)
 		if !ok {
-			return fmt.Errorf("unsupported key type: %s", key.TypeName())
+			return fmt.Errorf("unsupported key type: %s", toy.TypeName(key))
 		}
 		enc.FieldStart(string(keyStr))
 		if err := objectToJSON(enc, value); err != nil {
@@ -75,7 +75,7 @@ func objectToJSON(enc *jx.Encoder, o toy.Object) (err error) {
 	case toy.Bool:
 		enc.Bool(bool(x))
 		return nil
-	case toy.NilType:
+	case toy.NilValue:
 		enc.Null()
 		return nil
 	case toy.Mapping:
@@ -83,7 +83,8 @@ func objectToJSON(enc *jx.Encoder, o toy.Object) (err error) {
 	case toy.Sequence:
 		return sequenceToJSON(enc, x)
 	default:
-		return fmt.Errorf("'%s' can't be encoded in json", x.TypeName())
+		enc.Str(x.String())
+		return nil
 	}
 }
 

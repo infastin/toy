@@ -80,9 +80,9 @@ func NewCompiler(
 		symbolTable = NewSymbolTable()
 	}
 
-	// add builtin functions to the symbol table
-	for idx, fn := range BuiltinFuncs {
-		symbolTable.DefineBuiltin(idx, fn.Name)
+	// add builtin objects to the symbol table
+	for i, v := range Universe {
+		symbolTable.DefineBuiltin(i, v.name)
 	}
 
 	// builtin modules
@@ -577,22 +577,6 @@ func (c *Compiler) Compile(node parser.Node) error {
 			c.emit(nil, parser.OpRunDefer)
 		}
 		c.emit(node, parser.OpReturn, 1)
-	case *parser.ImmutableExpr:
-		if err := c.Compile(node.Expr); err != nil {
-			return err
-		}
-		c.emit(node, parser.OpImmutable)
-	case *parser.TupleLit:
-		splat := 0
-		for _, elem := range node.Elements {
-			if _, ok := elem.(*parser.SplatExpr); ok {
-				splat = 1
-			}
-			if err := c.Compile(elem); err != nil {
-				return err
-			}
-		}
-		c.emit(node, parser.OpTuple, len(node.Elements), splat)
 	case *parser.CondExpr:
 		if err := c.Compile(node.Cond); err != nil {
 			return err

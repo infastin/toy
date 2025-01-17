@@ -628,13 +628,14 @@ func TestCompiler_Compile(t *testing.T) {
 		),
 	))
 
-	expectCompile(t, `immutable([1, 2, 3])`, bytecode(
+	expectCompile(t, `freeze([1, 2, 3])`, bytecode(
 		concatInsts(
+			MakeInstruction(parser.OpGetBuiltin, 3),
 			MakeInstruction(parser.OpConstant, 0),
 			MakeInstruction(parser.OpConstant, 1),
 			MakeInstruction(parser.OpConstant, 2),
 			MakeInstruction(parser.OpArray, 3, 0),
-			MakeInstruction(parser.OpImmutable),
+			MakeInstruction(parser.OpCall, 1, 0),
 			MakeInstruction(parser.OpPop),
 			MakeInstruction(parser.OpSuspend),
 		),
@@ -645,13 +646,14 @@ func TestCompiler_Compile(t *testing.T) {
 		),
 	))
 
-	expectCompile(t, `a := immutable([1, 2, 3])`, bytecode(
+	expectCompile(t, `a := freeze([1, 2, 3])`, bytecode(
 		concatInsts(
+			MakeInstruction(parser.OpGetBuiltin, 3),
 			MakeInstruction(parser.OpConstant, 0),
 			MakeInstruction(parser.OpConstant, 1),
 			MakeInstruction(parser.OpConstant, 2),
 			MakeInstruction(parser.OpArray, 3, 0),
-			MakeInstruction(parser.OpImmutable),
+			MakeInstruction(parser.OpCall, 1, 0),
 			MakeInstruction(parser.OpSetGlobal, 0),
 			MakeInstruction(parser.OpSuspend),
 		),
@@ -664,10 +666,11 @@ func TestCompiler_Compile(t *testing.T) {
 
 	expectCompile(t, `a := tuple(1, 2, 3)`, bytecode(
 		concatInsts(
+			MakeInstruction(parser.OpGetBuiltin, 26),
 			MakeInstruction(parser.OpConstant, 0),
 			MakeInstruction(parser.OpConstant, 1),
 			MakeInstruction(parser.OpConstant, 2),
-			MakeInstruction(parser.OpTuple, 3, 0),
+			MakeInstruction(parser.OpCall, 3, 0),
 			MakeInstruction(parser.OpSetGlobal, 0),
 			MakeInstruction(parser.OpSuspend),
 		),
@@ -680,6 +683,7 @@ func TestCompiler_Compile(t *testing.T) {
 
 	expectCompile(t, `tuple(1, 2, ...[3], 4, ...[5, 6])`, bytecode(
 		concatInsts(
+			MakeInstruction(parser.OpGetBuiltin, 26),
 			MakeInstruction(parser.OpConstant, 0),
 			MakeInstruction(parser.OpConstant, 1),
 			MakeInstruction(parser.OpConstant, 2),
@@ -690,7 +694,7 @@ func TestCompiler_Compile(t *testing.T) {
 			MakeInstruction(parser.OpConstant, 5),
 			MakeInstruction(parser.OpArray, 2, 0),
 			MakeInstruction(parser.OpSplat),
-			MakeInstruction(parser.OpTuple, 5, 1),
+			MakeInstruction(parser.OpCall, 5, 1),
 			MakeInstruction(parser.OpPop),
 			MakeInstruction(parser.OpSuspend),
 		),
@@ -803,9 +807,10 @@ func TestCompiler_Compile(t *testing.T) {
 		),
 		objectsArray(
 			compiledFunction(0, 0, false,
+				MakeInstruction(parser.OpGetBuiltin, 26),
 				MakeInstruction(parser.OpConstant, 1),
 				MakeInstruction(parser.OpConstant, 2),
-				MakeInstruction(parser.OpTuple, 2, 0),
+				MakeInstruction(parser.OpCall, 2, 0),
 				MakeInstruction(parser.OpReturn, 1),
 			),
 			Int(1),
@@ -1194,7 +1199,7 @@ func TestCompiler_Compile(t *testing.T) {
 
 	expectCompile(t, `len([]);`, bytecode(
 		concatInsts(
-			MakeInstruction(parser.OpGetBuiltin, 2),
+			MakeInstruction(parser.OpGetBuiltin, 6),
 			MakeInstruction(parser.OpArray, 0, 0),
 			MakeInstruction(parser.OpCall, 1, 0),
 			MakeInstruction(parser.OpPop),
@@ -1211,7 +1216,7 @@ func TestCompiler_Compile(t *testing.T) {
 		),
 		objectsArray(
 			compiledFunction(0, 0, false,
-				MakeInstruction(parser.OpGetBuiltin, 2),
+				MakeInstruction(parser.OpGetBuiltin, 6),
 				MakeInstruction(parser.OpArray, 0, 0),
 				MakeInstruction(parser.OpCall, 1, 0),
 				MakeInstruction(parser.OpReturn, 1),
@@ -1885,8 +1890,8 @@ func traceCompile(input string, symbols map[string]Object,
 	for name := range symbols {
 		symTable.Define(name)
 	}
-	for idx, fn := range BuiltinFuncs {
-		symTable.DefineBuiltin(idx, fn.Name)
+	for i, v := range Universe {
+		symTable.DefineBuiltin(i, v.name)
 	}
 
 	tr := &compileTracer{}

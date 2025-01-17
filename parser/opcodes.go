@@ -17,7 +17,7 @@ const (
 	OpArray                         // Array object
 	OpMap                           // Map object
 	OpTuple                         // Tuple object
-	OpImmutable                     // Immutable object
+	OpImmutable                     // Create immutable copy
 	OpIndex                         // Index access operation
 	OpSetIndex                      // Index assignment operation
 	OpField                         // Field access operation

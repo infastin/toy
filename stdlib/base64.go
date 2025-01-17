@@ -9,14 +9,14 @@ import (
 var Base64Module = &toy.BuiltinModule{
 	Name: "base64",
 	Members: map[string]toy.Object{
-		"encode":       &toy.BuiltinFunction{Name: "base64.encode", Func: makeBase64Encode(base64.StdEncoding)},
-		"decode":       &toy.BuiltinFunction{Name: "base64.decode", Func: makeBase64Decode(base64.StdEncoding)},
-		"rawEncode":    &toy.BuiltinFunction{Name: "base64.encode", Func: makeBase64Encode(base64.RawStdEncoding)},
-		"rawDecode":    &toy.BuiltinFunction{Name: "base64.decode", Func: makeBase64Decode(base64.RawStdEncoding)},
-		"urlEncode":    &toy.BuiltinFunction{Name: "base64.encode", Func: makeBase64Encode(base64.URLEncoding)},
-		"urlDecode":    &toy.BuiltinFunction{Name: "base64.decode", Func: makeBase64Decode(base64.URLEncoding)},
-		"rawURLEncode": &toy.BuiltinFunction{Name: "base64.encode", Func: makeBase64Encode(base64.RawURLEncoding)},
-		"rawURLDecode": &toy.BuiltinFunction{Name: "base64.decode", Func: makeBase64Decode(base64.RawURLEncoding)},
+		"encode":       toy.NewBuiltinFunction("base64.encode", makeBase64Encode(base64.StdEncoding)),
+		"decode":       toy.NewBuiltinFunction("base64.decode", makeBase64Decode(base64.StdEncoding)),
+		"rawEncode":    toy.NewBuiltinFunction("base64.encode", makeBase64Encode(base64.RawStdEncoding)),
+		"rawDecode":    toy.NewBuiltinFunction("base64.decode", makeBase64Decode(base64.RawStdEncoding)),
+		"urlEncode":    toy.NewBuiltinFunction("base64.encode", makeBase64Encode(base64.URLEncoding)),
+		"urlDecode":    toy.NewBuiltinFunction("base64.decode", makeBase64Decode(base64.URLEncoding)),
+		"rawURLEncode": toy.NewBuiltinFunction("base64.encode", makeBase64Encode(base64.RawURLEncoding)),
+		"rawURLDecode": toy.NewBuiltinFunction("base64.decode", makeBase64Decode(base64.RawURLEncoding)),
 	},
 }
 

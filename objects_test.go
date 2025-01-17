@@ -12,31 +12,31 @@ import (
 
 func TestObject_TypeName(t *testing.T) {
 	var o toy.Object = toy.Int(0)
-	expectEqual(t, "int", o.TypeName())
+	expectEqual(t, "int", toy.TypeName(o))
 	o = toy.Float(0)
-	expectEqual(t, "float", o.TypeName())
+	expectEqual(t, "float", toy.TypeName(o))
 	o = toy.Char(0)
-	expectEqual(t, "char", o.TypeName())
+	expectEqual(t, "char", toy.TypeName(o))
 	o = toy.String("")
-	expectEqual(t, "string", o.TypeName())
+	expectEqual(t, "string", toy.TypeName(o))
 	o = toy.Bool(false)
-	expectEqual(t, "bool", o.TypeName())
-	o = &toy.Array{}
-	expectEqual(t, "array", o.TypeName())
-	o = &toy.Map{}
-	expectEqual(t, "map", o.TypeName())
-	o = &toy.BuiltinFunction{Name: "fn"}
-	expectEqual(t, "builtin-function:fn", o.TypeName())
-	o = &toy.CompiledFunction{}
-	expectEqual(t, "compiled-function", o.TypeName())
-	o = toy.NilType(0)
-	expectEqual(t, "nil", o.TypeName())
-	o = &toy.Error{}
-	expectEqual(t, "error", o.TypeName())
+	expectEqual(t, "bool", toy.TypeName(o))
+	o = toy.NewArray(nil)
+	expectEqual(t, "array", toy.TypeName(o))
+	o = toy.NewMap(0)
+	expectEqual(t, "map", toy.TypeName(o))
+	o = toy.NewBuiltinFunction("fn", nil)
+	expectEqual(t, "builtin-function:fn", toy.TypeName(o))
+	o = new(toy.CompiledFunction)
+	expectEqual(t, "compiled-function", toy.TypeName(o))
+	o = toy.NilValue(0)
+	expectEqual(t, "nil", toy.TypeName(o))
+	o = toy.NewError("")
+	expectEqual(t, "error", toy.TypeName(o))
 	o = toy.Bytes{}
-	expectEqual(t, "bytes", o.TypeName())
+	expectEqual(t, "bytes", toy.TypeName(o))
 	o = toy.Tuple{}
-	expectEqual(t, "tuple", o.TypeName())
+	expectEqual(t, "tuple", toy.TypeName(o))
 }
 
 func TestObject_IsFalsy(t *testing.T) {
@@ -56,21 +56,21 @@ func TestObject_IsFalsy(t *testing.T) {
 	expectTrue(t, o.IsFalsy())
 	o = toy.String(" ")
 	expectFalse(t, o.IsFalsy())
-	o = &toy.Array{}
+	o = toy.NewArray(nil)
 	expectTrue(t, o.IsFalsy())
 	o = makeArray(toy.Nil)
 	expectFalse(t, o.IsFalsy())
-	o = &toy.Map{}
+	o = toy.NewMap(0)
 	expectTrue(t, o.IsFalsy())
 	o = makeMap("a", toy.Nil)
 	expectFalse(t, o.IsFalsy())
-	o = &toy.BuiltinFunction{}
+	o = new(toy.BuiltinFunction)
 	expectFalse(t, o.IsFalsy())
-	o = &toy.CompiledFunction{}
+	o = new(toy.CompiledFunction)
 	expectFalse(t, o.IsFalsy())
-	o = toy.NilType(0)
+	o = toy.NilValue(0)
 	expectTrue(t, o.IsFalsy())
-	o = &toy.Error{}
+	o = toy.NewError("")
 	expectTrue(t, o.IsFalsy())
 	o = toy.Bytes{}
 	expectTrue(t, o.IsFalsy())
@@ -99,15 +99,15 @@ func TestObject_String(t *testing.T) {
 	expectEqual(t, `""`, o.String())
 	o = toy.String(" ")
 	expectEqual(t, `" "`, o.String())
-	o = &toy.Array{}
+	o = toy.NewArray(nil)
 	expectEqual(t, "[]", o.String())
-	o = &toy.Map{}
+	o = toy.NewMap(0)
 	expectEqual(t, "{}", o.String())
-	o = &toy.Error{}
+	o = toy.NewError("")
 	expectEqual(t, `error("")`, o.String())
 	o = toy.NewError("error 1")
 	expectEqual(t, `error("error 1")`, o.String())
-	o = toy.NilType(0)
+	o = toy.NilValue(0)
 	expectEqual(t, "<nil>", o.String())
 	o = toy.Bytes{}
 	expectEqual(t, `Bytes("")`, o.String())
@@ -124,19 +124,19 @@ func TestObject_BinaryOp(t *testing.T) {
 	o = toy.Bool(false)
 	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
-	o = &toy.Map{}
+	o = toy.NewMap(0)
 	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
-	o = &toy.BuiltinFunction{}
+	o = new(toy.BuiltinFunction)
 	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
-	o = &toy.CompiledFunction{}
+	o = new(toy.CompiledFunction)
 	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
-	o = toy.NilType(0)
+	o = toy.NilValue(0)
 	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
-	o = &toy.Error{}
+	o = toy.NewError("")
 	_, err = toy.BinaryOp(token.Add, o, toy.Nil)
 	expectError(t, err)
 	o = toy.Tuple{}

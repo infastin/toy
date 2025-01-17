@@ -8,71 +8,52 @@ import (
 	"github.com/infastin/toy/token"
 )
 
-var (
-	BuiltinFuncs = []*BuiltinFunction{
-		{Name: "typename", Func: builtinTypeName},
-		{Name: "clone", Func: builtinClone},
+var Universe = []*Variable{
+	NewVariable("type", NewBuiltinFunction("type", builtinType)),
+	NewVariable("typename", NewBuiltinFunction("typename", builtinTypeName)),
+	NewVariable("clone", NewBuiltinFunction("clone", builtinClone)),
+	NewVariable("freeze", NewBuiltinFunction("freeze", builtinFreeze)),
+	NewVariable("satisfies", NewBuiltinFunction("satisfies", builtinSatisfies)),
+	NewVariable("immutable", NewBuiltinFunction("satisfies", builtinImmutable)),
 
-		{Name: "len", Func: builtinLen},
-		{Name: "append", Func: builtinAppend},
-		{Name: "copy", Func: builtinCopy},
-		{Name: "delete", Func: builtinDelete},
-		{Name: "splice", Func: builtinSplice},
-		{Name: "insert", Func: builtinInsert},
-		{Name: "clear", Func: builtinClear},
-		{Name: "has", Func: builtinHas},
+	NewVariable("len", NewBuiltinFunction("len", builtinLen)),
+	NewVariable("append", NewBuiltinFunction("append", builtinAppend)),
+	NewVariable("copy", NewBuiltinFunction("copy", builtinCopy)),
+	NewVariable("delete", NewBuiltinFunction("delete", builtinDelete)),
+	NewVariable("splice", NewBuiltinFunction("splice", builtinSplice)),
+	NewVariable("insert", NewBuiltinFunction("insert", builtinInsert)),
+	NewVariable("clear", NewBuiltinFunction("clear", builtinClear)),
+	NewVariable("has", NewBuiltinFunction("has", builtinHas)),
 
-		{Name: "format", Func: builtinFormat},
-		{Name: "fail", Func: builtinFail},
-		{Name: "min", Func: builtinMin},
-		{Name: "max", Func: builtinMax},
+	NewVariable("format", NewBuiltinFunction("format", builtinFormat)),
+	NewVariable("fail", NewBuiltinFunction("fail", builtinFail)),
+	NewVariable("min", NewBuiltinFunction("min", builtinMin)),
+	NewVariable("max", NewBuiltinFunction("max", builtinMax)),
 
-		{Name: "error", Func: builtinError},
-		{Name: "range", Func: builtinRange},
+	NewVariable("bool", BoolType),
+	NewVariable("float", FloatType),
+	NewVariable("int", IntType),
+	NewVariable("string", StringType),
+	NewVariable("bytes", BytesType),
+	NewVariable("char", CharType),
+	NewVariable("array", ArrayType),
+	NewVariable("map", MapType),
+	NewVariable("tuple", TupleType),
+	NewVariable("error", ErrorType),
+	NewVariable("range", RangeType),
+	NewVariable("function", FunctionType),
+}
 
-		{Name: "string", Func: builtinConvert[String]},
-		{Name: "int", Func: builtinConvert[Int]},
-		{Name: "bool", Func: builtinConvert[Bool]},
-		{Name: "float", Func: builtinConvert[Float]},
-		{Name: "char", Func: builtinConvert[Char]},
-		{Name: "bytes", Func: builtinBytes},
-
-		{Name: "isBool", Func: builtinIs[Bool]},
-		{Name: "isFloat", Func: builtinIs[Float]},
-		{Name: "isInt", Func: builtinIs[Int]},
-		{Name: "isString", Func: builtinIs[String]},
-		{Name: "isBytes", Func: builtinIs[Bytes]},
-		{Name: "isChar", Func: builtinIs[Char]},
-		{Name: "isArray", Func: builtinIs[*Array]},
-		{Name: "isMap", Func: builtinIs[*Map]},
-		{Name: "isTuple", Func: builtinIs[Tuple]},
-		{Name: "isError", Func: builtinIs[*Error]},
-		{Name: "isImmutable", Func: builtinIsImmutable},
-		{Name: "isBuiltinFunction", Func: builtinIs[*BuiltinFunction]},
-		{Name: "isCompiledFunction", Func: builtinIs[*CompiledFunction]},
-		{Name: "isFunction", Func: builtinIsFunction},
-		{Name: "isBuiltinModule", Func: builtinIs[*BuiltinModule]},
-
-		{Name: "isHashable", Func: builtinIs[Hashable]},
-		{Name: "isFreezable", Func: builtinIs[Freezable]},
-		{Name: "isComparable", Func: builtinIs[Comparable]},
-		{Name: "hasBinaryOp", Func: builtinIs[HasBinaryOp]},
-		{Name: "hasUnaryOp", Func: builtinIs[HasUnaryOp]},
-		{Name: "isIndexAccessible", Func: builtinIs[IndexAccessible]},
-		{Name: "isIndexAssignable", Func: builtinIs[IndexAssignable]},
-		{Name: "isFieldAccessible", Func: builtinIs[FieldAccessible]},
-		{Name: "isFieldAssignable", Func: builtinIs[FieldAssignable]},
-		{Name: "isSized", Func: builtinIs[Sized]},
-		{Name: "isIndexable", Func: builtinIs[Indexable]},
-		{Name: "isSliceable", Func: builtinIs[Sliceable]},
-		{Name: "isConvertible", Func: builtinIs[Convertible]},
-		{Name: "isCallable", Func: builtinIs[Callable]},
-		{Name: "isIterable", Func: builtinIs[Iterable]},
-		{Name: "isSequence", Func: builtinIs[Sequence]},
-		{Name: "isIndexableSequence", Func: builtinIs[IndexableSequence]},
-		{Name: "isMapping", Func: builtinIs[Mapping]},
+func builtinType(_ *VM, args ...Object) (Object, error) {
+	if len(args) != 1 {
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
 	}
-)
+	return Type(args[0]), nil
+}
 
 func builtinTypeName(_ *VM, args ...Object) (Object, error) {
 	if len(args) != 1 {
@@ -82,7 +63,7 @@ func builtinTypeName(_ *VM, args ...Object) (Object, error) {
 			Got:     len(args),
 		}
 	}
-	return String(args[0].TypeName()), nil
+	return String(TypeName(args[0])), nil
 }
 
 func builtinClone(_ *VM, args ...Object) (Object, error) {
@@ -94,6 +75,17 @@ func builtinClone(_ *VM, args ...Object) (Object, error) {
 		}
 	}
 	return args[0].Clone(), nil
+}
+
+func builtinFreeze(_ *VM, args ...Object) (Object, error) {
+	if len(args) != 1 {
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
+	}
+	return AsImmutable(args[0]), nil
 }
 
 func builtinLen(_ *VM, args ...Object) (Object, error) {
@@ -188,14 +180,14 @@ func builtinDelete(_ *VM, args ...Object) (Object, error) {
 		}
 		value, err := x.Delete(args[1])
 		if err != nil {
-			return nil, fmt.Errorf("failed to delete '%s' from map: %w", args[1].TypeName(), err)
+			return nil, fmt.Errorf("failed to delete '%s' from map: %w", TypeName(args[1]), err)
 		}
 		return value, nil
 	default:
 		return nil, &InvalidArgumentTypeError{
 			Name: "collection",
 			Want: "array or map",
-			Got:  x.TypeName(),
+			Got:  TypeName(x),
 		}
 	}
 }
@@ -284,14 +276,14 @@ func builtinInsert(_ *VM, args ...Object) (Object, error) {
 			return nil, err
 		}
 		if err := x.IndexSet(index, value); err != nil {
-			return nil, fmt.Errorf("failed to insert '%s' into map: %w", index.TypeName(), err)
+			return nil, fmt.Errorf("failed to insert '%s' into map: %w", TypeName(index), err)
 		}
 		return Nil, nil
 	default:
 		return nil, &InvalidArgumentTypeError{
 			Name: "collection",
 			Want: "array or map",
-			Got:  x.TypeName(),
+			Got:  TypeName(x),
 		}
 	}
 }
@@ -317,7 +309,7 @@ func builtinClear(_ *VM, args ...Object) (Object, error) {
 		return nil, &InvalidArgumentTypeError{
 			Name: "collection",
 			Want: "array or map",
-			Got:  x.TypeName(),
+			Got:  TypeName(x),
 		}
 	}
 	return Nil, nil
@@ -361,62 +353,6 @@ func builtinFormat(_ *VM, args ...Object) (Object, error) {
 		return nil, err
 	}
 	return String(s), nil
-}
-
-func builtinRange(_ *VM, args ...Object) (Object, error) {
-	var (
-		start, stop int
-		step        = 1
-	)
-	if err := UnpackArgs(args,
-		"start", &start,
-		"stop", &stop,
-		"step?", &step,
-	); err != nil {
-		return nil, err
-	}
-	if step <= 0 {
-		return nil, fmt.Errorf("invalid range step: must be > 0, got %d", step)
-	}
-	return &rangeType{
-		start: start,
-		stop:  stop,
-		step:  step,
-	}, nil
-}
-
-func builtinError(_ *VM, args ...Object) (_ Object, err error) {
-	if len(args) < 1 {
-		return nil, &WrongNumArgumentsError{
-			WantMin: 1,
-			Got:     len(args),
-		}
-	}
-	var cause *Error
-	if e, ok := args[0].(*Error); ok {
-		if len(args) == 1 {
-			return e, nil
-		}
-		args = args[1:]
-		cause = e
-	}
-	var (
-		format string
-		rest   []Object
-	)
-	if err := UnpackArgs(args, "format", &format, "...", &rest); err != nil {
-		return nil, err
-	}
-	var s string
-	if len(rest) != 0 {
-		s, err = Format(format, rest...)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		s = format
-	}
-	return &Error{message: s, cause: cause}, nil
 }
 
 func builtinFail(v *VM, args ...Object) (Object, error) {
@@ -479,48 +415,72 @@ func builtinMax(_ *VM, args ...Object) (Object, error) {
 	return max, nil
 }
 
-func builtinConvert[T Object](_ *VM, args ...Object) (Object, error) {
-	argsLen := len(args)
-	if argsLen == 0 || argsLen > 2 {
+func builtinSatisfies(_ *VM, args ...Object) (Object, error) {
+	if len(args) < 2 {
 		return nil, &WrongNumArgumentsError{
-			WantMin: 1,
-			WantMax: 2,
+			WantMin: 2,
 			Got:     len(args),
 		}
 	}
-	var o T
-	if err := Convert(&o, args[0]); err == nil {
-		return o, nil
-	}
-	if argsLen == 2 {
-		return args[1], nil
-	}
-	return Nil, nil
-}
-
-func builtinBytes(_ *VM, args ...Object) (Object, error) {
-	argsLen := len(args)
-	if argsLen == 0 || argsLen > 2 {
-		return nil, &WrongNumArgumentsError{
-			WantMin: 1,
-			WantMax: 2,
-			Got:     len(args),
+	x := args[0]
+	ifaces := args[1:]
+	for i, iface := range ifaces {
+		name, ok := iface.(String)
+		if !ok {
+			return nil, &InvalidArgumentTypeError{
+				Name: fmt.Sprintf("ifaces[%d]", i),
+				Want: "string",
+				Got:  TypeName(iface),
+			}
+		}
+		switch name {
+		case "hashable":
+			_, ok = x.(Hashable)
+		case "freezable":
+			_, ok = x.(Freezable)
+		case "comparable":
+			_, ok = x.(Comparable)
+		case "binary-op":
+			_, ok = x.(HasBinaryOp)
+		case "unary-op":
+			_, ok = x.(HasUnaryOp)
+		case "index-accessible":
+			_, ok = x.(IndexAccessible)
+		case "index-assignable":
+			_, ok = x.(IndexAssignable)
+		case "field-accessible":
+			_, ok = x.(FieldAccessible)
+		case "field-assignable":
+			_, ok = x.(FieldAssignable)
+		case "sized":
+			_, ok = x.(Sized)
+		case "indexable":
+			_, ok = x.(Indexable)
+		case "sliceable":
+			_, ok = x.(Sliceable)
+		case "convertible":
+			_, ok = x.(Convertible)
+		case "callable":
+			_, ok = x.(Callable)
+		case "container":
+			_, ok = x.(Container)
+		case "iterable":
+			_, ok = x.(Iterable)
+		case "sequence":
+			_, ok = x.(Sequence)
+		case "indexable-sequence":
+			_, ok = x.(IndexableSequence)
+		case "mapping":
+			_, ok = x.(Mapping)
+		}
+		if !ok {
+			return False, nil
 		}
 	}
-	if i, ok := args[0].(Int); ok {
-		return make(Bytes, i), nil
-	}
-	var b Bytes
-	if err := Convert(&b, args[0]); err == nil {
-		return b, nil
-	}
-	if argsLen == 2 {
-		return args[1], nil
-	}
-	return Nil, nil
+	return True, nil
 }
 
-func builtinIs[T Object](_ *VM, args ...Object) (Object, error) {
+func builtinImmutable(_ *VM, args ...Object) (Object, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -528,32 +488,5 @@ func builtinIs[T Object](_ *VM, args ...Object) (Object, error) {
 			Got:     len(args),
 		}
 	}
-	_, ok := args[0].(T)
-	return Bool(ok), nil
-}
-
-func builtinIsFunction(_ *VM, args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, &WrongNumArgumentsError{
-			WantMin: 1,
-			WantMax: 1,
-			Got:     len(args),
-		}
-	}
-	switch args[0].(type) {
-	case *BuiltinFunction, *CompiledFunction:
-		return Bool(true), nil
-	}
-	return Bool(false), nil
-}
-
-func builtinIsImmutable(_ *VM, args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, &WrongNumArgumentsError{
-			WantMin: 1,
-			WantMax: 1,
-			Got:     len(args),
-		}
-	}
-	return Bool(!Mutable(args[0])), nil
+	return Bool(Immutable(args[0])), nil
 }

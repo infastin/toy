@@ -10,48 +10,41 @@ import (
 var RegexpModule = &toy.BuiltinModule{
 	Name: "regexp",
 	Members: map[string]toy.Object{
-		"compile": &toy.BuiltinFunction{Name: "regexp.compile", Func: regexpCompile},
-		"match":   &toy.BuiltinFunction{Name: "regexp.match", Func: regexpMatch},
-		"find":    &toy.BuiltinFunction{Name: "regexp.find", Func: regexpFind},
-		"replace": &toy.BuiltinFunction{Name: "regexp.replace", Func: regexpReplace},
+		"Regexp": RegexpType,
+		"Match":  RegexpMatchType,
+
+		"compile": toy.NewBuiltinFunction("regexp.compile", regexpCompile),
+		"match":   toy.NewBuiltinFunction("regexp.match", regexpMatch),
+		"find":    toy.NewBuiltinFunction("regexp.find", regexpFind),
+		"replace": toy.NewBuiltinFunction("regexp.replace", regexpReplace),
 	},
 }
 
-type RegexpMatch struct {
-	text       string
-	begin, end int
-}
-
-func (m RegexpMatch) TypeName() string  { return "regexp.Match" }
-func (m RegexpMatch) String() string    { return fmt.Sprintf("regexp.Match(%q)", m.text) }
-func (m RegexpMatch) IsFalsy() bool     { return len(m.text) == 0 }
-func (m RegexpMatch) Clone() toy.Object { return m }
-
-func (m RegexpMatch) Convert(p any) error {
-	switch p := p.(type) {
-	case *toy.String:
-		*p = toy.String(m.text)
-	case *toy.Bytes:
-		*p = toy.Bytes(m.text)
-	default:
-		return toy.ErrNotConvertible
-	}
-	return nil
-}
-
-func (m RegexpMatch) FieldGet(name string) (toy.Object, error) {
-	switch name {
-	case "text":
-		return toy.String(m.text), nil
-	case "begin":
-		return toy.Int(m.begin), nil
-	case "end":
-		return toy.Int(m.end), nil
-	}
-	return nil, toy.ErrNoSuchField
-}
-
 type Regexp regexp.Regexp
+
+var RegexpType = toy.NewType[*Regexp]("regexp.Regexp", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	if len(args) != 1 {
+		return nil, &toy.WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
+	}
+	switch x := args[0].(type) {
+	case toy.String:
+		r, err := regexp.Compile(string(x))
+		if err != nil {
+			return nil, err
+		}
+		return (*Regexp)(r), nil
+	default:
+		var rx *Regexp
+		if err := toy.Convert(&rx, x); err != nil {
+			return rx, nil
+		}
+		return rx, nil
+	}
+})
 
 func (r *Regexp) Unpack(o toy.Object) error {
 	switch x := o.(type) {
@@ -65,17 +58,17 @@ func (r *Regexp) Unpack(o toy.Object) error {
 		*r = Regexp(*rx)
 	default:
 		return &toy.InvalidValueTypeError{
-			Want: "Regexp or string",
-			Got:  o.TypeName(),
+			Want: "regexp.Regexp or string",
+			Got:  toy.TypeName(o),
 		}
 	}
 	return nil
 }
 
-func (r *Regexp) TypeName() string  { return "regexp.Regexp" }
-func (r *Regexp) String() string    { return fmt.Sprintf("/%s/", (*regexp.Regexp)(r).String()) }
-func (r *Regexp) IsFalsy() bool     { return false }
-func (r *Regexp) Clone() toy.Object { return r }
+func (r *Regexp) Type() toy.ObjectType { return RegexpType }
+func (r *Regexp) String() string       { return fmt.Sprintf("/%s/", (*regexp.Regexp)(r).String()) }
+func (r *Regexp) IsFalsy() bool        { return false }
+func (r *Regexp) Clone() toy.Object    { return r }
 
 func (r *Regexp) FieldGet(name string) (toy.Object, error) {
 	m, ok := regexpRegexpMethods[name]
@@ -86,8 +79,8 @@ func (r *Regexp) FieldGet(name string) (toy.Object, error) {
 }
 
 var regexpRegexpMethods = map[string]*toy.BuiltinFunction{
-	"find":    {Name: "find", Func: regexpRegexpFind},
-	"replace": {Name: "replace", Func: regexpRegexpReplace},
+	"find":    toy.NewBuiltinFunction("find", regexpRegexpFind),
+	"replace": toy.NewBuiltinFunction("replace", regexpRegexpReplace),
 }
 
 func regexpRegexpFind(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
@@ -113,6 +106,42 @@ func regexpRegexpReplace(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	result := (*regexp.Regexp)(recv).ReplaceAllString(input.String(), repl.String())
 	return toy.String(result), nil
+}
+
+type RegexpMatch struct {
+	text       string
+	begin, end int
+}
+
+var RegexpMatchType = toy.NewType[RegexpMatch]("regexp.Match", nil)
+
+func (m RegexpMatch) Type() toy.ObjectType { return RegexpMatchType }
+func (m RegexpMatch) String() string       { return fmt.Sprintf("regexp.Match(%q)", m.text) }
+func (m RegexpMatch) IsFalsy() bool        { return len(m.text) == 0 }
+func (m RegexpMatch) Clone() toy.Object    { return m }
+
+func (m RegexpMatch) Convert(p any) error {
+	switch p := p.(type) {
+	case *toy.String:
+		*p = toy.String(m.text)
+	case *toy.Bytes:
+		*p = toy.Bytes(m.text)
+	default:
+		return toy.ErrNotConvertible
+	}
+	return nil
+}
+
+func (m RegexpMatch) FieldGet(name string) (toy.Object, error) {
+	switch name {
+	case "text":
+		return toy.String(m.text), nil
+	case "begin":
+		return toy.Int(m.begin), nil
+	case "end":
+		return toy.Int(m.end), nil
+	}
+	return nil, toy.ErrNoSuchField
 }
 
 func regexpCompile(_ *toy.VM, args ...toy.Object) (toy.Object, error) {

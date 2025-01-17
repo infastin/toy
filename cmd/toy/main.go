@@ -82,8 +82,8 @@ func PrintTrace(inputData []byte, inputFile string) error {
 	file := fileSet.AddFile(inputFile, -1, len(inputData))
 
 	symTable := toy.NewSymbolTable()
-	for idx, fn := range toy.BuiltinFuncs {
-		symTable.DefineBuiltin(idx, fn.Name)
+	for i, v := range toy.Universe {
+		symTable.DefineBuiltin(i, v.Name())
 	}
 
 	p := parser.NewParser(file, []byte(inputData), nil)

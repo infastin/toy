@@ -458,10 +458,6 @@ func (p *Parser) parseOperand() Expr {
 		return p.parseMapLit()
 	case token.Func: // function literal
 		return p.parseFuncLit()
-	case token.Immutable: // immutable expression
-		return p.parseImmutableExpr()
-	case token.Tuple: // tuple literal
-		return p.parseTupleLit()
 	default:
 		p.errorExpected(p.pos, "operand")
 	}
@@ -548,50 +544,6 @@ func (p *Parser) parseArrayLit() Expr {
 		Elements: elements,
 		LBrack:   lbrack,
 		RBrack:   rbrack,
-	}
-}
-
-func (p *Parser) parseImmutableExpr() Expr {
-	if p.trace {
-		defer untracep(tracep(p, "ImmutableExpr"))
-	}
-	immutable := p.expect(token.Immutable)
-	lparen := p.expect(token.LParen)
-	value := p.parseExpr()
-	rparen := p.expect(token.RParen)
-	return &ImmutableExpr{
-		ImmutablePos: immutable,
-		Expr:         value,
-		LParen:       lparen,
-		RParen:       rparen,
-	}
-}
-
-func (p *Parser) parseTupleLit() Expr {
-	if p.trace {
-		defer untracep(tracep(p, "TupleLit"))
-	}
-
-	tuple := p.expect(token.Tuple)
-	lparen := p.expect(token.LParen)
-	p.exprLevel++
-
-	var elements []Expr
-	for p.token != token.RParen && p.token != token.EOF {
-		elements = append(elements, p.parseListElement())
-		if !p.expectComma("tuple element") {
-			break
-		}
-	}
-
-	p.exprLevel--
-	rparen := p.expect(token.RParen)
-
-	return &TupleLit{
-		TuplePos: tuple,
-		Elements: elements,
-		LParen:   lparen,
-		RParen:   rparen,
 	}
 }
 
@@ -694,7 +646,7 @@ func (p *Parser) parseStmt() (stmt Stmt) {
 		token.Float, token.Char, token.String, token.True, token.False,
 		token.Nil, token.Import, token.LParen, token.LBrace,
 		token.LBrack, token.Add, token.Sub, token.Mul, token.And, token.Xor,
-		token.Not, token.Immutable, token.Tuple:
+		token.Not:
 		s := p.parseSimpleStmt(labelOk)
 		// because of the required look-ahead, labeled statements are
 		// parsed by parseSimpleStmt - don't expect a semicolon after

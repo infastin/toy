@@ -80,10 +80,12 @@ type BuiltinModule struct {
 	Members map[string]Object
 }
 
+var BuiltinModuleType = NewType[*BuiltinModule]("module", nil)
+
 func (m *BuiltinModule) importable() {}
 
-func (m *BuiltinModule) TypeName() string { return fmt.Sprintf("module:%s", m.Name) }
-func (m *BuiltinModule) String() string   { return fmt.Sprintf("<module:%s>", m.Name) }
+func (m *BuiltinModule) Type() ObjectType { return BuiltinModuleType }
+func (m *BuiltinModule) String() string   { return fmt.Sprintf("<module %q>", m.Name) }
 func (m *BuiltinModule) IsFalsy() bool    { return false }
 
 func (m *BuiltinModule) Clone() Object {

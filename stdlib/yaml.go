@@ -16,8 +16,8 @@ import (
 var YAMLModule = &toy.BuiltinModule{
 	Name: "yaml",
 	Members: map[string]toy.Object{
-		"encode": &toy.BuiltinFunction{Name: "yaml.encode", Func: yamlEncode},
-		"decode": &toy.BuiltinFunction{Name: "yaml.decode", Func: yamlDecode},
+		"encode": toy.NewBuiltinFunction("yaml.encode", yamlEncode),
+		"decode": toy.NewBuiltinFunction("yaml.decode", yamlDecode),
 	},
 }
 
@@ -44,7 +44,7 @@ func mappingToYAML(mapping toy.Mapping) (_ *yaml.Node, err error) {
 	for key, value := range toy.Entries(mapping) {
 		keyStr, ok := key.(toy.String)
 		if !ok {
-			return nil, fmt.Errorf("unsupported key type: %s", key.TypeName())
+			return nil, fmt.Errorf("unsupported key type: %s", toy.TypeName(key))
 		}
 		if keyStr == "_yaml" {
 			switch x := value.(type) {
@@ -57,7 +57,7 @@ func mappingToYAML(mapping toy.Mapping) (_ *yaml.Node, err error) {
 				for i, elem := range toy.Entries(x) {
 					style, ok := elem.(toy.String)
 					if !ok {
-						return nil, fmt.Errorf("%s[%d]: want 'string', got '%s'", string(keyStr), i, elem.TypeName())
+						return nil, fmt.Errorf("%s[%d]: want 'string', got '%s'", string(keyStr), i, toy.TypeName(elem))
 					}
 					tmp, err := parseStyle(string(style))
 					if err != nil {
@@ -66,7 +66,7 @@ func mappingToYAML(mapping toy.Mapping) (_ *yaml.Node, err error) {
 					nodeStyle |= tmp
 				}
 			default:
-				return nil, fmt.Errorf("%s: want 'string or sequence', got '%s'", string(keyStr), value.TypeName())
+				return nil, fmt.Errorf("%s: want 'string or sequence', got '%s'", string(keyStr), toy.TypeName(value))
 			}
 			continue
 		}
@@ -162,7 +162,7 @@ func objectToYAML(o toy.Object) (*yaml.Node, error) {
 			Tag:   "!!bool",
 			Value: strconv.FormatBool(bool(x)),
 		}, nil
-	case toy.NilType:
+	case toy.NilValue:
 		return &yaml.Node{
 			Kind:  yaml.ScalarNode,
 			Tag:   "!!null",
@@ -173,7 +173,11 @@ func objectToYAML(o toy.Object) (*yaml.Node, error) {
 	case toy.Sequence:
 		return sequenceToYAML(x)
 	default:
-		return nil, fmt.Errorf("'%s' can't be encoded in yaml", o.TypeName())
+		return &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Tag:   "!!str",
+			Value: x.String(),
+		}, nil
 	}
 }
 

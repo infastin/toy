@@ -11,15 +11,18 @@ import (
 var TimeModule = &toy.BuiltinModule{
 	Name: "time",
 	Members: map[string]toy.Object{
-		"parse":         &toy.BuiltinFunction{Name: "time.parse", Func: timeParse},
-		"now":           &toy.BuiltinFunction{Name: "time.now", Func: timeNow},
-		"date":          &toy.BuiltinFunction{Name: "time.date", Func: timeDate},
-		"parseDuration": &toy.BuiltinFunction{Name: "time.parseDuration", Func: timeParseDuration},
-		"since":         &toy.BuiltinFunction{Name: "time.since", Func: timeSince},
-		"until":         &toy.BuiltinFunction{Name: "time.until", Func: timeUntil},
-		"unix":          &toy.BuiltinFunction{Name: "time.unix", Func: timeUnix},
-		"unixMicro":     &toy.BuiltinFunction{Name: "time.unixMicro", Func: timeUnixMicro},
-		"unixMilli":     &toy.BuiltinFunction{Name: "time.unixMilli", Func: timeUnixMilli},
+		"Time":     TimeType,
+		"Duration": DurationType,
+
+		"parse":         toy.NewBuiltinFunction("time.parse", timeParse),
+		"now":           toy.NewBuiltinFunction("time.now", timeNow),
+		"date":          toy.NewBuiltinFunction("time.date", timeDate),
+		"parseDuration": toy.NewBuiltinFunction("time.parseDuration", timeParseDuration),
+		"since":         toy.NewBuiltinFunction("time.since", timeSince),
+		"until":         toy.NewBuiltinFunction("time.until", timeUntil),
+		"unix":          toy.NewBuiltinFunction("time.unix", timeUnix),
+		"unixMicro":     toy.NewBuiltinFunction("time.unixMicro", timeUnixMicro),
+		"unixMilli":     toy.NewBuiltinFunction("time.unixMilli", timeUnixMilli),
 
 		"nsec": Duration(time.Nanosecond),
 		"usec": Duration(time.Microsecond),
@@ -50,8 +53,74 @@ var TimeModule = &toy.BuiltinModule{
 
 type Time time.Time
 
-func (t Time) TypeName() string  { return "time.Time" }
-func (t Time) String() string    { return (time.Time)(t).String() }
+var TimeType = toy.NewType[Time]("time.Time", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	if len(args) < 1 && len(args) > 3 {
+		return nil, &toy.WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 3,
+			Got:     len(args),
+		}
+	}
+	if len(args) == 1 {
+		_, isStr := args[0].(toy.String)
+		if !isStr {
+			var t Time
+			if err := toy.Convert(&t, args[0]); err == nil {
+				return t, nil
+			}
+		}
+	}
+	var (
+		x        string
+		layout   = time.RFC3339
+		location = "UTC"
+	)
+	if err := toy.UnpackArgs(args, "x", &x, "layout?", &layout, "location?", &location); err != nil {
+		return nil, err
+	}
+	if location == "UTC" {
+		t, err := time.Parse(layout, x)
+		if err != nil {
+			return nil, err
+		}
+		return Time(t), nil
+	}
+	loc, err := time.LoadLocation(location)
+	if err != nil {
+		return nil, err
+	}
+	t, err := time.ParseInLocation(layout, x, loc)
+	if err != nil {
+		return nil, err
+	}
+	return Time(t), nil
+})
+
+func (t *Time) Unpack(o toy.Object) error {
+	switch x := o.(type) {
+	case Time:
+		*t = x
+	case toy.String:
+		tm, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", string(x))
+		if err != nil {
+			return err
+		}
+		*t = Time(tm)
+	default:
+		return &toy.InvalidValueTypeError{
+			Want: "time.Time or string",
+			Got:  toy.TypeName(o),
+		}
+	}
+	return nil
+}
+
+func (t Time) Type() toy.ObjectType { return TimeType }
+
+func (t Time) String() string {
+	return (time.Time)(t).Format("2006-01-02 15:04:05.999999999 -0700 MST")
+}
+
 func (t Time) IsFalsy() bool     { return (time.Time)(t).IsZero() }
 func (t Time) Clone() toy.Object { return t }
 func (t Time) Hash() uint64      { return hash.Int64(time.Time(t).UnixNano()) }
@@ -141,22 +210,10 @@ func (t Time) FieldGet(name string) (toy.Object, error) {
 }
 
 var timeTimeMethods = map[string]*toy.BuiltinFunction{
-	"format": {
-		Name: "format",
-		Func: timeTimeFormat,
-	},
-	"inLocation": {
-		Name: "inLocation",
-		Func: timeTimeInLocation,
-	},
-	"round": {
-		Name: "round",
-		Func: timeTimeRound,
-	},
-	"truncate": {
-		Name: "truncate",
-		Func: timeTimeTruncate,
-	},
+	"format":     toy.NewBuiltinFunction("format", timeTimeFormat),
+	"inLocation": toy.NewBuiltinFunction("inLocation", timeTimeInLocation),
+	"round":      toy.NewBuiltinFunction("round", timeTimeRound),
+	"truncate":   toy.NewBuiltinFunction("truncate", timeTimeTruncate),
 }
 
 func timeTimeFormat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
@@ -213,7 +270,7 @@ func timeParse(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		layout   = time.RFC3339
 		location = "UTC"
 	)
-	if err := toy.UnpackArgs(args, "x", &x, "layout?", &layout, "location", &location); err != nil {
+	if err := toy.UnpackArgs(args, "x", &x, "layout?", &layout, "location?", &location); err != nil {
 		return nil, err
 	}
 	if location == "UTC" {
@@ -267,6 +324,30 @@ func timeDate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 
 type Duration time.Duration
 
+var DurationType = toy.NewType[Duration]("time.Duration", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	if len(args) != 1 {
+		return nil, &toy.WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
+	}
+	switch x := args[0].(type) {
+	case toy.String:
+		d, err := time.ParseDuration(string(x))
+		if err != nil {
+			return nil, err
+		}
+		return Duration(d), nil
+	default:
+		var d Duration
+		if err := toy.Convert(&d, x); err != nil {
+			return nil, err
+		}
+		return d, nil
+	}
+})
+
 func (d *Duration) Unpack(o toy.Object) error {
 	switch x := o.(type) {
 	case Duration:
@@ -279,17 +360,17 @@ func (d *Duration) Unpack(o toy.Object) error {
 		*d = Duration(dur)
 	default:
 		return &toy.InvalidValueTypeError{
-			Want: "Duration or string",
-			Got:  o.TypeName(),
+			Want: "time.Duration or string",
+			Got:  toy.TypeName(o),
 		}
 	}
 	return nil
 }
 
-func (d Duration) TypeName() string  { return "time.Duration" }
-func (d Duration) String() string    { return (time.Duration)(d).String() }
-func (d Duration) IsFalsy() bool     { return d == 0 }
-func (d Duration) Clone() toy.Object { return d }
+func (d Duration) Type() toy.ObjectType { return DurationType }
+func (d Duration) String() string       { return (time.Duration)(d).String() }
+func (d Duration) IsFalsy() bool        { return d == 0 }
+func (d Duration) Clone() toy.Object    { return d }
 
 func (d Duration) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(Duration)
@@ -368,14 +449,8 @@ func (d Duration) FieldGet(name string) (toy.Object, error) {
 }
 
 var timeDurationMethods = map[string]*toy.BuiltinFunction{
-	"round": {
-		Name: "round",
-		Func: timeDurationRound,
-	},
-	"truncate": {
-		Name: "truncate",
-		Func: timeDurationTruncate,
-	},
+	"round":    toy.NewBuiltinFunction("round", timeDurationRound),
+	"truncate": toy.NewBuiltinFunction("truncate", timeDurationTruncate),
 }
 
 func timeDurationRound(_ *toy.VM, args ...toy.Object) (toy.Object, error) {

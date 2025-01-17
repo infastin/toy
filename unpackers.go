@@ -20,7 +20,7 @@ func (s *StringOrBytes) Unpack(o Object) error {
 	default:
 		return &InvalidValueTypeError{
 			Want: "string or bytes",
-			Got:  o.TypeName(),
+			Got:  TypeName(o),
 		}
 	}
 	return nil
@@ -39,7 +39,7 @@ func (a *IntOrFloat) Unpack(o Object) error {
 	default:
 		return &InvalidValueTypeError{
 			Want: "int or float",
-			Got:  o.TypeName(),
+			Got:  TypeName(o),
 		}
 	}
 	return nil

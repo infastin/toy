@@ -1053,22 +1053,18 @@ export fn() {
 func TestVMErrorUnwrap(t *testing.T) {
 	userErr := errors.New("user runtime error")
 	userFunc := func(err error) *toy.BuiltinFunction {
-		return &toy.BuiltinFunction{
-			Name: "userFunc",
-			Func: func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+		return toy.NewBuiltinFunction("userFunc",
+			func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 				return nil, err
-			},
-		}
+			})
 	}
 	userModule := func(err error) *toy.BuiltinModule {
 		return &toy.BuiltinModule{
 			Members: map[string]toy.Object{
-				"afunction": &toy.BuiltinFunction{
-					Name: "afunction",
-					Func: func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+				"afunction": toy.NewBuiltinFunction("afunction",
+					func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 						return nil, err
-					},
-				},
+					}),
 			},
 		}
 	}
@@ -2037,17 +2033,19 @@ func TestIncDec(t *testing.T) {
 
 type StringDict map[string]string
 
-func (o StringDict) TypeName() string  { return "string-dict" }
-func (o StringDict) String() string    { return "" }
-func (o StringDict) IsFalsy() bool     { return len(o) == 0 }
-func (o StringDict) Clone() toy.Object { return StringDict(maps.Clone(o)) }
+var StringDictType = toy.NewType[StringDict]("string-dict", nil)
+
+func (o StringDict) Type() toy.ObjectType { return StringDictType }
+func (o StringDict) String() string       { return "" }
+func (o StringDict) IsFalsy() bool        { return len(o) == 0 }
+func (o StringDict) Clone() toy.Object    { return StringDict(maps.Clone(o)) }
 
 func (o StringDict) IndexGet(index toy.Object) (toy.Object, bool, error) {
 	strIdx, ok := index.(toy.String)
 	if !ok {
 		return nil, false, &toy.InvalidIndexTypeError{
 			Want: "string",
-			Got:  index.TypeName(),
+			Got:  toy.TypeName(index),
 		}
 	}
 	for k, v := range o {
@@ -2063,7 +2061,7 @@ func (o StringDict) IndexSet(index, value toy.Object) error {
 	if !ok {
 		return &toy.InvalidIndexTypeError{
 			Want: "string",
-			Got:  index.TypeName(),
+			Got:  toy.TypeName(index),
 		}
 	}
 	var strVal toy.String
@@ -2076,17 +2074,19 @@ func (o StringDict) IndexSet(index, value toy.Object) error {
 
 type StringCircle []string
 
-func (o StringCircle) TypeName() string  { return "string-circle" }
-func (o StringCircle) String() string    { return "" }
-func (o StringCircle) IsFalsy() bool     { return len(o) == 0 }
-func (o StringCircle) Clone() toy.Object { return StringCircle(slices.Clone(o)) }
+var StringCircleType = toy.NewType[StringCircle]("string-circle", nil)
+
+func (o StringCircle) Type() toy.ObjectType { return StringCircleType }
+func (o StringCircle) String() string       { return "" }
+func (o StringCircle) IsFalsy() bool        { return len(o) == 0 }
+func (o StringCircle) Clone() toy.Object    { return StringCircle(slices.Clone(o)) }
 
 func (o StringCircle) IndexGet(index toy.Object) (toy.Object, bool, error) {
 	intIdx, ok := index.(toy.Int)
 	if !ok {
 		return nil, false, &toy.InvalidIndexTypeError{
 			Want: "string",
-			Got:  index.TypeName(),
+			Got:  toy.TypeName(index),
 		}
 	}
 	r := int(intIdx) % len(o)
@@ -2101,7 +2101,7 @@ func (o StringCircle) IndexSet(index, value toy.Object) error {
 	if !ok {
 		return &toy.InvalidIndexTypeError{
 			Want: "string",
-			Got:  index.TypeName(),
+			Got:  toy.TypeName(index),
 		}
 	}
 	r := int(intIdx) % len(o)
@@ -2118,10 +2118,12 @@ func (o StringCircle) IndexSet(index, value toy.Object) error {
 
 type StringArray []string
 
-func (o StringArray) TypeName() string  { return "string-array" }
-func (o StringArray) String() string    { return strings.Join(o, ", ") }
-func (o StringArray) IsFalsy() bool     { return len(o) == 0 }
-func (o StringArray) Clone() toy.Object { return StringArray(slices.Clone(o)) }
+var StringArrayType = toy.NewType[StringArray]("string-array", nil)
+
+func (o StringArray) Type() toy.ObjectType { return StringArrayType }
+func (o StringArray) String() string       { return strings.Join(o, ", ") }
+func (o StringArray) IsFalsy() bool        { return len(o) == 0 }
+func (o StringArray) Clone() toy.Object    { return StringArray(slices.Clone(o)) }
 
 func (o StringArray) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(StringArray)
@@ -2182,7 +2184,7 @@ func (o StringArray) IndexGet(index toy.Object) (toy.Object, bool, error) {
 	}
 	return nil, false, &toy.InvalidIndexTypeError{
 		Want: "int or string",
-		Got:  index.TypeName(),
+		Got:  toy.TypeName(index),
 	}
 }
 
@@ -2191,7 +2193,7 @@ func (o StringArray) IndexSet(index, value toy.Object) error {
 	if !ok {
 		return &toy.InvalidIndexTypeError{
 			Want: "int",
-			Got:  index.TypeName(),
+			Got:  toy.TypeName(index),
 		}
 	}
 	var strVal toy.String
@@ -2231,10 +2233,12 @@ type stringArrayIterator struct {
 	i int
 }
 
-func (it *stringArrayIterator) TypeName() string  { return "string-array-iterator" }
-func (it *stringArrayIterator) String() string    { return "" }
-func (it *stringArrayIterator) IsFalsy() bool     { return true }
-func (it *stringArrayIterator) Clone() toy.Object { return &stringArrayIterator{s: it.s, i: it.i} }
+var stringArrayIteratorType = toy.NewType[*stringArrayIterator]("string-array-iterator", nil)
+
+func (it *stringArrayIterator) Type() toy.ObjectType { return stringArrayIteratorType }
+func (it *stringArrayIterator) String() string       { return "" }
+func (it *stringArrayIterator) IsFalsy() bool        { return true }
+func (it *stringArrayIterator) Clone() toy.Object    { return &stringArrayIterator{s: it.s, i: it.i} }
 
 func (it *stringArrayIterator) Next(key, value *toy.Object) bool {
 	if it.i < len(it.s) {
@@ -2470,9 +2474,8 @@ func TestBuiltin(t *testing.T) {
 		&toy.BuiltinModule{
 			Name: "math",
 			Members: map[string]toy.Object{
-				"abs": &toy.BuiltinFunction{
-					Name: "abs",
-					Func: func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+				"abs": toy.NewBuiltinFunction("abs",
+					func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 						if len(args) != 1 {
 							return nil, fmt.Errorf("want 1 argument, got %d", len(args))
 						}
@@ -2481,8 +2484,7 @@ func TestBuiltin(t *testing.T) {
 							return nil, err
 						}
 						return toy.Float(math.Abs(float64(f))), nil
-					},
-				},
+					}),
 			},
 		})
 
@@ -2683,9 +2685,8 @@ func TestModuleBlockScopes(t *testing.T) {
 		&toy.BuiltinModule{
 			Name: "rand",
 			Members: map[string]toy.Object{
-				"intn": &toy.BuiltinFunction{
-					Name: "abs",
-					Func: func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+				"intn": toy.NewBuiltinFunction("intn",
+					func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 						if len(args) != 1 {
 							return nil, fmt.Errorf("want 1 argument, got %d", len(args))
 						}
@@ -2694,8 +2695,7 @@ func TestModuleBlockScopes(t *testing.T) {
 							return nil, err
 						}
 						return toy.Int(rand.Int64N(int64(n))), nil
-					},
-				},
+					}),
 			},
 		})
 
@@ -3728,8 +3728,8 @@ func traceCompileRun(
 		valueCopy := value
 		globals[sym.Index] = valueCopy
 	}
-	for idx, fn := range toy.BuiltinFuncs {
-		symTable.DefineBuiltin(idx, fn.Name)
+	for idx, v := range toy.Universe {
+		symTable.DefineBuiltin(idx, v.Name())
 	}
 
 	tr := &vmTracer{}

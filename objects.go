@@ -16,8 +16,12 @@ import (
 
 // Object represents an object in the VM.
 type Object interface {
-	// TypeName returns the name of the object's type.
-	TypeName() string
+	// Type returns the type of the object.
+	// Types themselves should return nil.
+	//
+	// Client code should not call this method.
+	// Instead, use the standalone Type function.
+	Type() ObjectType
 	// String returns a string representation of the object.
 	String() string
 	// IsFalsy returns true if the object should be considered as falsy.
@@ -46,8 +50,8 @@ type Freezable interface {
 	// AsImmutable returns an immutable deep-copy of the object.
 	// If the object is already immutable, the same object may be returned.
 	AsImmutable() Object
-	// Mutable returns true if the object is mutable.
-	Mutable() bool
+	// Immutable returns true if the object is immutable.
+	Immutable() bool
 }
 
 // A Comparable is an object that defines its own equivalence relation and
@@ -243,11 +247,33 @@ type CloseableIterator interface {
 	Close()
 }
 
+// TypeName returns the type of the object.
+func Type(x Object) ObjectType {
+	if x == nil {
+		return NilType
+	}
+	if typ := x.Type(); typ != nil {
+		return typ
+	}
+	return rootTypeImpl{}
+}
+
+// TypeName returns the name of the object's type.
+func TypeName(x Object) string {
+	if x == nil {
+		return "nil"
+	}
+	if typ := x.Type(); typ != nil {
+		return typ.Name()
+	}
+	return "type"
+}
+
 // Hash tries to calculate hash of the given Object.
 func Hash(x Object) (uint64, error) {
 	xh, ok := x.(Hashable)
 	if !ok {
-		return 0, fmt.Errorf("'%s' is not hashable", x.TypeName())
+		return 0, fmt.Errorf("'%s' is not hashable", TypeName(x))
 	}
 	return xh.Hash(), nil
 }
@@ -262,15 +288,15 @@ func AsImmutable(x Object) Object {
 	return xf.AsImmutable()
 }
 
-// Mutable returns true if an Object is mutable.
+// Immutable returns true if an Object is immutable.
 // All instances of types that don't implement Freezable interface
 // are considered mutable.
-func Mutable(x Object) bool {
+func Immutable(x Object) bool {
 	m, ok := x.(Freezable)
 	if !ok {
-		return true
+		return false
 	}
-	return m.Mutable()
+	return m.Immutable()
 }
 
 // Equals returns whether two objects are equal or not.
@@ -285,8 +311,10 @@ func Equals(x, y Object) (bool, error) {
 // It will return an error if the objects can't be compared using the given operator.
 // or if the comparison has failed.
 //
-// Equality comparsion with NilType is defined implicitly,
+// Equality comparsion with NilValue is defined implicitly,
 // so types do not need to implement it themselves.
+//
+// Equality comparison between ObjectType is defined implicitly.
 //
 // Equality comparsion for two objects holding the same reference
 // is also defined implicitly.
@@ -307,6 +335,16 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 			return true, nil
 		}
 	}
+	if xt, ok := x.(ObjectType); ok {
+		if yt, ok := y.(ObjectType); ok {
+			switch op {
+			case token.Equal:
+				return xt == yt, nil
+			case token.NotEqual:
+				return xt != yt, nil
+			}
+		}
+	}
 	xc, ok := x.(Comparable)
 	if ok {
 		if res, err := xc.Compare(op, y); err == nil {
@@ -316,7 +354,7 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 	yc, ok := y.(Comparable)
 	if !ok {
 		return false, fmt.Errorf("operation '%s %s %s' is not supported",
-			x.TypeName(), op.String(), y.TypeName())
+			TypeName(x), op.String(), TypeName(y))
 	}
 	op0 := op
 	switch op {
@@ -332,7 +370,7 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 	res, err := yc.Compare(op, x)
 	if err != nil {
 		return false, fmt.Errorf("operation '%s %s %s' has failed: %w",
-			x.TypeName(), op0.String(), y.TypeName(), err)
+			TypeName(x), op0.String(), TypeName(y), err)
 	}
 	return res, nil
 }
@@ -352,12 +390,12 @@ func BinaryOp(op token.Token, x, y Object) (Object, error) {
 	yb, ok := y.(HasBinaryOp)
 	if !ok {
 		return nil, fmt.Errorf("operation '%s %s %s' is not supported",
-			x.TypeName(), op.String(), y.TypeName())
+			TypeName(x), op.String(), TypeName(y))
 	}
 	res, err := yb.BinaryOp(op, x, true)
 	if err != nil {
 		return nil, fmt.Errorf("operation '%s %s %s' has failed: %w",
-			x.TypeName(), op.String(), y.TypeName(), err)
+			TypeName(x), op.String(), TypeName(y), err)
 	}
 	return res, nil
 }
@@ -372,12 +410,12 @@ func UnaryOp(op token.Token, x Object) (Object, error) {
 	xu, ok := x.(HasUnaryOp)
 	if !ok {
 		return nil, fmt.Errorf("operation '%s%s' is not supported",
-			op.String(), x.TypeName())
+			op.String(), TypeName(x))
 	}
 	res, err := xu.UnaryOp(op)
 	if err != nil {
 		return nil, fmt.Errorf("operation '%s%s' has failed: %w",
-			op.String(), x.TypeName(), err)
+			op.String(), TypeName(x), err)
 	}
 	return res, nil
 }
@@ -403,12 +441,12 @@ func IndexGet(x, index Object) (value Object, found bool, err error) {
 	}
 	xi, ok := x.(IndexAccessible)
 	if !ok {
-		return nil, false, fmt.Errorf("'%s' is not index accessible", x.TypeName())
+		return nil, false, fmt.Errorf("'%s' is not index accessible", TypeName(x))
 	}
 	res, found, err := xi.IndexGet(index)
 	if err != nil {
 		return nil, false, fmt.Errorf("operation '%s[%s]' has failed: %w",
-			x.TypeName(), index.TypeName(), err)
+			TypeName(x), TypeName(index), err)
 	}
 	return res, found, nil
 }
@@ -419,11 +457,11 @@ func IndexGet(x, index Object) (value Object, found bool, err error) {
 func IndexSet(x, index, value Object) error {
 	xi, ok := x.(IndexAssignable)
 	if !ok {
-		return fmt.Errorf("'%s' is not index assignable", x.TypeName())
+		return fmt.Errorf("'%s' is not index assignable", TypeName(x))
 	}
 	if err := xi.IndexSet(index, value); err != nil {
 		return fmt.Errorf("operation '%s[%s] = %s' has failed: %w",
-			x.TypeName(), index.TypeName(), value.TypeName(), err)
+			TypeName(x), TypeName(index), TypeName(value), err)
 	}
 	return nil
 }
@@ -445,22 +483,22 @@ func FieldGet(x Object, name string) (Object, error) {
 		res, err := xf.FieldGet(name)
 		if err != nil {
 			return nil, fmt.Errorf("operation '%s.%s' has failed: %w",
-				x.TypeName(), name, err)
+				TypeName(x), name, err)
 		}
 		return res, nil
 	}
 	xi, ok := x.(IndexAccessible)
 	if !ok {
-		return nil, fmt.Errorf("'%s' is not field accesible", x.TypeName())
+		return nil, fmt.Errorf("'%s' is not field accesible", TypeName(x))
 	}
 	res, found, err := xi.IndexGet(String(name))
 	if err != nil {
 		return nil, fmt.Errorf("operation '%s.%s' has failed: %w",
-			x.TypeName(), name, err)
+			TypeName(x), name, err)
 	}
 	if !found {
 		return nil, fmt.Errorf("operation '%s.%s' has failed: %w",
-			x.TypeName(), name, ErrNoSuchField)
+			TypeName(x), name, ErrNoSuchField)
 	}
 	return res, nil
 }
@@ -479,17 +517,17 @@ func FieldSet(x Object, name string, value Object) error {
 	if ok {
 		if err := xf.FieldSet(name, value); err != nil {
 			return fmt.Errorf("operation '%s.%s = %s' has failed: %w",
-				x.TypeName(), name, value.TypeName(), err)
+				TypeName(x), name, TypeName(value), err)
 		}
 		return nil
 	}
 	xi, ok := x.(IndexAssignable)
 	if !ok {
-		return fmt.Errorf("'%s' is not field assignable", x.TypeName())
+		return fmt.Errorf("'%s' is not field assignable", TypeName(x))
 	}
 	if err := xi.IndexSet(String(name), value); err != nil {
 		return fmt.Errorf("operation '%s.%s = %s' has failed: %w",
-			x.TypeName(), name, value.TypeName(), err)
+			TypeName(x), name, TypeName(value), err)
 	}
 	return nil
 }
@@ -510,7 +548,7 @@ func Len(x Object) int {
 func Slice(x Object, low, high int) (Object, error) {
 	xs, ok := x.(Sliceable)
 	if !ok {
-		return nil, fmt.Errorf("'%s' is not sliceable", x.TypeName())
+		return nil, fmt.Errorf("'%s' is not sliceable", TypeName(x))
 	}
 	n := xs.Len()
 	if low > high {
@@ -563,12 +601,12 @@ func Convert[T Object](p *T, o Object) (err error) {
 		}
 		c, ok := o.(Convertible)
 		if !ok {
-			return fmt.Errorf("'%s' is not convertible", o.TypeName())
+			return fmt.Errorf("'%s' is not convertible", TypeName(o))
 		}
 		if err := c.Convert(p); err != nil {
 			// It should be safe to call TypeName on potentially nil object.
 			return fmt.Errorf("failed to convert '%s' to '%s': %w",
-				o.TypeName(), (*p).TypeName(), err)
+				TypeName(o), TypeName(*p), err)
 		}
 	}
 	return nil
@@ -580,12 +618,12 @@ func Convert[T Object](p *T, o Object) (err error) {
 func Call(v *VM, fn Object, args ...Object) (Object, error) {
 	callable, ok := fn.(Callable)
 	if !ok {
-		return nil, fmt.Errorf("'%s' is not callable", fn.TypeName())
+		return nil, fmt.Errorf("'%s' is not callable", TypeName(fn))
 	}
 	ret, err := callable.Call(v, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error during call to '%s': %w",
-			callable.TypeName(), err)
+			TypeName(callable), err)
 	}
 	return ret, nil
 }
@@ -635,18 +673,73 @@ func Entries(iterable Iterable) iter.Seq2[Object, Object] {
 	}
 }
 
-// NilType represents a nil value.
-type NilType byte
+// rootTypeImpl represents the root Type.
+type rootTypeImpl struct{}
 
-const Nil = NilType(0)
+func (rootTypeImpl) Type() ObjectType { return rootTypeImpl{} }
+func (rootTypeImpl) String() string   { return "<type>" }
+func (rootTypeImpl) IsFalsy() bool    { return false }
+func (rootTypeImpl) Clone() Object    { return rootTypeImpl{} }
+func (rootTypeImpl) Name() string     { return "type" }
 
-func (o NilType) TypeName() string { return "nil" }
-func (o NilType) String() string   { return "<nil>" }
-func (o NilType) IsFalsy() bool    { return true }
-func (o NilType) Clone() Object    { return o }
+// typeImpl represents a default Type implementation.
+type typeImpl[T Object] struct {
+	name string
+	fn   CallableFunc
+}
+
+// NewType create a new type.
+// If constructor is nil, the default constructor will be used.
+func NewType[T Object](name string, constructor CallableFunc) ObjectType {
+	fn := constructor
+	if fn == nil {
+		fn = func(v *VM, args ...Object) (Object, error) {
+			argsLen := len(args)
+			if argsLen != 1 {
+				return nil, &WrongNumArgumentsError{
+					WantMin: 1,
+					WantMax: 1,
+					Got:     len(args),
+				}
+			}
+			var res T
+			if err := Convert(&res, args[0]); err != nil {
+				return nil, err
+			}
+			return res, nil
+		}
+	}
+	return &typeImpl[T]{
+		name: name,
+		fn:   fn,
+	}
+}
+
+func (t *typeImpl[T]) Type() ObjectType                           { return nil }
+func (t *typeImpl[T]) String() string                             { return fmt.Sprintf("<%s>", t.name) }
+func (t *typeImpl[T]) IsFalsy() bool                              { return false }
+func (t *typeImpl[T]) Clone() Object                              { return t }
+func (t *typeImpl[T]) Name() string                               { return t.name }
+func (t *typeImpl[T]) Call(v *VM, args ...Object) (Object, error) { return t.fn(v, args...) }
+
+// NilValue represents a nil value.
+type NilValue byte
+
+// NilType is the type of NilValue.
+var NilType = NewType[NilValue]("nil", nil)
+
+const Nil = NilValue(0)
+
+func (o NilValue) Type() ObjectType { return NilType }
+func (o NilValue) String() string   { return "<nil>" }
+func (o NilValue) IsFalsy() bool    { return true }
+func (o NilValue) Clone() Object    { return o }
 
 // Bool represents a boolean value.
 type Bool bool
+
+// BoolType is the type of Bool.
+var BoolType = NewType[Bool]("bool", nil)
 
 const (
 	True  = Bool(true)
@@ -660,7 +753,7 @@ func (o Bool) String() string {
 	return "false"
 }
 
-func (o Bool) TypeName() string { return "bool" }
+func (o Bool) Type() ObjectType { return BoolType }
 func (o Bool) IsFalsy() bool    { return !bool(o) }
 func (o Bool) Clone() Object    { return o }
 
@@ -674,7 +767,7 @@ func (o Bool) Hash() uint64 {
 func (o Bool) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(Bool)
 	if !ok {
-		return false, ErrNotConvertible
+		return false, ErrInvalidOperator
 	}
 	switch op {
 	case token.Equal:
@@ -685,10 +778,33 @@ func (o Bool) Compare(op token.Token, rhs Object) (bool, error) {
 	return false, ErrInvalidOperator
 }
 
+func (o Bool) Convert(p any) error {
+	switch p := p.(type) {
+	case *Float:
+		if o {
+			*p = 1.0
+		} else {
+			*p = 0.0
+		}
+		return nil
+	case *Int:
+		if o {
+			*p = 1
+		} else {
+			*p = 0
+		}
+		return nil
+	}
+	return ErrNotConvertible
+}
+
 // Float represents a floating point number value.
 type Float float64
 
-func (o Float) TypeName() string { return "float" }
+// FloatType is the type of Float.
+var FloatType = NewType[Float]("float", nil)
+
+func (o Float) Type() ObjectType { return FloatType }
 func (o Float) String() string   { return strconv.FormatFloat(float64(o), 'g', -1, 64) }
 func (o Float) IsFalsy() bool    { return math.IsNaN(float64(o)) }
 func (o Float) Clone() Object    { return o }
@@ -792,7 +908,10 @@ func (o Float) UnaryOp(op token.Token) (Object, error) {
 // Int represents an integer value.
 type Int int64
 
-func (o Int) TypeName() string { return "int" }
+// IntType is the type of Int.
+var IntType = NewType[Int]("int", nil)
+
+func (o Int) Type() ObjectType { return IntType }
 func (o Int) String() string   { return strconv.FormatInt(int64(o), 10) }
 func (o Int) IsFalsy() bool    { return o == 0 }
 func (o Int) Clone() Object    { return o }
@@ -934,7 +1053,10 @@ func (o Int) UnaryOp(op token.Token) (Object, error) {
 // String represents a string value.
 type String string
 
-func (o String) TypeName() string { return "string" }
+// StringType is the type of String.
+var StringType = NewType[String]("string", nil)
+
+func (o String) Type() ObjectType { return StringType }
 func (o String) String() string   { return strconv.Quote(string(o)) }
 func (o String) IsFalsy() bool    { return len(o) == 0 }
 func (o String) Clone() Object    { return o }
@@ -1020,7 +1142,7 @@ func (o String) Contains(value Object) (bool, error) {
 	default:
 		return false, &InvalidValueTypeError{
 			Want: "string or char",
-			Got:  value.TypeName(),
+			Got:  TypeName(value),
 		}
 	}
 }
@@ -1032,7 +1154,9 @@ type stringIterator struct {
 	i int
 }
 
-func (it *stringIterator) TypeName() string { return "string-iterator" }
+var stringIteratorType = NewType[*stringIterator]("string-iterator", nil)
+
+func (it *stringIterator) Type() ObjectType { return stringIteratorType }
 func (it *stringIterator) String() string   { return "<string-iterator>" }
 func (it *stringIterator) IsFalsy() bool    { return true }
 func (it *stringIterator) Clone() Object    { return &stringIterator{s: it.s, i: it.i} }
@@ -1054,8 +1178,28 @@ func (it *stringIterator) Next(key, value *Object) bool {
 // Bytes represents a byte array.
 type Bytes []byte
 
+// Bytes is the type of Bytes.
+var BytesType = NewType[Bytes]("bytes", func(_ *VM, args ...Object) (Object, error) {
+	argsLen := len(args)
+	if argsLen != 1 {
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
+	}
+	if i, ok := args[0].(Int); ok {
+		return make(Bytes, i), nil
+	}
+	var b Bytes
+	if err := Convert(&b, args[0]); err != nil {
+		return nil, err
+	}
+	return b, nil
+})
+
+func (o Bytes) Type() ObjectType { return BytesType }
 func (o Bytes) String() string   { return fmt.Sprintf("bytes(%q)", []byte(o)) }
-func (o Bytes) TypeName() string { return "bytes" }
 func (o Bytes) IsFalsy() bool    { return len(o) == 0 }
 func (o Bytes) Clone() Object    { return slices.Clone(o) }
 func (o Bytes) Hash() uint64     { return hash.Bytes(o) }
@@ -1125,7 +1269,7 @@ func (o Bytes) Contains(value Object) (bool, error) {
 	default:
 		return false, &InvalidValueTypeError{
 			Want: "bytes, char or int",
-			Got:  value.TypeName(),
+			Got:  TypeName(value),
 		}
 	}
 }
@@ -1137,7 +1281,9 @@ type bytesIterator struct {
 	i int
 }
 
-func (it *bytesIterator) TypeName() string { return "bytes-iterator" }
+var bytesIteratorType = NewType[*bytesIterator]("bytes-iterator", nil)
+
+func (it *bytesIterator) Type() ObjectType { return bytesIteratorType }
 func (it *bytesIterator) String() string   { return "<bytes-iterator>" }
 func (it *bytesIterator) IsFalsy() bool    { return true }
 func (it *bytesIterator) Clone() Object    { return &bytesIterator{b: it.b, i: it.i} }
@@ -1159,7 +1305,10 @@ func (it *bytesIterator) Next(key, value *Object) bool {
 // Char represents a character value.
 type Char rune
 
-func (o Char) TypeName() string { return "char" }
+// CharType is the type of Char.
+var CharType = NewType[Char]("char", nil)
+
+func (o Char) Type() ObjectType { return CharType }
 func (o Char) String() string   { return strconv.QuoteRune(rune(o)) }
 func (o Char) IsFalsy() bool    { return o == 0 }
 func (o Char) Clone() Object    { return o }
@@ -1236,12 +1385,20 @@ func (o Char) BinaryOp(op token.Token, other Object, right bool) (Object, error)
 	return nil, ErrInvalidOperator
 }
 
+// Array represents a array of objects.
+// Array is mutable by default, but it is possible to create
+// an immutable copy of it using AsImmutable method.
 type Array struct {
 	elems     []Object
 	immutable bool
 	itercount uint64 // number of active iterators (ignored if frozen)
 }
 
+// ArrayType is the type of Array.
+var ArrayType = NewType[*Array]("array", nil)
+
+// NewArray returns an array containing the specified elements.
+// Callers should not subsequently modify elems.
 func NewArray(elems []Object) *Array {
 	return &Array{
 		elems:     elems,
@@ -1250,7 +1407,7 @@ func NewArray(elems []Object) *Array {
 	}
 }
 
-func (o *Array) TypeName() string { return "array" }
+func (o *Array) Type() ObjectType { return ArrayType }
 
 func (o *Array) String() string {
 	var b strings.Builder
@@ -1289,7 +1446,7 @@ func (o *Array) AsImmutable() Object {
 	return &Array{elems: elems, immutable: true}
 }
 
-func (o *Array) Mutable() bool   { return !o.immutable }
+func (o *Array) Immutable() bool { return o.immutable }
 func (o *Array) Len() int        { return len(o.elems) }
 func (o *Array) At(i int) Object { return o.elems[i] }
 func (o *Array) Items() []Object { return o.elems }
@@ -1394,7 +1551,7 @@ func (o *Array) IndexGet(index Object) (res Object, found bool, err error) {
 	if !ok {
 		return nil, false, &InvalidIndexTypeError{
 			Want: "int",
-			Got:  index.TypeName(),
+			Got:  TypeName(index),
 		}
 	}
 	if intIdx < 0 || int64(intIdx) >= int64(len(o.elems)) {
@@ -1411,7 +1568,7 @@ func (o *Array) IndexSet(index, value Object) (err error) {
 	if !ok {
 		return &InvalidIndexTypeError{
 			Want: "int",
-			Got:  index.TypeName(),
+			Got:  TypeName(index),
 		}
 	}
 	n := len(o.elems)
@@ -1485,7 +1642,9 @@ type arrayIterator struct {
 	i int
 }
 
-func (it *arrayIterator) TypeName() string { return "array-iterator" }
+var arrayIteratorType = NewType[*arrayIterator]("array-iterator", nil)
+
+func (it *arrayIterator) Type() ObjectType { return arrayIteratorType }
 func (it *arrayIterator) String() string   { return "<array-iterator>" }
 func (it *arrayIterator) IsFalsy() bool    { return true }
 func (it *arrayIterator) Clone() Object    { return &arrayIterator{a: it.a, i: it.i} }
@@ -1510,18 +1669,25 @@ func (it *arrayIterator) Close() {
 	}
 }
 
-// Map represents a map of objects.
+// Map represents a mapping of hashable objects to objects.
+// Map is mutable by default, but it is possible to create
+// an immutable copy of it using AsImmutable method.
 type Map struct {
 	ht hashtable
 }
 
+// MapType is the type of Map.
+var MapType = NewType[*Map]("map", nil)
+
+// NewMap returns a map with initial space for
+// at least size insertions before rehashing.
 func NewMap(size int) *Map {
 	m := new(Map)
 	m.ht.init(size)
 	return m
 }
 
-func (o *Map) TypeName() string { return "map" }
+func (o *Map) Type() ObjectType { return MapType }
 
 func (o *Map) String() string {
 	var b strings.Builder
@@ -1558,8 +1724,8 @@ func (o *Map) AsImmutable() Object {
 	return m
 }
 
-func (o *Map) Mutable() bool { return !o.ht.immutable }
-func (o *Map) Len() int      { return int(o.ht.len) }
+func (o *Map) Immutable() bool { return o.ht.immutable }
+func (o *Map) Len() int        { return int(o.ht.len) }
 
 func (o *Map) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(*Map)
@@ -1616,9 +1782,21 @@ func (o *Map) Union(y *Map) *Map {
 	return z
 }
 
+// Tuple represents a tuple of objects.
 type Tuple []Object
 
-func (o Tuple) TypeName() string { return "tuple" }
+// TupleType is the type of Tuple.
+var TupleType = NewType[Tuple]("tuple", func(_ *VM, args ...Object) (Object, error) {
+	if len(args) == 1 {
+		var t Tuple
+		if err := Convert(&t, args[0]); err == nil {
+			return t, nil
+		}
+	}
+	return Tuple(args), nil
+})
+
+func (o Tuple) Type() ObjectType { return TupleType }
 
 func (o Tuple) String() string {
 	var b strings.Builder
@@ -1747,7 +1925,9 @@ type tupleIterator struct {
 	i int
 }
 
-func (it *tupleIterator) TypeName() string { return "tuple-iterator" }
+var tupleIteratorType = NewType[*tupleIterator]("tuple-iterator", nil)
+
+func (it *tupleIterator) Type() ObjectType { return tupleIteratorType }
 func (it *tupleIterator) String() string   { return "<tuple-iterator>" }
 func (it *tupleIterator) IsFalsy() bool    { return true }
 func (it *tupleIterator) Clone() Object    { return &tupleIterator{t: it.t, i: it.i} }
@@ -1766,23 +1946,59 @@ func (it *tupleIterator) Next(key, value *Object) bool {
 	return false
 }
 
+// Error represents an error message.
+// Error can be wrapped inside of another Error.
 type Error struct {
 	message string
 	cause   *Error
 }
 
+// ErrorType is the type of Error.
+var ErrorType = NewType[*Error]("error", func(_ *VM, args ...Object) (_ Object, err error) {
+	if len(args) < 1 {
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			Got:     len(args),
+		}
+	}
+	var cause *Error
+	if e, ok := args[0].(*Error); ok {
+		if len(args) == 1 {
+			return e, nil
+		}
+		args = args[1:]
+		cause = e
+	}
+	var (
+		format string
+		rest   []Object
+	)
+	if err := UnpackArgs(args, "format", &format, "...", &rest); err != nil {
+		return nil, err
+	}
+	var s string
+	if len(rest) != 0 {
+		s, err = Format(format, rest...)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		s = format
+	}
+	return &Error{message: s, cause: cause}, nil
+})
+
+// NewError creates Error with the provided message.
 func NewError(message string) *Error {
 	return &Error{message: message}
 }
 
+// NewErrorf creates Error with the provided formatted message.
 func NewErrorf(format string, args ...any) *Error {
 	return &Error{message: fmt.Sprintf(format, args...)}
 }
 
-func (o *Error) Message() string { return o.message }
-func (o *Error) Cause() *Error   { return o.cause }
-
-func (o *Error) TypeName() string { return "error" }
+func (o *Error) Type() ObjectType { return ErrorType }
 
 func (o *Error) String() string {
 	var b strings.Builder
@@ -1838,7 +2054,7 @@ func (o *Error) Contains(value Object) (bool, error) {
 	if !ok {
 		return false, &InvalidArgumentTypeError{
 			Want: "error",
-			Got:  value.TypeName(),
+			Got:  TypeName(value),
 		}
 	}
 	for x := o; x != nil; x = x.cause {
@@ -1849,12 +2065,17 @@ func (o *Error) Contains(value Object) (bool, error) {
 	return false, nil
 }
 
+func (o *Error) Message() string { return o.message }
+func (o *Error) Cause() *Error   { return o.cause }
+
 // objectPtr represents a free variable.
 type objectPtr struct {
 	p *Object
 }
 
-func (o *objectPtr) TypeName() string { return "free-var" }
+var objectPtrType = NewType[*objectPtr]("free-var", nil)
+
+func (o *objectPtr) Type() ObjectType { return objectPtrType }
 func (o *objectPtr) String() string   { return "<free-var>" }
 func (o *objectPtr) IsFalsy() bool    { return o.p == nil }
 func (o *objectPtr) Clone() Object    { return o }
@@ -1864,58 +2085,94 @@ type splatSequence struct {
 	s Sequence
 }
 
-func (o *splatSequence) TypeName() string { return "splat-sequence" }
+var splatSequenceType = NewType[*splatSequence]("splat-sequence", nil)
+
+func (o *splatSequence) Type() ObjectType { return splatSequenceType }
 func (o *splatSequence) String() string   { return "<splat-sequence>" }
 func (o *splatSequence) IsFalsy() bool    { return o.s == nil }
 func (o *splatSequence) Clone() Object    { return o }
 
-// rangeType represents a range value.
-type rangeType struct {
+// Range represents a range value.
+type Range struct {
 	start, stop, step int
 }
 
-func (o *rangeType) TypeName() string { return "range" }
-func (o *rangeType) String() string   { return "<range>" }
-func (o *rangeType) IsFalsy() bool    { return false }
+func NewRange(start, stop, step int) *Range {
+	if step <= 0 {
+		panic(fmt.Sprintf("invalid range step: must be > 0, got %d", step))
+	}
+	return &Range{
+		start: start,
+		stop:  stop,
+		step:  step,
+	}
+}
 
-func (o *rangeType) Clone() Object {
-	return &rangeType{
+// RangeType is the type of rangeValue.
+var RangeType = NewType[*Range]("range", func(_ *VM, args ...Object) (Object, error) {
+	var (
+		start, stop int
+		step        = 1
+	)
+	if err := UnpackArgs(args,
+		"start", &start,
+		"stop", &stop,
+		"step?", &step,
+	); err != nil {
+		return nil, err
+	}
+	if step <= 0 {
+		return nil, fmt.Errorf("invalid range step: must be > 0, got %d", step)
+	}
+	return &Range{
+		start: start,
+		stop:  stop,
+		step:  step,
+	}, nil
+})
+
+func (o *Range) Type() ObjectType { return RangeType }
+func (o *Range) String() string   { return "<range>" }
+func (o *Range) IsFalsy() bool    { return false }
+
+func (o *Range) Clone() Object {
+	return &Range{
 		start: o.start,
 		stop:  o.stop,
 		step:  o.step,
 	}
 }
 
-func (o *rangeType) Len() int {
+func (o *Range) Len() int {
 	if o.start <= o.stop {
 		return ((o.stop - o.start - 1) / o.step) + 1
 	}
 	return ((o.start - o.stop - 1) / o.step) + 1
 }
 
-func (o *rangeType) At(i int) Object {
+func (o *Range) At(i int) Object {
 	if o.start <= o.stop {
 		return Int(o.start + i*o.step)
 	}
 	return Int(o.start - i*o.step)
 }
 
-func (o *rangeType) Slice(low, high int) Object {
+func (o *Range) Slice(low, high int) Object {
 	if o.start <= o.stop {
-		return &rangeType{
+		return &Range{
 			start: o.start + low*o.step,
 			stop:  o.start + high*o.step,
 			step:  o.step,
 		}
 	}
-	return &rangeType{
+	return &Range{
 		start: o.start - low*o.step,
 		stop:  o.start - high*o.step,
 		step:  o.step,
 	}
 }
 
-func (o *rangeType) Items() []Object {
+func (o *Range) Items() []Object {
 	var elems []Object
 	if o.start <= o.stop {
 		elems = make([]Object, 0, ((o.stop-o.start-1)/o.step)+1)
@@ -1931,7 +2188,26 @@ func (o *rangeType) Items() []Object {
 	return elems
 }
 
-func (o *rangeType) Iterate() Iterator {
+func (o *Range) Contains(value Object) (bool, error) {
+	other, ok := value.(Int)
+	if !ok {
+		return false, &InvalidArgumentTypeError{
+			Want: "int",
+			Got:  TypeName(value),
+		}
+	}
+	if o.start <= o.stop {
+		return o.start <= int(other) && o.stop > int(other), nil
+	} else {
+		return o.start > int(other) && o.stop <= int(other), nil
+	}
+}
+
+func (o *Range) Start() int { return o.start }
+func (o *Range) Stop() int  { return o.stop }
+func (o *Range) Step() int  { return o.step }
+
+func (o *Range) Iterate() Iterator {
 	step := o.step
 	if o.start > o.stop {
 		step = -step
@@ -1944,21 +2220,6 @@ func (o *rangeType) Iterate() Iterator {
 	}
 }
 
-func (o *rangeType) Contains(value Object) (bool, error) {
-	other, ok := value.(Int)
-	if !ok {
-		return false, &InvalidArgumentTypeError{
-			Want: "int",
-			Got:  value.TypeName(),
-		}
-	}
-	if o.start <= o.stop {
-		return o.start <= int(other) && o.stop > int(other), nil
-	} else {
-		return o.start > int(other) && o.stop <= int(other), nil
-	}
-}
-
 type rangeIterator struct {
 	pos  int
 	len  int
@@ -1966,7 +2227,9 @@ type rangeIterator struct {
 	step int
 }
 
-func (it *rangeIterator) TypeName() string { return "range-iterator" }
+var rangeIteratorType = NewType[*rangeIterator]("range-iterator", nil)
+
+func (it *rangeIterator) Type() ObjectType { return rangeIteratorType }
 func (it *rangeIterator) String() string   { return "<range-iterator>" }
 func (it *rangeIterator) IsFalsy() bool    { return true }
 

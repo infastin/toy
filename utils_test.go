@@ -79,7 +79,7 @@ func expectEqualObjects(t testing.TB, expected, actual []toy.Object, msg ...any)
 }
 
 func expectEqualArray(t testing.TB, expected, actual *toy.Array, msg ...any) {
-	expectEqual(t, expected.Mutable(), actual.Mutable(), msg...)
+	expectEqual(t, expected.Immutable(), actual.Immutable(), msg...)
 	expectEqual(t, expected.Len(), actual.Len(), msg...)
 	for i := range expected.Len() {
 		expectEqual(t, expected.At(i), actual.At(i), msg...)
@@ -87,7 +87,7 @@ func expectEqualArray(t testing.TB, expected, actual *toy.Array, msg ...any) {
 }
 
 func expectEqualMap(t testing.TB, expected, actual *toy.Map, msg ...any) {
-	expectEqual(t, expected.Mutable(), actual.Mutable(), msg...)
+	expectEqual(t, expected.Immutable(), actual.Immutable(), msg...)
 	expectEqual(t, expected.Len(), actual.Len(), msg...)
 
 	expectedItems := expected.Items()
@@ -231,7 +231,7 @@ func objectZeroCopy(o toy.Object) toy.Object {
 		return new(toy.Array)
 	case *toy.Map:
 		return new(toy.Map)
-	case toy.NilType:
+	case toy.NilValue:
 		return toy.Nil
 	case *toy.Error:
 		return &toy.Error{}
@@ -240,6 +240,6 @@ func objectZeroCopy(o toy.Object) toy.Object {
 	case toy.Tuple:
 		return toy.Tuple{}
 	default:
-		panic(fmt.Errorf("unknown object type: %s", o.TypeName()))
+		panic(fmt.Errorf("unknown object type: %s", toy.TypeName(o)))
 	}
 }

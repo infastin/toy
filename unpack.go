@@ -123,7 +123,7 @@ loop:
 		if !ok {
 			return &InvalidKeyTypeError{
 				Want: "string",
-				Got:  key.TypeName(),
+				Got:  TypeName(key),
 			}
 		}
 		for i := 0; i < nparams; i++ {
@@ -194,7 +194,7 @@ func UnpackMapArgs(args []Object, pairs ...any) error {
 		return &InvalidArgumentTypeError{
 			Name: "args",
 			Want: "map",
-			Got:  args[0].TypeName(),
+			Got:  TypeName(args[0]),
 		}
 	}
 	var defined big.Int
@@ -227,7 +227,7 @@ loop:
 		if !ok {
 			return &InvalidKeyTypeError{
 				Want: "string",
-				Got:  key.TypeName(),
+				Got:  TypeName(key),
 			}
 		}
 		for i := 0; i < nparams; i++ {
@@ -290,7 +290,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "string",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = string(s)
@@ -299,7 +299,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "bool",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = bool(b)
@@ -309,7 +309,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "int",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		switch p := ptr.(type) {
@@ -341,7 +341,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "float",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		switch p := ptr.(type) {
@@ -355,7 +355,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "hashable",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = h
@@ -364,7 +364,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "freezable",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = f
@@ -373,7 +373,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "comparable",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = c
@@ -382,7 +382,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "object supporting binary operations",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = b
@@ -391,7 +391,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "object supporting unary operations",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = u
@@ -400,7 +400,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "index accesible",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = i
@@ -409,7 +409,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "index assignable",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = i
@@ -418,7 +418,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "field accesible",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = f
@@ -427,7 +427,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "field assignable",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = f
@@ -436,7 +436,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "sized",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = s
@@ -445,7 +445,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "indexable",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = i
@@ -454,7 +454,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "sliceable",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = s
@@ -463,7 +463,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "convertible",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = c
@@ -472,7 +472,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "callable",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = f
@@ -481,7 +481,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "container",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = c
@@ -490,7 +490,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "iterable",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = it
@@ -499,7 +499,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "sequence",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = seq
@@ -508,7 +508,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "indexable sequence",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = iseq
@@ -517,7 +517,7 @@ func unpackArg(ptr any, o Object) error {
 		if !ok {
 			return &InvalidValueTypeError{
 				Want: "mapping",
-				Got:  o.TypeName(),
+				Got:  TypeName(o),
 			}
 		}
 		*ptr = m
@@ -538,8 +538,8 @@ func unpackArg(ptr any, o Object) error {
 		if paramVar.Type().Implements(reflect.TypeFor[Object]()) {
 			// It should be safe to call TypeName on potentially nil object.
 			return &InvalidValueTypeError{
-				Want: paramVar.Interface().(Object).TypeName(),
-				Got:  o.TypeName(),
+				Want: TypeName(paramVar.Interface().(Object)),
+				Got:  TypeName(o),
 			}
 		}
 		// Maybe ptr is a pointer to a pointer that implements Object.

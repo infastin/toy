@@ -917,7 +917,7 @@ func (p *pp) printArg(arg Object, verb rune) {
 	// them first.
 	switch verb {
 	case 'T':
-		p.fmt.fmtS(arg.TypeName())
+		p.fmt.fmtS(TypeName(arg))
 		return
 	case 'v':
 		p.fmt.fmtS(arg.String())
@@ -1190,7 +1190,7 @@ formatLoop:
 			if arg == nil {
 				_, _ = p.WriteString(Nil.String())
 			} else {
-				_, _ = p.WriteString(arg.TypeName())
+				_, _ = p.WriteString(TypeName(arg))
 				_, _ = p.WriteSingleByte('=')
 				p.printArg(arg, 'v')
 			}

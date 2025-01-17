@@ -28,7 +28,7 @@ func NewScript(input []byte) *Script {
 
 // Add adds a new variable or updates an existing variable to the script.
 func (s *Script) Add(name string, value Object) {
-	s.variables[name] = &Variable{name: name, value: value}
+	s.variables[name] = &Variable{name, value}
 }
 
 // AddAll adds or updates multiple variables to the script.
@@ -69,8 +69,8 @@ func (s *Script) EnableFileImport(enable bool) {
 	s.enableFileImport = enable
 }
 
-// Compile compiles the script with all the defined variables, and, returns
-// Compiled object.
+// Compile compiles the script with all the defined variables,
+// and returns Compiled object.
 func (s *Script) Compile() (*Compiled, error) {
 	symbolTable, globals := s.prepCompile()
 
@@ -145,8 +145,8 @@ func (s *Script) prepCompile() (symbolTable *SymbolTable, globals []Object) {
 	}
 
 	symbolTable = NewSymbolTable()
-	for idx, fn := range BuiltinFuncs {
-		symbolTable.DefineBuiltin(idx, fn.Name)
+	for i, v := range Universe {
+		symbolTable.DefineBuiltin(i, v.name)
 	}
 
 	globals = make([]Object, GlobalsSize)
@@ -157,7 +157,7 @@ func (s *Script) prepCompile() (symbolTable *SymbolTable, globals []Object) {
 			panic(fmt.Errorf("wrong symbol index: %d != %d",
 				idx, symbol.Index))
 		}
-		globals[symbol.Index] = s.variables[name].value
+		globals[symbol.Index] = s.variables[name].Value()
 	}
 
 	return symbolTable, globals

@@ -21,9 +21,8 @@ func TestScript_Add(t *testing.T) {
 	s := toy.NewScript([]byte(`a := b; c := test(b); d := test(5)`))
 	s.Add("b", toy.Int(5))
 	s.Add("b", toy.String("foo"))
-	s.Add("test", &toy.BuiltinFunction{
-		Name: "test",
-		Func: func(_ *toy.VM, args ...toy.Object) (ret toy.Object, err error) {
+	s.Add("test", toy.NewBuiltinFunction("test",
+		func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 			if len(args) > 0 {
 				switch arg := args[0].(type) {
 				case toy.Int:
@@ -31,8 +30,7 @@ func TestScript_Add(t *testing.T) {
 				}
 			}
 			return toy.Int(0), nil
-		},
-	})
+		}))
 	c, err := s.Compile()
 	expectNoError(t, err)
 	expectNoError(t, c.Run())
@@ -104,7 +102,7 @@ a += 2*b
 
 arr := [a, b, c]
 arrStr := string(arr)
-map := {a: a, b: b, c: c}
+m := {a: a, b: b, c: c}
 
 d := a+b+c
 s := 0
@@ -124,16 +122,14 @@ e := mod1.double(s)
 
 	mods := make(toy.ModuleMap)
 	mods.AddBuiltinModule("mod1", map[string]toy.Object{
-		"double": &toy.BuiltinFunction{
-			Name: "double",
-			Func: func(_ *toy.VM, args ...toy.Object) (ret toy.Object, err error) {
+		"double": toy.NewBuiltinFunction("double",
+			func(_ *toy.VM, args ...toy.Object) (ret toy.Object, err error) {
 				var arg int
 				if err := toy.UnpackArgs(args, "arg", &arg); err != nil {
 					return nil, err
 				}
 				return 2 * toy.Int(arg), nil
-			},
-		},
+			}),
 	})
 	scr.SetImports(mods)
 
@@ -178,10 +174,12 @@ e := mod1.double(s)
 
 type Counter int64
 
-func (o Counter) TypeName() string  { return "counter" }
-func (o Counter) String() string    { return fmt.Sprintf("Counter(%d)", int64(o)) }
-func (o Counter) IsFalsy() bool     { return o == 0 }
-func (o Counter) Clone() toy.Object { return o }
+var CounterType = toy.NewType[Counter]("counter", nil)
+
+func (o Counter) Type() toy.ObjectType { return CounterType }
+func (o Counter) String() string       { return fmt.Sprintf("Counter(%d)", int64(o)) }
+func (o Counter) IsFalsy() bool        { return o == 0 }
+func (o Counter) Clone() toy.Object    { return o }
 
 func (o Counter) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	switch y := rhs.(type) {
@@ -282,17 +280,15 @@ func TestScriptSourceModule(t *testing.T) {
 	mods = make(toy.ModuleMap)
 	mods.AddSourceModule("mod", []byte(`text := import("text"); export text.title("foo")`))
 	mods.AddBuiltinModule("text", map[string]toy.Object{
-		"title": &toy.BuiltinFunction{
-			Name: "title",
-			Func: func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+		"title": toy.NewBuiltinFunction("title",
+			func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 				var s string
 				if err := toy.UnpackArgs(args, "s", &s); err != nil {
 					return nil, err
 				}
 				caser := cases.Title(language.Und, cases.NoLower)
 				return toy.String(caser.String(s)), nil
-			},
-		},
+			}),
 	})
 	scr.SetImports(mods)
 
@@ -420,41 +416,43 @@ func TestCompiled_RunContext(t *testing.T) {
 	expectEqual(t, context.DeadlineExceeded, err)
 }
 
-// customNumber is a user defined object that can compare to toy.Int.
-type customNumber float64
+// CustomNumber is a user defined object that can compare to toy.Int.
+type CustomNumber float64
 
-func (n customNumber) TypeName() string  { return "Number" }
-func (n customNumber) String() string    { return strconv.FormatFloat(float64(n), 'g', -1, 64) }
-func (n customNumber) IsFalsy() bool     { return n == 0 }
-func (n customNumber) Clone() toy.Object { return n }
+var CustomNumberType = toy.NewType[CustomNumber]("Number", nil)
 
-func (n customNumber) Compare(op token.Token, rhs toy.Object) (bool, error) {
+func (n CustomNumber) Type() toy.ObjectType { return CustomNumberType }
+func (n CustomNumber) String() string       { return strconv.FormatFloat(float64(n), 'g', -1, 64) }
+func (n CustomNumber) IsFalsy() bool        { return n == 0 }
+func (n CustomNumber) Clone() toy.Object    { return n }
+
+func (n CustomNumber) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	switch y := rhs.(type) {
 	case toy.Int:
 		switch op {
 		case token.Equal:
-			return n == customNumber(y), nil
+			return n == CustomNumber(y), nil
 		case token.NotEqual:
-			return n != customNumber(y), nil
+			return n != CustomNumber(y), nil
 		case token.Less:
-			return n < customNumber(y), nil
+			return n < CustomNumber(y), nil
 		case token.Greater:
-			return n > customNumber(y), nil
+			return n > CustomNumber(y), nil
 		case token.LessEq:
-			return n <= customNumber(y), nil
+			return n <= CustomNumber(y), nil
 		case token.GreaterEq:
-			return n >= customNumber(y), nil
+			return n >= CustomNumber(y), nil
 		}
 	}
 	return false, toy.ErrInvalidOperator
 }
 
 func TestCompiled_CustomObject(t *testing.T) {
-	c := compile(t, `r := t < 130`, MAP{"t": customNumber(123)})
+	c := compile(t, `r := t < 130`, MAP{"t": CustomNumber(123)})
 	compiledRun(t, c)
 	compiledGet(t, c, "r", true)
 
-	c = compile(t, `r := t > 13`, MAP{"t": customNumber(123)})
+	c = compile(t, `r := t > 13`, MAP{"t": CustomNumber(123)})
 	compiledRun(t, c)
 	compiledGet(t, c, "r", true)
 }
@@ -481,7 +479,7 @@ export fn(ctx) {
 
 	s.Add("ctx", makeMap("ctx", 12))
 	_, err := s.Run()
-	expectContains(t, err.Error(), "expression:4:10")
+	expectContains(t, err.Error(), "expression:4:14")
 }
 
 func compile(t *testing.T, input string, vars MAP) *toy.Compiled {

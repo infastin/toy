@@ -79,7 +79,7 @@ func expectEqualObjects(t testing.TB, expected, actual []Object, msg ...any) {
 }
 
 func expectEqualArray(t testing.TB, expected, actual *Array, msg ...any) {
-	expectEqual(t, expected.Mutable(), actual.Mutable(), msg...)
+	expectEqual(t, expected.Immutable(), actual.Immutable(), msg...)
 	expectEqual(t, expected.Len(), actual.Len(), msg...)
 	for i := range expected.Len() {
 		expectEqual(t, expected.At(i), actual.At(i), msg...)
@@ -87,7 +87,7 @@ func expectEqualArray(t testing.TB, expected, actual *Array, msg ...any) {
 }
 
 func expectEqualMap(t testing.TB, expected, actual *Map, msg ...any) {
-	expectEqual(t, expected.Mutable(), actual.Mutable(), msg...)
+	expectEqual(t, expected.Immutable(), actual.Immutable(), msg...)
 	expectEqual(t, expected.Len(), actual.Len(), msg...)
 
 	expectedItems := expected.Items()

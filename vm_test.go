@@ -2037,28 +2037,34 @@ func TestIncDec(t *testing.T) {
 
 type StringDict map[string]string
 
-func (o StringDict) TypeName() string { return "string-dict" }
-func (o StringDict) String() string   { return "" }
-func (o StringDict) IsFalsy() bool    { return len(o) == 0 }
-func (o StringDict) Copy() toy.Object { return StringDict(maps.Clone(o)) }
+func (o StringDict) TypeName() string  { return "string-dict" }
+func (o StringDict) String() string    { return "" }
+func (o StringDict) IsFalsy() bool     { return len(o) == 0 }
+func (o StringDict) Clone() toy.Object { return StringDict(maps.Clone(o)) }
 
-func (o StringDict) IndexGet(index toy.Object) (toy.Object, error) {
+func (o StringDict) IndexGet(index toy.Object) (toy.Object, bool, error) {
 	strIdx, ok := index.(toy.String)
 	if !ok {
-		return nil, toy.ErrInvalidIndexType
+		return nil, false, &toy.InvalidIndexTypeError{
+			Want: "string",
+			Got:  index.TypeName(),
+		}
 	}
 	for k, v := range o {
 		if strings.EqualFold(string(strIdx), k) {
-			return toy.String(v), nil
+			return toy.String(v), true, nil
 		}
 	}
-	return toy.Nil, nil
+	return toy.Nil, false, nil
 }
 
 func (o StringDict) IndexSet(index, value toy.Object) error {
 	strIdx, ok := index.(toy.String)
 	if !ok {
-		return toy.ErrInvalidIndexType
+		return &toy.InvalidIndexTypeError{
+			Want: "string",
+			Got:  index.TypeName(),
+		}
 	}
 	var strVal toy.String
 	if err := toy.Convert(&strVal, value); err != nil {
@@ -2070,27 +2076,33 @@ func (o StringDict) IndexSet(index, value toy.Object) error {
 
 type StringCircle []string
 
-func (o StringCircle) TypeName() string { return "string-circle" }
-func (o StringCircle) String() string   { return "" }
-func (o StringCircle) IsFalsy() bool    { return len(o) == 0 }
-func (o StringCircle) Copy() toy.Object { return StringCircle(slices.Clone(o)) }
+func (o StringCircle) TypeName() string  { return "string-circle" }
+func (o StringCircle) String() string    { return "" }
+func (o StringCircle) IsFalsy() bool     { return len(o) == 0 }
+func (o StringCircle) Clone() toy.Object { return StringCircle(slices.Clone(o)) }
 
-func (o StringCircle) IndexGet(index toy.Object) (toy.Object, error) {
+func (o StringCircle) IndexGet(index toy.Object) (toy.Object, bool, error) {
 	intIdx, ok := index.(toy.Int)
 	if !ok {
-		return nil, toy.ErrInvalidIndexType
+		return nil, false, &toy.InvalidIndexTypeError{
+			Want: "string",
+			Got:  index.TypeName(),
+		}
 	}
 	r := int(intIdx) % len(o)
 	if r < 0 {
 		r = len(o) + r
 	}
-	return toy.String(o[r]), nil
+	return toy.String(o[r]), true, nil
 }
 
 func (o StringCircle) IndexSet(index, value toy.Object) error {
 	intIdx, ok := index.(toy.Int)
 	if !ok {
-		return toy.ErrInvalidIndexType
+		return &toy.InvalidIndexTypeError{
+			Want: "string",
+			Got:  index.TypeName(),
+		}
 	}
 	r := int(intIdx) % len(o)
 	if r < 0 {
@@ -2106,10 +2118,10 @@ func (o StringCircle) IndexSet(index, value toy.Object) error {
 
 type StringArray []string
 
-func (o StringArray) TypeName() string { return "string-array" }
-func (o StringArray) String() string   { return strings.Join(o, ", ") }
-func (o StringArray) IsFalsy() bool    { return len(o) == 0 }
-func (o StringArray) Copy() toy.Object { return StringArray(slices.Clone(o)) }
+func (o StringArray) TypeName() string  { return "string-array" }
+func (o StringArray) String() string    { return strings.Join(o, ", ") }
+func (o StringArray) IsFalsy() bool     { return len(o) == 0 }
+func (o StringArray) Clone() toy.Object { return StringArray(slices.Clone(o)) }
 
 func (o StringArray) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(StringArray)
@@ -2153,28 +2165,34 @@ func (o StringArray) BinaryOp(op token.Token, rhs toy.Object) (toy.Object, error
 	return nil, toy.ErrInvalidOperator
 }
 
-func (o StringArray) IndexGet(index toy.Object) (toy.Object, error) {
+func (o StringArray) IndexGet(index toy.Object) (toy.Object, bool, error) {
 	switch idx := index.(type) {
 	case toy.Int:
 		if idx >= 0 && idx < toy.Int(len(o)) {
-			return toy.String(o[idx]), nil
+			return toy.String(o[idx]), true, nil
 		}
-		return toy.Nil, nil
+		return toy.Nil, false, nil
 	case toy.String:
 		for i, s := range o {
 			if s == string(idx) {
-				return toy.Int(i), nil
+				return toy.Int(i), false, nil
 			}
 		}
-		return toy.Nil, nil
+		return toy.Nil, false, nil
 	}
-	return nil, toy.ErrInvalidIndexType
+	return nil, false, &toy.InvalidIndexTypeError{
+		Want: "int or string",
+		Got:  index.TypeName(),
+	}
 }
 
 func (o StringArray) IndexSet(index, value toy.Object) error {
 	intIdx, ok := index.(toy.Int)
 	if !ok {
-		return toy.ErrInvalidIndexType
+		return &toy.InvalidIndexTypeError{
+			Want: "int",
+			Got:  index.TypeName(),
+		}
 	}
 	var strVal toy.String
 	if err := toy.Convert(&strVal, value); err != nil {
@@ -2213,10 +2231,10 @@ type stringArrayIterator struct {
 	i int
 }
 
-func (it *stringArrayIterator) TypeName() string { return "string-array-iterator" }
-func (it *stringArrayIterator) String() string   { return "" }
-func (it *stringArrayIterator) IsFalsy() bool    { return true }
-func (it *stringArrayIterator) Copy() toy.Object { return &stringArrayIterator{s: it.s, i: it.i} }
+func (it *stringArrayIterator) TypeName() string  { return "string-array-iterator" }
+func (it *stringArrayIterator) String() string    { return "" }
+func (it *stringArrayIterator) IsFalsy() bool     { return true }
+func (it *stringArrayIterator) Clone() toy.Object { return &stringArrayIterator{s: it.s, i: it.i} }
 
 func (it *stringArrayIterator) Next(key, value *toy.Object) bool {
 	if it.i < len(it.s) {

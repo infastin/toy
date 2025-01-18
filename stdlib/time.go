@@ -1,6 +1,7 @@
 package stdlib
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/infastin/toy"
@@ -72,7 +73,7 @@ var TimeType = toy.NewType[Time]("time.Time", func(_ *toy.VM, args ...toy.Object
 	}
 	var (
 		x        string
-		layout   = time.RFC3339
+		layout   = time.RFC3339Nano
 		location = "UTC"
 	)
 	if err := toy.UnpackArgs(args, "x", &x, "layout?", &layout, "location?", &location); err != nil {
@@ -96,29 +97,11 @@ var TimeType = toy.NewType[Time]("time.Time", func(_ *toy.VM, args ...toy.Object
 	return Time(t), nil
 })
 
-func (t *Time) Unpack(o toy.Object) error {
-	switch x := o.(type) {
-	case Time:
-		*t = x
-	case toy.String:
-		tm, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", string(x))
-		if err != nil {
-			return err
-		}
-		*t = Time(tm)
-	default:
-		return &toy.InvalidValueTypeError{
-			Want: "time.Time or string",
-			Got:  toy.TypeName(o),
-		}
-	}
-	return nil
-}
-
 func (t Time) Type() toy.ObjectType { return TimeType }
 
 func (t Time) String() string {
-	return (time.Time)(t).Format("2006-01-02 15:04:05.999999999 -0700 MST")
+	s := (time.Time)(t).Format(time.RFC3339Nano)
+	return fmt.Sprintf("time.Time(%q)", s)
 }
 
 func (t Time) IsFalsy() bool     { return (time.Time)(t).IsZero() }
@@ -165,6 +148,16 @@ func (t Time) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Object
 		}
 	}
 	return nil, toy.ErrInvalidOperator
+}
+
+func (t Time) Convert(p any) error {
+	switch p := p.(type) {
+	case *toy.String:
+		*p = toy.String((time.Time)(t).Format(time.RFC3339Nano))
+	default:
+		return toy.ErrNotConvertible
+	}
+	return nil
 }
 
 func (t Time) FieldGet(name string) (toy.Object, error) {
@@ -267,7 +260,7 @@ func timeTimeTruncate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 func timeParse(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		x        string
-		layout   = time.RFC3339
+		layout   = time.RFC3339Nano
 		location = "UTC"
 	)
 	if err := toy.UnpackArgs(args, "x", &x, "layout?", &layout, "location?", &location); err != nil {
@@ -348,29 +341,15 @@ var DurationType = toy.NewType[Duration]("time.Duration", func(_ *toy.VM, args .
 	}
 })
 
-func (d *Duration) Unpack(o toy.Object) error {
-	switch x := o.(type) {
-	case Duration:
-		*d = x
-	case toy.String:
-		dur, err := time.ParseDuration(string(x))
-		if err != nil {
-			return err
-		}
-		*d = Duration(dur)
-	default:
-		return &toy.InvalidValueTypeError{
-			Want: "time.Duration or string",
-			Got:  toy.TypeName(o),
-		}
-	}
-	return nil
+func (d Duration) Type() toy.ObjectType { return DurationType }
+
+func (d Duration) String() string {
+	s := time.Duration(d).String()
+	return fmt.Sprintf("time.Duration(%q)", s)
 }
 
-func (d Duration) Type() toy.ObjectType { return DurationType }
-func (d Duration) String() string       { return (time.Duration)(d).String() }
-func (d Duration) IsFalsy() bool        { return d == 0 }
-func (d Duration) Clone() toy.Object    { return d }
+func (d Duration) IsFalsy() bool     { return d == 0 }
+func (d Duration) Clone() toy.Object { return d }
 
 func (d Duration) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(Duration)
@@ -424,6 +403,16 @@ func (d Duration) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Ob
 		}
 	}
 	return nil, toy.ErrInvalidOperator
+}
+
+func (d Duration) Convert(p any) error {
+	switch p := p.(type) {
+	case *toy.String:
+		*p = toy.String((time.Duration)(d).String())
+	default:
+		return toy.ErrNotConvertible
+	}
+	return nil
 }
 
 func (d Duration) FieldGet(name string) (toy.Object, error) {

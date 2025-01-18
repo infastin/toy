@@ -108,9 +108,9 @@ func (v *VM) run() {
 			v.sp++
 		case bytecode.OpBinaryOp:
 			v.ip++
+			tok := token.Token(v.curInsts[v.ip])
 			right := v.stack[v.sp-1]
 			left := v.stack[v.sp-2]
-			tok := token.Token(v.curInsts[v.ip])
 
 			res, err := BinaryOp(tok, left, right)
 			if err != nil {
@@ -123,9 +123,9 @@ func (v *VM) run() {
 			v.sp--
 		case bytecode.OpCompare:
 			v.ip++
+			tok := token.Token(v.curInsts[v.ip])
 			right := v.stack[v.sp-1]
 			left := v.stack[v.sp-2]
-			tok := token.Token(v.curInsts[v.ip])
 
 			res, err := Compare(tok, left, right)
 			if err != nil {
@@ -146,8 +146,8 @@ func (v *VM) run() {
 			v.sp++
 		case bytecode.OpUnaryOp:
 			v.ip++
-			operand := v.stack[v.sp-1]
 			tok := token.Token(v.curInsts[v.ip])
+			operand := v.stack[v.sp-1]
 			v.sp--
 
 			res, err := UnaryOp(tok, operand)
@@ -318,8 +318,8 @@ func (v *VM) run() {
 			}
 		case bytecode.OpSliceIndex:
 			v.ip++
-			left := v.stack[v.sp-1]
 			op := v.curInsts[v.ip]
+			left := v.stack[v.sp-1]
 			v.sp--
 
 			s, ok := left.(Sliceable)
@@ -379,9 +379,9 @@ func (v *VM) run() {
 			}
 			v.stack[v.sp-1] = &splatSequence{s: seq}
 		case bytecode.OpCall:
-			numArgs := int(v.curInsts[v.ip+1])
-			splat := int(v.curInsts[v.ip+2])
 			v.ip += 2
+			numArgs := int(v.curInsts[v.ip-1])
+			splat := int(v.curInsts[v.ip])
 
 			value := v.stack[v.sp-1-numArgs]
 			callable, ok := value.(Callable)
@@ -453,10 +453,10 @@ func (v *VM) run() {
 				return
 			}
 		case bytecode.OpDefer:
-			numArgs := int(v.curInsts[v.ip+1])
-			splat := int(v.curInsts[v.ip+2])
-			deferIdx := int(v.curInsts[v.ip+3])
 			v.ip += 3
+			numArgs := int(v.curInsts[v.ip-2])
+			splat := int(v.curInsts[v.ip-1])
+			deferIdx := int(v.curInsts[v.ip])
 
 			value := v.stack[v.sp-1-numArgs]
 			callable, ok := value.(Callable)
@@ -515,8 +515,8 @@ func (v *VM) run() {
 			v.sp--
 			v.stack[sp] = val
 		case bytecode.OpSetLocal:
-			localIndex := int(v.curInsts[v.ip+1])
 			v.ip++
+			localIndex := int(v.curInsts[v.ip])
 			sp := v.curFrame.basePointer + localIndex
 			// update pointee of v.stack[sp] instead of replacing the pointer
 			// itself. this is needed because there can be free variables
@@ -640,8 +640,8 @@ func (v *VM) run() {
 			v.sp++
 		case bytecode.OpIteratorNext:
 			v.ip++
-			iterator := v.stack[v.sp-1].(Iterator)
 			op := v.curInsts[v.ip]
+			iterator := v.stack[v.sp-1].(Iterator)
 			v.sp--
 
 			var (

@@ -122,21 +122,6 @@ var FileModeType = NewEnum("os.FileMode", map[string]FileMode{
 	}
 })
 
-func (m *FileMode) Unpack(o toy.Object) error {
-	switch x := o.(type) {
-	case FileMode:
-		*m = x
-	case toy.Int:
-		*m = FileMode(x)
-	default:
-		return &toy.InvalidValueTypeError{
-			Want: "FileMode or int",
-			Got:  toy.TypeName(o),
-		}
-	}
-	return nil
-}
-
 func (m FileMode) Type() toy.ObjectType { return FileModeType }
 func (m FileMode) String() string       { return fmt.Sprintf("os.FileMode(%q)", os.FileMode(m).String()) }
 func (m FileMode) IsFalsy() bool        { return false }
@@ -146,8 +131,6 @@ func (m FileMode) Convert(p any) error {
 	switch p := p.(type) {
 	case *toy.Int:
 		*p = toy.Int(m)
-	case *toy.Float:
-		*p = toy.Float(m)
 	default:
 		return toy.ErrNotConvertible
 	}
@@ -347,7 +330,7 @@ func osEnviron(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 func osChmod(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		name string
-		mode int
+		mode FileMode
 	)
 	if err := toy.UnpackArgs(args, "name", &name, "mode", &mode); err != nil {
 		return nil, err

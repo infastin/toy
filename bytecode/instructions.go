@@ -1,15 +1,14 @@
-package toy
+package bytecode
 
 import (
+	"encoding/binary"
 	"fmt"
 	"strings"
-
-	"github.com/infastin/toy/parser"
 )
 
 // MakeInstruction returns a bytecode for an opcode and the operands.
-func MakeInstruction(opcode parser.Opcode, operands ...int) []byte {
-	numOperands := parser.OpcodeOperands[opcode]
+func MakeInstruction(opcode Opcode, operands ...int) []byte {
+	numOperands := OpcodeOperands[opcode]
 
 	totalLen := 1
 	for _, w := range numOperands {
@@ -26,15 +25,9 @@ func MakeInstruction(opcode parser.Opcode, operands ...int) []byte {
 		case 1:
 			instruction[offset] = byte(o)
 		case 2:
-			n := uint16(o)
-			instruction[offset] = byte(n >> 8)
-			instruction[offset+1] = byte(n)
+			binary.BigEndian.PutUint16(instruction[offset:], uint16(o))
 		case 4:
-			n := uint32(o)
-			instruction[offset] = byte(n >> 24)
-			instruction[offset+1] = byte(n >> 16)
-			instruction[offset+2] = byte(n >> 8)
-			instruction[offset+3] = byte(n)
+			binary.BigEndian.PutUint32(instruction[offset:], uint32(o))
 		}
 		offset += width
 	}
@@ -48,8 +41,8 @@ func FormatInstructions(b []byte, posOffset int) []string {
 	var out []string
 	i := 0
 	for i < len(b) {
-		operands, read := parser.ReadOperands(parser.OpcodeOperands[b[i]], b[i+1:])
-		inst.WriteString(fmt.Sprintf("%04d %s", posOffset+i, parser.OpcodeNames[b[i]]))
+		operands, read := ReadOperands(OpcodeOperands[b[i]], b[i+1:])
+		inst.WriteString(fmt.Sprintf("%04d %s", posOffset+i, OpcodeNames[b[i]]))
 		if len(operands) != 0 {
 			inst.WriteString(" [")
 			for i, operand := range operands {

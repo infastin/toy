@@ -7,12 +7,13 @@ import (
 	"math"
 	"math/rand/v2"
 	"reflect"
-	_runtime "runtime"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/infastin/toy"
+	"github.com/infastin/toy/ast"
 	"github.com/infastin/toy/parser"
 	"github.com/infastin/toy/token"
 )
@@ -3690,7 +3691,7 @@ func (o *vmTracer) Write(p []byte) (n int, err error) {
 }
 
 func traceCompileRun(
-	file *parser.File,
+	file *ast.File,
 	symbols map[string]toy.Object,
 	modules toy.ModuleMap,
 ) (res map[string]toy.Object, trace []string, err error) {
@@ -3703,7 +3704,7 @@ func traceCompileRun(
 			// stack trace
 			var stackTrace []string
 			for i := 2; ; i += 1 {
-				_, file, line, ok := _runtime.Caller(i)
+				_, file, line, ok := runtime.Caller(i)
 				if !ok {
 					break
 				}
@@ -3785,8 +3786,8 @@ func formatGlobals(globals []toy.Object) (formatted []string) {
 	return
 }
 
-func parse(t *testing.T, input string) *parser.File {
-	testFileSet := parser.NewFileSet()
+func parse(t *testing.T, input string) *ast.File {
+	testFileSet := token.NewFileSet()
 	testFile := testFileSet.AddFile("test", -1, len(input))
 
 	p := parser.NewParser(testFile, []byte(input), nil)

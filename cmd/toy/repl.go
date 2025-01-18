@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"github.com/infastin/toy"
+	"github.com/infastin/toy/ast"
 	"github.com/infastin/toy/parser"
 	"github.com/infastin/toy/stdlib"
 	"github.com/infastin/toy/token"
@@ -100,7 +101,7 @@ func newCompiler() *compiler {
 }
 
 func (s *compiler) compileAndRun(input []byte) (string, error) {
-	fileSet := parser.NewFileSet()
+	fileSet := token.NewFileSet()
 	srcFile := fileSet.AddFile("(repl)", -1, len(input))
 
 	p := parser.NewParser(srcFile, input, nil)
@@ -134,21 +135,21 @@ func (s *compiler) compileAndRun(input []byte) (string, error) {
 	return output, nil
 }
 
-func addPrints(file *parser.File) *parser.File {
-	var stmts []parser.Stmt
+func addPrints(file *ast.File) *ast.File {
+	var stmts []ast.Stmt
 	for _, s := range file.Stmts {
 		switch s := s.(type) {
-		case *parser.ExprStmt:
-			stmts = append(stmts, &parser.ExprStmt{
-				Expr: &parser.CallExpr{
-					Func: &parser.Ident{Name: "__replPrint__"},
-					Args: []parser.Expr{s.Expr},
+		case *ast.ExprStmt:
+			stmts = append(stmts, &ast.ExprStmt{
+				Expr: &ast.CallExpr{
+					Func: &ast.Ident{Name: "__replPrint__"},
+					Args: []ast.Expr{s.Expr},
 				},
 			})
-		case *parser.AssignStmt:
-			stmts = append(stmts, s, &parser.ExprStmt{
-				Expr: &parser.CallExpr{
-					Func: &parser.Ident{
+		case *ast.AssignStmt:
+			stmts = append(stmts, s, &ast.ExprStmt{
+				Expr: &ast.CallExpr{
+					Func: &ast.Ident{
 						Name: "__replPrint__",
 					},
 					Args: s.LHS,
@@ -158,7 +159,7 @@ func addPrints(file *parser.File) *parser.File {
 			stmts = append(stmts, s)
 		}
 	}
-	return &parser.File{
+	return &ast.File{
 		InputFile: file.InputFile,
 		Stmts:     stmts,
 	}
@@ -493,7 +494,7 @@ func (m *model) onEnter() (tea.Model, tea.Cmd) {
 func checkNewLine(input []byte) (bool, error) {
 	var errors parser.ErrorList
 
-	fileSet := parser.NewFileSet()
+	fileSet := token.NewFileSet()
 	srcFile := fileSet.AddFile("(repl)", -1, len(input))
 	scanner := parser.NewScanner(srcFile, input, errors.Add, 0)
 

@@ -21,12 +21,12 @@ const (
 )
 
 // ScannerErrorHandler is an error handler for the scanner.
-type ScannerErrorHandler func(pos SourceFilePos, msg string)
+type ScannerErrorHandler func(pos token.FilePos, msg string)
 
 // Scanner reads the Toy source text.
 // It's based on Go's scanner implementation.
 type Scanner struct {
-	file         *SourceFile         // source file handle
+	file         *token.File         // source file handle
 	src          []byte              // source
 	ch           rune                // current character
 	offset       int                 // character offset
@@ -40,7 +40,7 @@ type Scanner struct {
 
 // NewScanner creates a Scanner.
 func NewScanner(
-	file *SourceFile,
+	file *token.File,
 	src []byte,
 	errorHandler ScannerErrorHandler,
 	mode ScanMode,
@@ -75,7 +75,7 @@ func (s *Scanner) ErrorCount() int {
 func (s *Scanner) Scan() (
 	tok token.Token,
 	literal string,
-	pos Pos,
+	pos token.Pos,
 ) {
 	s.skipWhitespace()
 

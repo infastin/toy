@@ -3,53 +3,53 @@ package toy
 import (
 	"testing"
 
-	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/bytecode"
 )
 
 func TestBytecode_RemoveDuplicates(t *testing.T) {
-	testBytecodeRemoveDuplicates(t, bytecode(
+	testBytecodeRemoveDuplicates(t, makeBytecode(
 		concatInsts(),
 		objectsArray(
 			Char('y'),
 			Float(93.11),
 			compiledFunction(1, 0, false,
-				MakeInstruction(parser.OpConstant, 3),
-				MakeInstruction(parser.OpSetLocal, 0),
-				MakeInstruction(parser.OpGetGlobal, 0),
-				MakeInstruction(parser.OpGetFree, 0),
+				bytecode.MakeInstruction(bytecode.OpConstant, 3),
+				bytecode.MakeInstruction(bytecode.OpSetLocal, 0),
+				bytecode.MakeInstruction(bytecode.OpGetGlobal, 0),
+				bytecode.MakeInstruction(bytecode.OpGetFree, 0),
 			),
 			Float(39.2),
 			Int(192),
 			String("bar"),
 		),
-	), bytecode(
+	), makeBytecode(
 		concatInsts(),
 		objectsArray(
 			Char('y'),
 			Float(93.11),
 			compiledFunction(1, 0, false,
-				MakeInstruction(parser.OpConstant, 3),
-				MakeInstruction(parser.OpSetLocal, 0),
-				MakeInstruction(parser.OpGetGlobal, 0),
-				MakeInstruction(parser.OpGetFree, 0)),
+				bytecode.MakeInstruction(bytecode.OpConstant, 3),
+				bytecode.MakeInstruction(bytecode.OpSetLocal, 0),
+				bytecode.MakeInstruction(bytecode.OpGetGlobal, 0),
+				bytecode.MakeInstruction(bytecode.OpGetFree, 0)),
 			Float(39.2),
 			Int(192),
 			String("bar"),
 		),
 	))
 
-	testBytecodeRemoveDuplicates(t, bytecode(
+	testBytecodeRemoveDuplicates(t, makeBytecode(
 		concatInsts(
-			MakeInstruction(parser.OpConstant, 0),
-			MakeInstruction(parser.OpConstant, 1),
-			MakeInstruction(parser.OpConstant, 2),
-			MakeInstruction(parser.OpConstant, 3),
-			MakeInstruction(parser.OpConstant, 4),
-			MakeInstruction(parser.OpConstant, 5),
-			MakeInstruction(parser.OpConstant, 6),
-			MakeInstruction(parser.OpConstant, 7),
-			MakeInstruction(parser.OpConstant, 8),
-			MakeInstruction(parser.OpClosure, 4, 1),
+			bytecode.MakeInstruction(bytecode.OpConstant, 0),
+			bytecode.MakeInstruction(bytecode.OpConstant, 1),
+			bytecode.MakeInstruction(bytecode.OpConstant, 2),
+			bytecode.MakeInstruction(bytecode.OpConstant, 3),
+			bytecode.MakeInstruction(bytecode.OpConstant, 4),
+			bytecode.MakeInstruction(bytecode.OpConstant, 5),
+			bytecode.MakeInstruction(bytecode.OpConstant, 6),
+			bytecode.MakeInstruction(bytecode.OpConstant, 7),
+			bytecode.MakeInstruction(bytecode.OpConstant, 8),
+			bytecode.MakeInstruction(bytecode.OpClosure, 4, 1),
 		),
 		objectsArray(
 			Int(1),
@@ -57,29 +57,29 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 			Char('3'),
 			String("four"),
 			compiledFunction(1, 0, false,
-				MakeInstruction(parser.OpConstant, 3),
-				MakeInstruction(parser.OpConstant, 7),
-				MakeInstruction(parser.OpSetLocal, 0),
-				MakeInstruction(parser.OpGetGlobal, 0),
-				MakeInstruction(parser.OpGetFree, 0),
+				bytecode.MakeInstruction(bytecode.OpConstant, 3),
+				bytecode.MakeInstruction(bytecode.OpConstant, 7),
+				bytecode.MakeInstruction(bytecode.OpSetLocal, 0),
+				bytecode.MakeInstruction(bytecode.OpGetGlobal, 0),
+				bytecode.MakeInstruction(bytecode.OpGetFree, 0),
 			),
 			Int(1),
 			Float(2.0),
 			Char('3'),
 			String("four"),
 		),
-	), bytecode(
+	), makeBytecode(
 		concatInsts(
-			MakeInstruction(parser.OpConstant, 0),
-			MakeInstruction(parser.OpConstant, 1),
-			MakeInstruction(parser.OpConstant, 2),
-			MakeInstruction(parser.OpConstant, 3),
-			MakeInstruction(parser.OpConstant, 4),
-			MakeInstruction(parser.OpConstant, 0),
-			MakeInstruction(parser.OpConstant, 1),
-			MakeInstruction(parser.OpConstant, 2),
-			MakeInstruction(parser.OpConstant, 3),
-			MakeInstruction(parser.OpClosure, 4, 1),
+			bytecode.MakeInstruction(bytecode.OpConstant, 0),
+			bytecode.MakeInstruction(bytecode.OpConstant, 1),
+			bytecode.MakeInstruction(bytecode.OpConstant, 2),
+			bytecode.MakeInstruction(bytecode.OpConstant, 3),
+			bytecode.MakeInstruction(bytecode.OpConstant, 4),
+			bytecode.MakeInstruction(bytecode.OpConstant, 0),
+			bytecode.MakeInstruction(bytecode.OpConstant, 1),
+			bytecode.MakeInstruction(bytecode.OpConstant, 2),
+			bytecode.MakeInstruction(bytecode.OpConstant, 3),
+			bytecode.MakeInstruction(bytecode.OpClosure, 4, 1),
 		),
 		objectsArray(
 			Int(1),
@@ -87,22 +87,22 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 			Char('3'),
 			String("four"),
 			compiledFunction(1, 0, false,
-				MakeInstruction(parser.OpConstant, 3),
-				MakeInstruction(parser.OpConstant, 2),
-				MakeInstruction(parser.OpSetLocal, 0),
-				MakeInstruction(parser.OpGetGlobal, 0),
-				MakeInstruction(parser.OpGetFree, 0),
+				bytecode.MakeInstruction(bytecode.OpConstant, 3),
+				bytecode.MakeInstruction(bytecode.OpConstant, 2),
+				bytecode.MakeInstruction(bytecode.OpSetLocal, 0),
+				bytecode.MakeInstruction(bytecode.OpGetGlobal, 0),
+				bytecode.MakeInstruction(bytecode.OpGetFree, 0),
 			),
 		),
 	))
 
-	testBytecodeRemoveDuplicates(t, bytecode(
+	testBytecodeRemoveDuplicates(t, makeBytecode(
 		concatInsts(
-			MakeInstruction(parser.OpConstant, 0),
-			MakeInstruction(parser.OpConstant, 1),
-			MakeInstruction(parser.OpConstant, 2),
-			MakeInstruction(parser.OpConstant, 3),
-			MakeInstruction(parser.OpConstant, 4),
+			bytecode.MakeInstruction(bytecode.OpConstant, 0),
+			bytecode.MakeInstruction(bytecode.OpConstant, 1),
+			bytecode.MakeInstruction(bytecode.OpConstant, 2),
+			bytecode.MakeInstruction(bytecode.OpConstant, 3),
+			bytecode.MakeInstruction(bytecode.OpConstant, 4),
 		),
 		objectsArray(
 			Int(1),
@@ -111,13 +111,13 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 			Int(1),
 			Int(3),
 		),
-	), bytecode(
+	), makeBytecode(
 		concatInsts(
-			MakeInstruction(parser.OpConstant, 0),
-			MakeInstruction(parser.OpConstant, 1),
-			MakeInstruction(parser.OpConstant, 2),
-			MakeInstruction(parser.OpConstant, 0),
-			MakeInstruction(parser.OpConstant, 2),
+			bytecode.MakeInstruction(bytecode.OpConstant, 0),
+			bytecode.MakeInstruction(bytecode.OpConstant, 1),
+			bytecode.MakeInstruction(bytecode.OpConstant, 2),
+			bytecode.MakeInstruction(bytecode.OpConstant, 0),
+			bytecode.MakeInstruction(bytecode.OpConstant, 2),
 		),
 		objectsArray(
 			Int(1),
@@ -135,29 +135,29 @@ func testBytecodeRemoveDuplicates(t *testing.T, input, expected *Bytecode) {
 }
 
 func TestBytecode_RemoveUnused(t *testing.T) {
-	testBytecodeRemoveUnused(t, bytecode(
+	testBytecodeRemoveUnused(t, makeBytecode(
 		concatInsts(),
 		objectsArray(
 			Char('y'),
 			Float(93.11),
 			compiledFunction(1, 0, false,
-				MakeInstruction(parser.OpConstant, 3),
-				MakeInstruction(parser.OpSetLocal, 0),
-				MakeInstruction(parser.OpGetGlobal, 0),
-				MakeInstruction(parser.OpGetFree, 0),
+				bytecode.MakeInstruction(bytecode.OpConstant, 3),
+				bytecode.MakeInstruction(bytecode.OpSetLocal, 0),
+				bytecode.MakeInstruction(bytecode.OpGetGlobal, 0),
+				bytecode.MakeInstruction(bytecode.OpGetFree, 0),
 			),
 			Float(39.2),
 			Int(192),
 			String("bar"),
 		),
-	), bytecode(
+	), makeBytecode(
 		concatInsts(),
 		objectsArray(),
 	))
 
-	testBytecodeRemoveUnused(t, bytecode(
+	testBytecodeRemoveUnused(t, makeBytecode(
 		concatInsts(
-			MakeInstruction(parser.OpConstant, 0),
+			bytecode.MakeInstruction(bytecode.OpConstant, 0),
 		),
 		objectsArray(
 			Int(1),
@@ -165,38 +165,38 @@ func TestBytecode_RemoveUnused(t *testing.T) {
 			Char('3'),
 			String("four"),
 			compiledFunction(1, 0, false,
-				MakeInstruction(parser.OpConstant, 3),
-				MakeInstruction(parser.OpConstant, 7),
-				MakeInstruction(parser.OpSetLocal, 0),
-				MakeInstruction(parser.OpGetGlobal, 0),
-				MakeInstruction(parser.OpGetFree, 0),
+				bytecode.MakeInstruction(bytecode.OpConstant, 3),
+				bytecode.MakeInstruction(bytecode.OpConstant, 7),
+				bytecode.MakeInstruction(bytecode.OpSetLocal, 0),
+				bytecode.MakeInstruction(bytecode.OpGetGlobal, 0),
+				bytecode.MakeInstruction(bytecode.OpGetFree, 0),
 			),
 		),
-	), bytecode(
+	), makeBytecode(
 		concatInsts(
-			MakeInstruction(parser.OpConstant, 0),
+			bytecode.MakeInstruction(bytecode.OpConstant, 0),
 		),
 		objectsArray(
 			Int(1),
 		),
 	))
 
-	testBytecodeRemoveUnused(t, bytecode(
+	testBytecodeRemoveUnused(t, makeBytecode(
 		concatInsts(
-			MakeInstruction(parser.OpConstant, 0),
-			MakeInstruction(parser.OpConstant, 2),
-			MakeInstruction(parser.OpConstant, 0),
+			bytecode.MakeInstruction(bytecode.OpConstant, 0),
+			bytecode.MakeInstruction(bytecode.OpConstant, 2),
+			bytecode.MakeInstruction(bytecode.OpConstant, 0),
 		),
 		objectsArray(
 			Int(1),
 			Int(2),
 			Int(3),
 		),
-	), bytecode(
+	), makeBytecode(
 		concatInsts(
-			MakeInstruction(parser.OpConstant, 0),
-			MakeInstruction(parser.OpConstant, 1),
-			MakeInstruction(parser.OpConstant, 0),
+			bytecode.MakeInstruction(bytecode.OpConstant, 0),
+			bytecode.MakeInstruction(bytecode.OpConstant, 1),
+			bytecode.MakeInstruction(bytecode.OpConstant, 0),
 		),
 		objectsArray(
 			Int(1),

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/token"
 )
 
 // Script can simplify compilation and execution of embedded scripts.
@@ -74,7 +75,7 @@ func (s *Script) EnableFileImport(enable bool) {
 func (s *Script) Compile() (*Compiled, error) {
 	symbolTable, globals := s.prepCompile()
 
-	fileSet := parser.NewFileSet()
+	fileSet := token.NewFileSet()
 	srcFile := fileSet.AddFile("(main)", -1, len(s.input))
 	p := parser.NewParser(srcFile, s.input, nil)
 	file, err := p.ParseFile()

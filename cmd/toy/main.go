@@ -12,6 +12,7 @@ import (
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/parser"
 	"github.com/infastin/toy/stdlib"
+	"github.com/infastin/toy/token"
 )
 
 var (
@@ -78,7 +79,7 @@ func (o *compileTracer) Write(p []byte) (n int, err error) {
 
 // PrintTrace compiles the source code and prints compiler trace.
 func PrintTrace(inputData []byte, inputFile string) error {
-	fileSet := parser.NewFileSet()
+	fileSet := token.NewFileSet()
 	file := fileSet.AddFile(inputFile, -1, len(inputData))
 
 	symTable := toy.NewSymbolTable()

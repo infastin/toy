@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/token"
 
 	"github.com/stretchr/testify/require"
 )
@@ -156,12 +156,12 @@ func concatInsts(instructions ...[]byte) []byte {
 	return concat
 }
 
-func bytecode(
+func makeBytecode(
 	instructions []byte,
 	constants []Object,
 ) *Bytecode {
 	return &Bytecode{
-		FileSet:      parser.NewFileSet(),
+		FileSet:      token.NewFileSet(),
 		MainFunction: &CompiledFunction{instructions: instructions},
 		Constants:    constants,
 	}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/bytecode"
 	"github.com/infastin/toy/token"
 )
 
@@ -12,7 +12,7 @@ import (
 type deferredCall struct {
 	fn   Callable
 	args []Object
-	pos  parser.Pos
+	pos  token.Pos
 }
 
 // frame represents a function call frame.
@@ -33,7 +33,7 @@ type VM struct {
 	stack       []Object
 	sp          int
 	globals     []Object
-	fileSet     *parser.SourceFileSet
+	fileSet     *token.FileSet
 	frames      []frame
 	framesIndex int
 	curFrame    *frame
@@ -98,15 +98,15 @@ func (v *VM) run() {
 	for atomic.LoadInt64(&v.aborting) == 0 {
 		v.ip++
 		switch v.curInsts[v.ip] {
-		case parser.OpConstant:
+		case bytecode.OpConstant:
 			v.ip += 2
-			cidx := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+			cidx := read2(v.curInsts, v.ip)
 			v.stack[v.sp] = v.constants[cidx]
 			v.sp++
-		case parser.OpNull:
+		case bytecode.OpNull:
 			v.stack[v.sp] = Nil
 			v.sp++
-		case parser.OpBinaryOp:
+		case bytecode.OpBinaryOp:
 			v.ip++
 			right := v.stack[v.sp-1]
 			left := v.stack[v.sp-2]
@@ -121,7 +121,7 @@ func (v *VM) run() {
 
 			v.stack[v.sp-2] = res
 			v.sp--
-		case parser.OpCompare:
+		case bytecode.OpCompare:
 			v.ip++
 			right := v.stack[v.sp-1]
 			left := v.stack[v.sp-2]
@@ -136,15 +136,15 @@ func (v *VM) run() {
 
 			v.stack[v.sp-2] = Bool(res)
 			v.sp--
-		case parser.OpPop:
+		case bytecode.OpPop:
 			v.sp--
-		case parser.OpTrue:
+		case bytecode.OpTrue:
 			v.stack[v.sp] = True
 			v.sp++
-		case parser.OpFalse:
+		case bytecode.OpFalse:
 			v.stack[v.sp] = False
 			v.sp++
-		case parser.OpUnaryOp:
+		case bytecode.OpUnaryOp:
 			v.ip++
 			operand := v.stack[v.sp-1]
 			tok := token.Token(v.curInsts[v.ip])
@@ -158,46 +158,46 @@ func (v *VM) run() {
 
 			v.stack[v.sp] = res
 			v.sp++
-		case parser.OpJumpFalsy:
+		case bytecode.OpJumpFalsy:
 			v.ip += 4
 			v.sp--
 			if v.stack[v.sp].IsFalsy() {
-				pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8 | int(v.curInsts[v.ip-2])<<16 | int(v.curInsts[v.ip-3])<<24
+				pos := read4(v.curInsts, v.ip)
 				v.ip = pos - 1
 			}
-		case parser.OpAndJump:
+		case bytecode.OpAndJump:
 			v.ip += 4
 			if v.stack[v.sp-1].IsFalsy() {
-				pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8 | int(v.curInsts[v.ip-2])<<16 | int(v.curInsts[v.ip-3])<<24
+				pos := read4(v.curInsts, v.ip)
 				v.ip = pos - 1
 			} else {
 				v.sp--
 			}
-		case parser.OpOrJump:
+		case bytecode.OpOrJump:
 			v.ip += 4
 			if v.stack[v.sp-1].IsFalsy() {
 				v.sp--
 			} else {
-				pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8 | int(v.curInsts[v.ip-2])<<16 | int(v.curInsts[v.ip-3])<<24
+				pos := read4(v.curInsts, v.ip)
 				v.ip = pos - 1
 			}
-		case parser.OpJump:
-			pos := int(v.curInsts[v.ip+4]) | int(v.curInsts[v.ip+3])<<8 | int(v.curInsts[v.ip+2])<<16 | int(v.curInsts[v.ip+1])<<24
+		case bytecode.OpJump:
+			pos := read4(v.curInsts, v.ip+4)
 			v.ip = pos - 1
-		case parser.OpSetGlobal:
+		case bytecode.OpSetGlobal:
 			v.ip += 2
 			v.sp--
-			globalIndex := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+			globalIndex := read2(v.curInsts, v.ip)
 			v.globals[globalIndex] = v.stack[v.sp]
-		case parser.OpGetGlobal:
+		case bytecode.OpGetGlobal:
 			v.ip += 2
-			globalIndex := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+			globalIndex := read2(v.curInsts, v.ip)
 			val := v.globals[globalIndex]
 			v.stack[v.sp] = val
 			v.sp++
-		case parser.OpArray:
+		case bytecode.OpArray:
 			v.ip += 3
-			numElements := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
+			numElements := read2(v.curInsts, v.ip-1)
 			splat := int(v.curInsts[v.ip])
 
 			var elements []Object
@@ -219,9 +219,9 @@ func (v *VM) run() {
 
 			v.stack[v.sp] = NewArray(elements)
 			v.sp++
-		case parser.OpMap:
+		case bytecode.OpMap:
 			v.ip += 2
-			numElements := 2 * (int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8)
+			numElements := 2 * read2(v.curInsts, v.ip)
 
 			m := NewMap(numElements)
 			for i := v.sp - numElements; i < v.sp; i += 2 {
@@ -236,9 +236,9 @@ func (v *VM) run() {
 
 			v.stack[v.sp] = m
 			v.sp++
-		case parser.OpTuple:
+		case bytecode.OpTuple:
 			v.ip += 3
-			numElements := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
+			numElements := read2(v.curInsts, v.ip-1)
 			splat := int(v.curInsts[v.ip])
 
 			var tup Tuple
@@ -260,10 +260,10 @@ func (v *VM) run() {
 
 			v.stack[v.sp] = tup
 			v.sp++
-		case parser.OpImmutable:
+		case bytecode.OpImmutable:
 			value := v.stack[v.sp-1]
 			v.stack[v.sp-1] = AsImmutable(value)
-		case parser.OpIndex:
+		case bytecode.OpIndex:
 			v.ip++
 			withOk := int(v.curInsts[v.ip])
 			index := v.stack[v.sp-1]
@@ -284,7 +284,7 @@ func (v *VM) run() {
 
 			v.stack[v.sp-2] = val
 			v.sp--
-		case parser.OpSetIndex:
+		case bytecode.OpSetIndex:
 			index := v.stack[v.sp-1]
 			left := v.stack[v.sp-2]
 			right := v.stack[v.sp-3]
@@ -293,7 +293,7 @@ func (v *VM) run() {
 				v.err = err
 				return
 			}
-		case parser.OpField:
+		case bytecode.OpField:
 			name := v.stack[v.sp-1].(String)
 			left := v.stack[v.sp-2]
 			v.sp -= 2
@@ -307,7 +307,7 @@ func (v *VM) run() {
 			}
 			v.stack[v.sp] = val
 			v.sp++
-		case parser.OpSetField:
+		case bytecode.OpSetField:
 			sel := v.stack[v.sp-1].(String)
 			left := v.stack[v.sp-2]
 			right := v.stack[v.sp-3]
@@ -316,7 +316,7 @@ func (v *VM) run() {
 				v.err = err
 				return
 			}
-		case parser.OpSliceIndex:
+		case bytecode.OpSliceIndex:
 			v.ip++
 			left := v.stack[v.sp-1]
 			op := v.curInsts[v.ip]
@@ -369,7 +369,7 @@ func (v *VM) run() {
 
 			v.stack[v.sp] = s.Slice(lowIdx, highIdx)
 			v.sp++
-		case parser.OpSplat:
+		case bytecode.OpSplat:
 			value := v.stack[v.sp-1]
 			seq, ok := value.(Sequence)
 			if !ok {
@@ -378,7 +378,7 @@ func (v *VM) run() {
 				return
 			}
 			v.stack[v.sp-1] = &splatSequence{s: seq}
-		case parser.OpCall:
+		case bytecode.OpCall:
 			numArgs := int(v.curInsts[v.ip+1])
 			splat := int(v.curInsts[v.ip+2])
 			v.ip += 2
@@ -433,7 +433,7 @@ func (v *VM) run() {
 				v.stack[v.sp] = ret
 				v.sp++
 			}
-		case parser.OpReturn:
+		case bytecode.OpReturn:
 			v.ip++
 			numResults := int(v.curInsts[v.ip])
 			var retVal Object
@@ -452,7 +452,7 @@ func (v *VM) run() {
 			if v.curFrame.subvm {
 				return
 			}
-		case parser.OpDefer:
+		case bytecode.OpDefer:
 			numArgs := int(v.curInsts[v.ip+1])
 			splat := int(v.curInsts[v.ip+2])
 			deferIdx := int(v.curInsts[v.ip+3])
@@ -485,7 +485,7 @@ func (v *VM) run() {
 				args: args,
 				pos:  v.curFrame.fn.deferMap[deferIdx],
 			})
-		case parser.OpRunDefer:
+		case bytecode.OpRunDefer:
 			for i := len(v.curFrame.deferred) - 1; i >= 0; i-- {
 				call := v.curFrame.deferred[i]
 				// tell compiled functions that they should run in the subVM
@@ -505,7 +505,7 @@ func (v *VM) run() {
 				}
 				v.curFrame.subvm = false
 			}
-		case parser.OpDefineLocal:
+		case bytecode.OpDefineLocal:
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
 			sp := v.curFrame.basePointer + localIndex
@@ -514,7 +514,7 @@ func (v *VM) run() {
 			val := v.stack[v.sp-1]
 			v.sp--
 			v.stack[sp] = val
-		case parser.OpSetLocal:
+		case bytecode.OpSetLocal:
 			localIndex := int(v.curInsts[v.ip+1])
 			v.ip++
 			sp := v.curFrame.basePointer + localIndex
@@ -528,7 +528,7 @@ func (v *VM) run() {
 				val = obj
 			}
 			v.stack[sp] = val // also use a copy of popped value
-		case parser.OpGetLocal:
+		case bytecode.OpGetLocal:
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
 			val := v.stack[v.curFrame.basePointer+localIndex]
@@ -537,14 +537,14 @@ func (v *VM) run() {
 			}
 			v.stack[v.sp] = val
 			v.sp++
-		case parser.OpGetBuiltin:
+		case bytecode.OpGetBuiltin:
 			v.ip++
 			builtinIndex := int(v.curInsts[v.ip])
 			v.stack[v.sp] = Universe[builtinIndex].Value()
 			v.sp++
-		case parser.OpIdxAssignAssert:
+		case bytecode.OpIdxAssignAssert:
 			v.ip += 2
-			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+			n := read2(v.curInsts, v.ip)
 			val := v.stack[v.sp-1]
 			seq, ok := val.(Indexable)
 			if !ok {
@@ -555,9 +555,9 @@ func (v *VM) run() {
 				v.err = fmt.Errorf("trying to assign %d value(s) to %d variable(s)", seq.Len(), n)
 				return
 			}
-		case parser.OpIdxElem:
+		case bytecode.OpIdxElem:
 			v.ip += 2
-			eidx := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+			eidx := read2(v.curInsts, v.ip)
 			val := v.stack[v.sp-1]
 			seq, ok := v.stack[v.sp-1].(Indexable)
 			if !ok {
@@ -566,9 +566,9 @@ func (v *VM) run() {
 			}
 			v.stack[v.sp] = seq.At(eidx)
 			v.sp++
-		case parser.OpClosure:
+		case bytecode.OpClosure:
 			v.ip += 3
-			constIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
+			constIndex := read2(v.curInsts, v.ip-1)
 			numFree := int(v.curInsts[v.ip])
 			fn, ok := v.constants[constIndex].(*CompiledFunction)
 			if !ok {
@@ -596,24 +596,24 @@ func (v *VM) run() {
 			}
 			v.stack[v.sp] = cl
 			v.sp++
-		case parser.OpGetFreePtr:
+		case bytecode.OpGetFreePtr:
 			v.ip++
 			freeIndex := int(v.curInsts[v.ip])
 			val := v.curFrame.freeVars[freeIndex]
 			v.stack[v.sp] = val
 			v.sp++
-		case parser.OpGetFree:
+		case bytecode.OpGetFree:
 			v.ip++
 			freeIndex := int(v.curInsts[v.ip])
 			val := *v.curFrame.freeVars[freeIndex].p
 			v.stack[v.sp] = val
 			v.sp++
-		case parser.OpSetFree:
+		case bytecode.OpSetFree:
 			v.ip++
 			freeIndex := int(v.curInsts[v.ip])
 			*v.curFrame.freeVars[freeIndex].p = v.stack[v.sp-1]
 			v.sp--
-		case parser.OpGetLocalPtr:
+		case bytecode.OpGetLocalPtr:
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
 			sp := v.curFrame.basePointer + localIndex
@@ -627,7 +627,7 @@ func (v *VM) run() {
 			}
 			v.stack[v.sp] = freeVar
 			v.sp++
-		case parser.OpIteratorInit:
+		case bytecode.OpIteratorInit:
 			dst := v.stack[v.sp-1]
 			v.sp--
 			iterable, ok := dst.(Iterable)
@@ -638,7 +638,7 @@ func (v *VM) run() {
 			iterator := iterable.Iterate()
 			v.stack[v.sp] = iterator
 			v.sp++
-		case parser.OpIteratorNext:
+		case bytecode.OpIteratorNext:
 			v.ip++
 			iterator := v.stack[v.sp-1].(Iterator)
 			op := v.curInsts[v.ip]
@@ -669,13 +669,13 @@ func (v *VM) run() {
 
 			v.stack[v.sp] = Bool(hasMore)
 			v.sp++
-		case parser.OpIteratorClose:
+		case bytecode.OpIteratorClose:
 			iterator, ok := v.stack[v.sp-1].(CloseableIterator)
 			if ok {
 				iterator.Close()
 			}
 			v.sp--
-		case parser.OpSuspend:
+		case bytecode.OpSuspend:
 			return
 		default:
 			v.err = fmt.Errorf("unknown opcode: %d", v.curInsts[v.ip])
@@ -687,4 +687,16 @@ func (v *VM) run() {
 // IsStackEmpty tests if the stack is empty or not.
 func (v *VM) IsStackEmpty() bool {
 	return v.sp == 0
+}
+
+// read2 reads a 2-byte operand assumming that
+// ip is at the last byte of the operand.
+func read2(ins []byte, ip int) int {
+	return int(ins[ip]) | int(ins[ip-1])<<8
+}
+
+// read2 reads a 4-byte operand assumming that
+// ip as the the last byte of the operand.
+func read4(ins []byte, ip int) int {
+	return int(ins[ip]) | int(ins[ip-1])<<8 | int(ins[ip-2])<<16 | int(ins[ip-3])<<24
 }

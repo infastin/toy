@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/infastin/toy"
+	"github.com/infastin/toy/ast"
 	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/token"
 )
 
 func main() {
@@ -160,7 +162,7 @@ func runBench(
 	result toy.Object,
 	err error,
 ) {
-	var astFile *parser.File
+	var astFile *ast.File
 	parseTime, astFile, err = parse(input)
 	if err != nil {
 		return
@@ -177,8 +179,8 @@ func runBench(
 	return
 }
 
-func parse(input []byte) (time.Duration, *parser.File, error) {
-	fileSet := parser.NewFileSet()
+func parse(input []byte) (time.Duration, *ast.File, error) {
+	fileSet := token.NewFileSet()
 	inputFile := fileSet.AddFile("bench", -1, len(input))
 
 	start := time.Now()
@@ -192,7 +194,7 @@ func parse(input []byte) (time.Duration, *parser.File, error) {
 	return time.Since(start), file, nil
 }
 
-func compileFile(file *parser.File) (time.Duration, *toy.Bytecode, error) {
+func compileFile(file *ast.File) (time.Duration, *toy.Bytecode, error) {
 	symTable := toy.NewSymbolTable()
 	symTable.Define("out")
 

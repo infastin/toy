@@ -1,4 +1,4 @@
-package parser
+package ast
 
 import (
 	"strings"
@@ -23,18 +23,18 @@ type AssignStmt struct {
 	LHS      []Expr
 	RHS      []Expr
 	Token    token.Token
-	TokenPos Pos
+	TokenPos token.Pos
 }
 
 func (s *AssignStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *AssignStmt) Pos() Pos {
+func (s *AssignStmt) Pos() token.Pos {
 	return s.LHS[0].Pos()
 }
 
 // End returns the position of first character immediately after the node.
-func (s *AssignStmt) End() Pos {
+func (s *AssignStmt) End() token.Pos {
 	return s.RHS[len(s.RHS)-1].End()
 }
 
@@ -60,19 +60,19 @@ func (s *AssignStmt) String() string {
 
 // BadStmt represents a bad statement.
 type BadStmt struct {
-	From Pos
-	To   Pos
+	From token.Pos
+	To   token.Pos
 }
 
 func (s *BadStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *BadStmt) Pos() Pos {
+func (s *BadStmt) Pos() token.Pos {
 	return s.From
 }
 
 // End returns the position of first character immediately after the node.
-func (s *BadStmt) End() Pos {
+func (s *BadStmt) End() token.Pos {
 	return s.To
 }
 
@@ -83,20 +83,20 @@ func (s *BadStmt) String() string {
 // BlockStmt represents a block statement.
 type BlockStmt struct {
 	Stmts  []Stmt
-	LBrace Pos
-	RBrace Pos
+	LBrace token.Pos
+	RBrace token.Pos
 }
 
 func (s *BlockStmt) stmtNode()         {}
 func (s *BlockStmt) funcBodyStmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *BlockStmt) Pos() Pos {
+func (s *BlockStmt) Pos() token.Pos {
 	return s.LBrace
 }
 
 // End returns the position of first character immediately after the node.
-func (s *BlockStmt) End() Pos {
+func (s *BlockStmt) End() token.Pos {
 	return s.RBrace + 1
 }
 
@@ -122,12 +122,12 @@ func (s *ShortFuncBodyStmt) stmtNode()         {}
 func (s *ShortFuncBodyStmt) funcBodyStmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *ShortFuncBodyStmt) Pos() Pos {
+func (s *ShortFuncBodyStmt) Pos() token.Pos {
 	return s.Expr.Pos()
 }
 
 // End returns the position of first character immediately after the node.
-func (s *ShortFuncBodyStmt) End() Pos {
+func (s *ShortFuncBodyStmt) End() token.Pos {
 	return s.Expr.End()
 }
 
@@ -138,23 +138,23 @@ func (s *ShortFuncBodyStmt) String() string {
 // BranchStmt represents a branch statement.
 type BranchStmt struct {
 	Token    token.Token
-	TokenPos Pos
+	TokenPos token.Pos
 	Label    *Ident
 }
 
 func (s *BranchStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *BranchStmt) Pos() Pos {
+func (s *BranchStmt) Pos() token.Pos {
 	return s.TokenPos
 }
 
 // End returns the position of first character immediately after the node.
-func (s *BranchStmt) End() Pos {
+func (s *BranchStmt) End() token.Pos {
 	if s.Label != nil {
 		return s.Label.End()
 	}
-	return Pos(int(s.TokenPos) + len(s.Token.String()))
+	return token.Pos(int(s.TokenPos) + len(s.Token.String()))
 }
 
 func (s *BranchStmt) String() string {
@@ -167,19 +167,19 @@ func (s *BranchStmt) String() string {
 
 // EmptyStmt represents an empty statement.
 type EmptyStmt struct {
-	Semicolon Pos
+	Semicolon token.Pos
 	Implicit  bool
 }
 
 func (s *EmptyStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *EmptyStmt) Pos() Pos {
+func (s *EmptyStmt) Pos() token.Pos {
 	return s.Semicolon
 }
 
 // End returns the position of first character immediately after the node.
-func (s *EmptyStmt) End() Pos {
+func (s *EmptyStmt) End() token.Pos {
 	if s.Implicit {
 		return s.Semicolon
 	}
@@ -193,19 +193,19 @@ func (s *EmptyStmt) String() string {
 // LabeledStmt represents a labeled statement.
 type LabeledStmt struct {
 	Label *Ident
-	Colon Pos
+	Colon token.Pos
 	Stmt  Stmt
 }
 
 func (s *LabeledStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *LabeledStmt) Pos() Pos {
+func (s *LabeledStmt) Pos() token.Pos {
 	return s.Label.Pos()
 }
 
 // End returns the position of first character immediately after the node.
-func (s *LabeledStmt) End() Pos {
+func (s *LabeledStmt) End() token.Pos {
 	return s.Stmt.End()
 }
 
@@ -215,19 +215,19 @@ func (s *LabeledStmt) String() string {
 
 // ExportStmt represents an export statement.
 type ExportStmt struct {
-	ExportPos Pos
+	ExportPos token.Pos
 	Result    Expr
 }
 
 func (s *ExportStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *ExportStmt) Pos() Pos {
+func (s *ExportStmt) Pos() token.Pos {
 	return s.ExportPos
 }
 
 // End returns the position of first character immediately after the node.
-func (s *ExportStmt) End() Pos {
+func (s *ExportStmt) End() token.Pos {
 	return s.Result.End()
 }
 
@@ -243,12 +243,12 @@ type ExprStmt struct {
 func (s *ExprStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *ExprStmt) Pos() Pos {
+func (s *ExprStmt) Pos() token.Pos {
 	return s.Expr.Pos()
 }
 
 // End returns the position of first character immediately after the node.
-func (s *ExprStmt) End() Pos {
+func (s *ExprStmt) End() token.Pos {
 	return s.Expr.End()
 }
 
@@ -258,7 +258,7 @@ func (s *ExprStmt) String() string {
 
 // ForInStmt represents a for-in statement.
 type ForInStmt struct {
-	ForPos   Pos
+	ForPos   token.Pos
 	Key      *Ident
 	Value    *Ident
 	Iterable Expr
@@ -268,12 +268,12 @@ type ForInStmt struct {
 func (s *ForInStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *ForInStmt) Pos() Pos {
+func (s *ForInStmt) Pos() token.Pos {
 	return s.ForPos
 }
 
 // End returns the position of first character immediately after the node.
-func (s *ForInStmt) End() Pos {
+func (s *ForInStmt) End() token.Pos {
 	return s.Body.End()
 }
 
@@ -294,7 +294,7 @@ func (s *ForInStmt) String() string {
 
 // ForStmt represents a for statement.
 type ForStmt struct {
-	ForPos Pos
+	ForPos token.Pos
 	Init   Stmt
 	Cond   Expr
 	Post   Stmt
@@ -304,12 +304,12 @@ type ForStmt struct {
 func (s *ForStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *ForStmt) Pos() Pos {
+func (s *ForStmt) Pos() token.Pos {
 	return s.ForPos
 }
 
 // End returns the position of first character immediately after the node.
-func (s *ForStmt) End() Pos {
+func (s *ForStmt) End() token.Pos {
 	return s.Body.End()
 }
 
@@ -337,7 +337,7 @@ func (s *ForStmt) String() string {
 
 // IfStmt represents an if statement.
 type IfStmt struct {
-	IfPos Pos
+	IfPos token.Pos
 	Init  Stmt
 	Cond  Expr
 	Body  *BlockStmt
@@ -347,12 +347,12 @@ type IfStmt struct {
 func (s *IfStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *IfStmt) Pos() Pos {
+func (s *IfStmt) Pos() token.Pos {
 	return s.IfPos
 }
 
 // End returns the position of first character immediately after the node.
-func (s *IfStmt) End() Pos {
+func (s *IfStmt) End() token.Pos {
 	if s.Else != nil {
 		return s.Else.End()
 	}
@@ -380,19 +380,19 @@ func (s *IfStmt) String() string {
 type IncDecStmt struct {
 	Expr     Expr
 	Token    token.Token
-	TokenPos Pos
+	TokenPos token.Pos
 }
 
 func (s *IncDecStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *IncDecStmt) Pos() Pos {
+func (s *IncDecStmt) Pos() token.Pos {
 	return s.Expr.Pos()
 }
 
 // End returns the position of first character immediately after the node.
-func (s *IncDecStmt) End() Pos {
-	return Pos(int(s.TokenPos) + 2)
+func (s *IncDecStmt) End() token.Pos {
+	return token.Pos(int(s.TokenPos) + 2)
 }
 
 func (s *IncDecStmt) String() string {
@@ -401,19 +401,19 @@ func (s *IncDecStmt) String() string {
 
 // ReturnStmt represents a return statement.
 type ReturnStmt struct {
-	ReturnPos Pos
+	ReturnPos token.Pos
 	Results   []Expr
 }
 
 func (s *ReturnStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *ReturnStmt) Pos() Pos {
+func (s *ReturnStmt) Pos() token.Pos {
 	return s.ReturnPos
 }
 
 // End returns the position of first character immediately after the node.
-func (s *ReturnStmt) End() Pos {
+func (s *ReturnStmt) End() token.Pos {
 	end := s.ReturnPos + 6
 	for _, r := range s.Results {
 		end = r.End()
@@ -438,19 +438,19 @@ func (s *ReturnStmt) String() string {
 
 // DeferStmt represents a defer statement.
 type DeferStmt struct {
-	DeferPos Pos
+	DeferPos token.Pos
 	CallExpr *CallExpr
 }
 
 func (s *DeferStmt) stmtNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (s *DeferStmt) Pos() Pos {
+func (s *DeferStmt) Pos() token.Pos {
 	return s.DeferPos
 }
 
 // End returns the position of first character immediately after the node.
-func (s *DeferStmt) End() Pos {
+func (s *DeferStmt) End() token.Pos {
 	return s.CallExpr.End()
 }
 

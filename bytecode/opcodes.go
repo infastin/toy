@@ -1,4 +1,6 @@
-package parser
+package bytecode
+
+import "encoding/binary"
 
 // Opcode represents a single byte operation code.
 type Opcode = byte
@@ -144,6 +146,16 @@ var OpcodeOperands = [...][]int{
 	OpSuspend:         {},
 }
 
+// Read2 reads a 2-byte operand.
+func Read2(ins []byte) int {
+	return int(binary.BigEndian.Uint16(ins))
+}
+
+// Read2 reads a 4-byte operand.
+func Read4(ins []byte) int {
+	return int(binary.BigEndian.Uint32(ins))
+}
+
 // ReadOperands reads operands from the bytecode.
 func ReadOperands(numOperands []int, ins []byte) (operands []int, offset int) {
 	for _, width := range numOperands {
@@ -151,9 +163,9 @@ func ReadOperands(numOperands []int, ins []byte) (operands []int, offset int) {
 		case 1:
 			operands = append(operands, int(ins[offset]))
 		case 2:
-			operands = append(operands, int(ins[offset+1])|int(ins[offset])<<8)
+			operands = append(operands, Read2(ins[offset:]))
 		case 4:
-			operands = append(operands, int(ins[offset+3])|int(ins[offset+2])<<8|int(ins[offset+1])<<16|int(ins[offset])<<24)
+			operands = append(operands, Read4(ins[offset:]))
 		}
 		offset += width
 	}

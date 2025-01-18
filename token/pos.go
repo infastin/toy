@@ -1,4 +1,4 @@
-package parser
+package token
 
 // Pos represents a position in the file set.
 type Pos int

@@ -1,7 +1,9 @@
-package parser
+package ast
 
 import (
 	"strings"
+
+	"github.com/infastin/toy/token"
 )
 
 const (
@@ -11,41 +13,41 @@ const (
 // Node represents a node in the AST.
 type Node interface {
 	// Pos returns the position of first character belonging to the node.
-	Pos() Pos
+	Pos() token.Pos
 	// End returns the position of first character immediately after the node.
-	End() Pos
+	End() token.Pos
 	// String returns a string representation of the node.
 	String() string
 }
 
 // IdentList represents a list of identifiers.
 type IdentList struct {
-	LParen  Pos
+	LParen  token.Pos
 	VarArgs bool
 	List    []*Ident
-	RParen  Pos
+	RParen  token.Pos
 }
 
 // Pos returns the position of first character belonging to the node.
-func (n *IdentList) Pos() Pos {
+func (n *IdentList) Pos() token.Pos {
 	if n.LParen.IsValid() {
 		return n.LParen
 	}
 	if len(n.List) > 0 {
 		return n.List[0].Pos()
 	}
-	return NoPos
+	return token.NoPos
 }
 
 // End returns the position of first character immediately after the node.
-func (n *IdentList) End() Pos {
+func (n *IdentList) End() token.Pos {
 	if n.RParen.IsValid() {
 		return n.RParen + 1
 	}
 	if l := len(n.List); l > 0 {
 		return n.List[l-1].End()
 	}
-	return NoPos
+	return token.NoPos
 }
 
 // NumFields returns the number of fields.

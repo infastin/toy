@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/bytecode"
+	"github.com/infastin/toy/token"
 )
 
 // Bytecode is a compiled instructions and constants.
 type Bytecode struct {
-	FileSet      *parser.SourceFileSet
+	FileSet      *token.FileSet
 	MainFunction *CompiledFunction
 	Constants    []Object
 }
@@ -17,7 +18,7 @@ type Bytecode struct {
 // FormatInstructions returns human readable string representations of
 // compiled instructions.
 func (b *Bytecode) FormatInstructions() []string {
-	return FormatInstructions(b.MainFunction.instructions, 0)
+	return bytecode.FormatInstructions(b.MainFunction.instructions, 0)
 }
 
 // FormatConstants returns human readable string representations of
@@ -28,7 +29,7 @@ func (b *Bytecode) FormatConstants() (output []string) {
 		case *CompiledFunction:
 			output = append(output, fmt.Sprintf(
 				"[% 3d] (Compiled Function|%p)", cidx, &cn))
-			for _, l := range FormatInstructions(cn.instructions, 0) {
+			for _, l := range bytecode.FormatInstructions(cn.instructions, 0) {
 				output = append(output, fmt.Sprintf("     %s", l))
 			}
 		default:
@@ -149,9 +150,9 @@ func (b *Bytecode) RemoveUnused() {
 func (b *Bytecode) removeUnused(insts []byte, stripped []Object, indexMap map[int]int) []Object {
 	for i := 0; i < len(insts); {
 		opcode := insts[i]
-		operands, offset := parser.ReadOperands(parser.OpcodeOperands[opcode], insts[i+1:])
+		operands, offset := bytecode.ReadOperands(bytecode.OpcodeOperands[opcode], insts[i+1:])
 		switch opcode {
-		case parser.OpConstant:
+		case bytecode.OpConstant:
 			curIdx := operands[0]
 			newIdx, ok := indexMap[curIdx]
 			if !ok {
@@ -159,8 +160,8 @@ func (b *Bytecode) removeUnused(insts []byte, stripped []Object, indexMap map[in
 				stripped = append(stripped, b.Constants[curIdx])
 				indexMap[curIdx] = newIdx
 			}
-			copy(insts[i:], MakeInstruction(opcode, newIdx))
-		case parser.OpClosure:
+			copy(insts[i:], bytecode.MakeInstruction(opcode, newIdx))
+		case bytecode.OpClosure:
 			curIdx := operands[0]
 			numFree := operands[1]
 			newIdx, ok := indexMap[curIdx]
@@ -169,7 +170,7 @@ func (b *Bytecode) removeUnused(insts []byte, stripped []Object, indexMap map[in
 				stripped = append(stripped, b.Constants[curIdx])
 				indexMap[curIdx] = newIdx
 			}
-			copy(insts[i:], MakeInstruction(opcode, newIdx, numFree))
+			copy(insts[i:], bytecode.MakeInstruction(opcode, newIdx, numFree))
 		}
 		i += 1 + offset
 	}
@@ -179,23 +180,23 @@ func (b *Bytecode) removeUnused(insts []byte, stripped []Object, indexMap map[in
 func updateConstIndexes(insts []byte, indexMap map[int]int) {
 	for i := 0; i < len(insts); {
 		opcode := insts[i]
-		operands, offset := parser.ReadOperands(parser.OpcodeOperands[opcode], insts[i+1:])
+		operands, offset := bytecode.ReadOperands(bytecode.OpcodeOperands[opcode], insts[i+1:])
 		switch opcode {
-		case parser.OpConstant:
+		case bytecode.OpConstant:
 			curIdx := operands[0]
 			newIdx, ok := indexMap[curIdx]
 			if !ok {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
-			copy(insts[i:], MakeInstruction(opcode, newIdx))
-		case parser.OpClosure:
+			copy(insts[i:], bytecode.MakeInstruction(opcode, newIdx))
+		case bytecode.OpClosure:
 			curIdx := operands[0]
 			numFree := operands[1]
 			newIdx, ok := indexMap[curIdx]
 			if !ok {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
-			copy(insts[i:], MakeInstruction(opcode, newIdx, numFree))
+			copy(insts[i:], bytecode.MakeInstruction(opcode, newIdx, numFree))
 		}
 		i += 1 + offset
 	}

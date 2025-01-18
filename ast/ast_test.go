@@ -1,14 +1,14 @@
-package parser_test
+package ast_test
 
 import (
 	"testing"
 
-	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/ast"
 )
 
 func TestIdentListString(t *testing.T) {
-	identListVar := &parser.IdentList{
-		List: []*parser.Ident{
+	identListVar := &ast.IdentList{
+		List: []*ast.Ident{
 			{Name: "a"},
 			{Name: "b"},
 			{Name: "c"},
@@ -22,8 +22,8 @@ func TestIdentListString(t *testing.T) {
 			identListVar, expectedVar, str)
 	}
 
-	identList := &parser.IdentList{
-		List: []*parser.Ident{
+	identList := &ast.IdentList{
+		List: []*ast.Ident{
 			{Name: "a"},
 			{Name: "b"},
 			{Name: "c"},

@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/bytecode"
+	"github.com/infastin/toy/token"
 )
 
 // functionTypeImpl represents the function type.
@@ -73,8 +74,8 @@ type CompiledFunction struct {
 	numLocals     int // number of local variables (including function parameters)
 	numParameters int
 	varArgs       bool
-	sourceMap     map[int]parser.Pos
-	deferMap      []parser.Pos
+	sourceMap     map[int]token.Pos
+	deferMap      []token.Pos
 	free          []*objectPtr
 }
 
@@ -129,8 +130,8 @@ func (o *CompiledFunction) Call(v *VM, args ...Object) (Object, error) {
 	// test if it's tail-call
 	if o == v.curFrame.fn { // recursion
 		nextOp := v.curInsts[v.ip+1]
-		if nextOp == parser.OpReturn ||
-			(nextOp == parser.OpPop && parser.OpReturn == v.curInsts[v.ip+2]) {
+		if nextOp == bytecode.OpReturn ||
+			(nextOp == bytecode.OpPop && bytecode.OpReturn == v.curInsts[v.ip+2]) {
 			copy(v.stack[v.curFrame.basePointer:], args)
 			v.ip = -1 // reset IP to beginning of the frame
 			return nil, nil
@@ -195,12 +196,12 @@ func (o *CompiledFunction) NumParameters() int   { return o.numParameters }
 func (o *CompiledFunction) VarArgs() bool        { return o.varArgs }
 
 // sourcePos returns the source position of the instruction at ip.
-func (o *CompiledFunction) sourcePos(ip int) parser.Pos {
+func (o *CompiledFunction) sourcePos(ip int) token.Pos {
 	for ip >= 0 {
 		if p, ok := o.sourceMap[ip]; ok {
 			return p
 		}
 		ip--
 	}
-	return parser.NoPos
+	return token.NoPos
 }

@@ -9,9 +9,11 @@ import (
 
 	"github.com/infastin/toy/parser"
 	"github.com/infastin/toy/token"
+
+	"github.com/stretchr/testify/require"
 )
 
-var testFileSet = parser.NewFileSet()
+var testFileSet = token.NewFileSet()
 
 type scanResult struct {
 	Token   token.Token
@@ -226,7 +228,7 @@ func scanExpect(
 	s := parser.NewScanner(
 		testFile,
 		[]byte(input),
-		func(_ parser.SourceFilePos, msg string) { require.Fail(t, msg) },
+		func(_ token.FilePos, msg string) { require.Fail(t, msg) },
 		mode)
 
 	for idx, e := range expected {

@@ -14,10 +14,10 @@ var OSUserModule = &toy.BuiltinModule{
 	Members: map[string]toy.Object{
 		"current":       toy.NewBuiltinFunction("user.current", osUserCurrent),
 		"lookup":        toy.NewBuiltinFunction("user.lookup", osUserLookup),
-		"lookupId":      toy.NewBuiltinFunction("user.lookupId", osUserLookupID),
+		"lookupID":      toy.NewBuiltinFunction("user.lookupID", osUserLookupID),
 		"groups":        toy.NewBuiltinFunction("user.groups", osUserGroups),
 		"lookupGroup":   toy.NewBuiltinFunction("user.lookupGroup", osUserLookupGroup),
-		"lookupGroupId": toy.NewBuiltinFunction("user.lookupGroupId", osUserLookupGroupID),
+		"lookupGroupID": toy.NewBuiltinFunction("user.lookupGroupID", osUserLookupGroupID),
 		"cacheDir":      toy.NewBuiltinFunction("user.cacheDir", makeARSE(os.UserCacheDir)),
 		"configDir":     toy.NewBuiltinFunction("user.configDir", makeARSE(os.UserConfigDir)),
 		"homeDir":       toy.NewBuiltinFunction("user.homeDir", makeARSE(os.UserHomeDir)),

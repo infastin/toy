@@ -46,25 +46,6 @@ var RegexpType = toy.NewType[*Regexp]("regexp.Regexp", func(_ *toy.VM, args ...t
 	}
 })
 
-func (r *Regexp) Unpack(o toy.Object) error {
-	switch x := o.(type) {
-	case *Regexp:
-		*r = *x
-	case toy.String:
-		rx, err := regexp.Compile(string(x))
-		if err != nil {
-			return err
-		}
-		*r = Regexp(*rx)
-	default:
-		return &toy.InvalidValueTypeError{
-			Want: "regexp.Regexp or string",
-			Got:  toy.TypeName(o),
-		}
-	}
-	return nil
-}
-
 func (r *Regexp) Type() toy.ObjectType { return RegexpType }
 func (r *Regexp) String() string       { return fmt.Sprintf("/%s/", (*regexp.Regexp)(r).String()) }
 func (r *Regexp) IsFalsy() bool        { return false }

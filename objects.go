@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"iter"
 	"math"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -40,7 +41,7 @@ type ObjectType interface {
 // Hashable represents an object that is hashable (can be used in map).
 type Hashable interface {
 	Object
-	// Hash returns a function of x such that Equals(x, y) => Hash(x) == Hash(y).
+	// Hash returns a function of x such that Equal(x, y) => Hash(x) == Hash(y).
 	Hash() uint64
 }
 
@@ -299,10 +300,10 @@ func Immutable(x Object) bool {
 	return m.Immutable()
 }
 
-// Equals returns whether two objects are equal or not.
+// Equal returns whether two objects are equal or not.
 // It will return an error if the objects aren't comparable
 // or if the comparison has failed.
-func Equals(x, y Object) (bool, error) {
+func Equal(x, y Object) (bool, error) {
 	return Compare(token.Equal, x, y)
 }
 
@@ -319,14 +320,6 @@ func Equals(x, y Object) (bool, error) {
 // Equality comparsion for two objects holding the same reference
 // is also defined implicitly.
 func Compare(op token.Token, x, y Object) (bool, error) {
-	if x == y {
-		switch op {
-		case token.Equal:
-			return true, nil
-		case token.NotEqual:
-			return false, nil
-		}
-	}
 	if x == Nil || y == Nil {
 		switch op {
 		case token.Equal:
@@ -342,6 +335,16 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 				return xt == yt, nil
 			case token.NotEqual:
 				return xt != yt, nil
+			}
+		}
+	}
+	if xt := reflect.TypeOf(x); xt.Comparable() {
+		if yt := reflect.TypeOf(y); xt == yt && x == y {
+			switch op {
+			case token.Equal:
+				return true, nil
+			case token.NotEqual:
+				return false, nil
 			}
 		}
 	}
@@ -694,8 +697,7 @@ func NewType[T Object](name string, constructor CallableFunc) ObjectType {
 	fn := constructor
 	if fn == nil {
 		fn = func(v *VM, args ...Object) (Object, error) {
-			argsLen := len(args)
-			if argsLen != 1 {
+			if len(args) != 1 {
 				return nil, &WrongNumArgumentsError{
 					WantMin: 1,
 					WantMax: 1,
@@ -1180,8 +1182,7 @@ type Bytes []byte
 
 // Bytes is the type of Bytes.
 var BytesType = NewType[Bytes]("bytes", func(_ *VM, args ...Object) (Object, error) {
-	argsLen := len(args)
-	if argsLen != 1 {
+	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
 			WantMax: 1,
@@ -1487,7 +1488,7 @@ func (o *Array) Compare(op token.Token, rhs Object) (bool, error) {
 			return false, nil
 		}
 		for i := range len(o.elems) {
-			if eq, err := Equals(o.elems[i], y.elems[i]); err != nil {
+			if eq, err := Equal(o.elems[i], y.elems[i]); err != nil {
 				return false, err
 			} else if !eq {
 				return false, nil
@@ -1499,7 +1500,7 @@ func (o *Array) Compare(op token.Token, rhs Object) (bool, error) {
 			return true, nil
 		}
 		for i := range len(o.elems) {
-			if eq, err := Equals(o.elems[i], y.elems[i]); err != nil {
+			if eq, err := Equal(o.elems[i], y.elems[i]); err != nil {
 				return false, err
 			} else if !eq {
 				return true, nil
@@ -1581,7 +1582,7 @@ func (o *Array) IndexSet(index, value Object) (err error) {
 
 func (o *Array) Contains(value Object) (bool, error) {
 	for _, obj := range o.elems {
-		if eq, err := Equals(obj, value); err != nil {
+		if eq, err := Equal(obj, value); err != nil {
 			return false, err
 		} else if eq {
 			return true, nil
@@ -1734,13 +1735,13 @@ func (o *Map) Compare(op token.Token, rhs Object) (bool, error) {
 	}
 	switch op {
 	case token.Equal:
-		eq, err := o.ht.equals(&y.ht)
+		eq, err := o.ht.equal(&y.ht)
 		if err != nil {
 			return false, err
 		}
 		return eq, nil
 	case token.NotEqual:
-		eq, err := o.ht.equals(&y.ht)
+		eq, err := o.ht.equal(&y.ht)
 		if err != nil {
 			return false, err
 		}
@@ -1837,7 +1838,7 @@ func (o Tuple) Compare(op token.Token, rhs Object) (bool, error) {
 			return false, nil
 		}
 		for i := range o.Len() {
-			if eq, err := Equals(o[i], y[i]); err != nil {
+			if eq, err := Equal(o[i], y[i]); err != nil {
 				return false, err
 			} else if !eq {
 				return false, nil
@@ -1848,7 +1849,7 @@ func (o Tuple) Compare(op token.Token, rhs Object) (bool, error) {
 			return true, nil
 		}
 		for i := range len(o) {
-			if eq, err := Equals(o[i], y[i]); err != nil {
+			if eq, err := Equal(o[i], y[i]); err != nil {
 				return false, err
 			} else if !eq {
 				return true, nil
@@ -1889,7 +1890,7 @@ func (o Tuple) BinaryOp(op token.Token, other Object, right bool) (Object, error
 
 func (o Tuple) Contains(value Object) (bool, error) {
 	for _, obj := range o {
-		if eq, err := Equals(obj, value); err != nil {
+		if eq, err := Equal(obj, value); err != nil {
 			return false, err
 		} else if eq {
 			return true, nil

@@ -94,7 +94,7 @@ retry:
 				}
 				continue
 			}
-			if eq, err := Equals(k, e.key); err != nil {
+			if eq, err := Equal(k, e.key); err != nil {
 				return err
 			} else if eq {
 				e.value = v
@@ -146,7 +146,7 @@ func (ht *hashtable) grow() {
 	// Double the number of buckets and rehash.
 	//
 	// Even though this makes reentrant calls to ht.insert,
-	// calls Equals unnecessarily (since there can't be duplicate keys),
+	// calls Equal unnecessarily (since there can't be duplicate keys),
 	// and recomputes the hash unnecessarily, the gains from
 	// avoiding these steps were found to be too small to justify
 	// the extra logic: -2% on hashtable benchmark.
@@ -179,7 +179,7 @@ func (ht *hashtable) lookup(k Object) (v Object, found bool, err error) {
 			if e.hash != h {
 				continue
 			}
-			if eq, err := Equals(k, e.key); err != nil {
+			if eq, err := Equal(k, e.key); err != nil {
 				return nil, false, err
 			} else if eq {
 				return e.value, true, nil // found
@@ -223,7 +223,7 @@ func (ht *hashtable) count(iter Iterator) (int, error) {
 				if e.hash != h {
 					continue
 				}
-				if eq, err := Equals(k, e.key); err != nil {
+				if eq, err := Equal(k, e.key); err != nil {
 					return 0, err
 				} else if eq {
 					bitIndex := i<<3 + j
@@ -285,7 +285,7 @@ func (ht *hashtable) delete(k Object) (v Object, err error) {
 			if e.hash != h {
 				continue
 			}
-			if eq, err := Equals(k, e.key); err != nil {
+			if eq, err := Equal(k, e.key); err != nil {
 				return nil, err
 			} else if eq {
 				// Remove e from doubly-linked list.
@@ -361,7 +361,7 @@ func (ht *hashtable) addAll(other *hashtable) error {
 	return nil
 }
 
-func (ht *hashtable) equals(other *hashtable) (bool, error) {
+func (ht *hashtable) equal(other *hashtable) (bool, error) {
 	if ht.len != other.len {
 		return false, nil
 	}
@@ -369,7 +369,7 @@ func (ht *hashtable) equals(other *hashtable) (bool, error) {
 		key, xval := e.key, e.value
 		if yval, found, _ := other.lookup(key); !found {
 			return false, nil
-		} else if eq, err := Equals(xval, yval); err != nil {
+		} else if eq, err := Equal(xval, yval); err != nil {
 			return false, err
 		} else if !eq {
 			return false, nil
@@ -423,7 +423,7 @@ func (ht *hashtable) contains(key Object) (bool, error) {
 			if e.hash != h {
 				continue
 			}
-			if eq, err := Equals(key, e.key); err != nil {
+			if eq, err := Equal(key, e.key); err != nil {
 				return false, err
 			} else if eq {
 				return true, nil // found

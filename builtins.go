@@ -472,6 +472,8 @@ func builtinSatisfies(_ *VM, args ...Object) (Object, error) {
 			_, ok = x.(IndexableSequence)
 		case "mapping":
 			_, ok = x.(Mapping)
+		default:
+			return nil, fmt.Errorf("ifaces[%d]: invalid interface '%s'", i, string(name))
 		}
 		if !ok {
 			return False, nil

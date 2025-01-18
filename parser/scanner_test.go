@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/infastin/toy/parser"
 	"github.com/infastin/toy/token"
@@ -259,8 +258,4 @@ func countLines(s string) int {
 		}
 	}
 	return n
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
 }

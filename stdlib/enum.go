@@ -16,8 +16,7 @@ func NewEnum[T toy.Object](name string, variants map[string]T, constructor toy.C
 	fn := constructor
 	if fn == nil {
 		fn = func(v *toy.VM, args ...toy.Object) (toy.Object, error) {
-			argsLen := len(args)
-			if argsLen != 1 {
+			if len(args) != 1 {
 				return nil, &toy.WrongNumArgumentsError{
 					WantMin: 1,
 					WantMax: 1,

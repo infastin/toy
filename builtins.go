@@ -14,7 +14,7 @@ var Universe = []*Variable{
 	NewVariable("clone", NewBuiltinFunction("clone", builtinClone)),
 	NewVariable("freeze", NewBuiltinFunction("freeze", builtinFreeze)),
 	NewVariable("satisfies", NewBuiltinFunction("satisfies", builtinSatisfies)),
-	NewVariable("immutable", NewBuiltinFunction("satisfies", builtinImmutable)),
+	NewVariable("immutable", NewBuiltinFunction("immutable", builtinImmutable)),
 
 	NewVariable("len", NewBuiltinFunction("len", builtinLen)),
 	NewVariable("append", NewBuiltinFunction("append", builtinAppend)),
@@ -23,7 +23,7 @@ var Universe = []*Variable{
 	NewVariable("splice", NewBuiltinFunction("splice", builtinSplice)),
 	NewVariable("insert", NewBuiltinFunction("insert", builtinInsert)),
 	NewVariable("clear", NewBuiltinFunction("clear", builtinClear)),
-	NewVariable("has", NewBuiltinFunction("has", builtinHas)),
+	NewVariable("contains", NewBuiltinFunction("contains", builtinContains)),
 
 	NewVariable("format", NewBuiltinFunction("format", builtinFormat)),
 	NewVariable("fail", NewBuiltinFunction("fail", builtinFail)),
@@ -315,7 +315,7 @@ func builtinClear(_ *VM, args ...Object) (Object, error) {
 	return Nil, nil
 }
 
-func builtinHas(vm *VM, args ...Object) (Object, error) {
+func builtinContains(vm *VM, args ...Object) (Object, error) {
 	var (
 		container Container
 		value     Object

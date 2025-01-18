@@ -39,11 +39,33 @@ var UUIDType = toy.NewType[UUID]("uuid.UUID", func(_ *toy.VM, args ...toy.Object
 		}
 		return UUID(u), nil
 	case toy.Bytes:
-		u, err := uuid.ParseBytes(x)
-		if err != nil {
-			return nil, err
+		if len(x) != 16 {
+			return nil, &toy.InvalidArgumentTypeError{
+				Name: "value",
+				Want: "bytes[16]",
+				Got:  fmt.Sprintf("bytes[%d]", len(x)),
+			}
 		}
-		return UUID(u), nil
+		return UUID(x), nil
+	case toy.Sequence:
+		if x.Len() != 16 {
+			return nil, &toy.InvalidArgumentTypeError{
+				Name: "value",
+				Want: "sequence[int, 16]",
+				Got:  fmt.Sprintf("sequence[object, %d]", x.Len()),
+			}
+		}
+		var u UUID
+		i := 0
+		for v := range toy.Elements(x) {
+			b, ok := v.(toy.Int)
+			if !ok {
+				return nil, fmt.Errorf("value[%d]: want 'int', got '%s'", i, toy.TypeName(v))
+			}
+			u[i] = byte(b)
+			i++
+		}
+		return u, nil
 	default:
 		var u UUID
 		if err := toy.Convert(&u, x); err != nil {
@@ -79,10 +101,61 @@ func (u UUID) Convert(p any) error {
 		*p = toy.String(uuid.UUID(u).String())
 	case *toy.Bytes:
 		*p = u[:]
+	case **toy.Array:
+		elems := make([]toy.Object, len(u))
+		for i, b := range u {
+			elems[i] = toy.Int(b)
+		}
+		*p = toy.NewArray(elems)
+	case *toy.Tuple:
+		tup := make(toy.Tuple, len(u))
+		for i, b := range u {
+			tup[i] = toy.Int(b)
+		}
+		*p = tup
 	default:
 		return toy.ErrNotConvertible
 	}
 	return nil
+}
+
+func (u UUID) Len() int            { return len(u) }
+func (u UUID) At(i int) toy.Object { return toy.Int(u[i]) }
+
+func (u UUID) Items() []toy.Object {
+	elems := make([]toy.Object, len(u))
+	for i, b := range u {
+		elems[i] = toy.Int(b)
+	}
+	return elems
+}
+
+func (u UUID) Iterate() toy.Iterator { return &uuidIterator{u: u, i: 0} }
+
+type uuidIterator struct {
+	u UUID
+	i int
+}
+
+var uuidIteratorType = toy.NewType[*uuidIterator]("uuid.UUID-iterator", nil)
+
+func (it *uuidIterator) Type() toy.ObjectType { return uuidIteratorType }
+func (it *uuidIterator) String() string       { return "<uuid.UUID-iterator>" }
+func (it *uuidIterator) IsFalsy() bool        { return true }
+func (it *uuidIterator) Clone() toy.Object    { return &uuidIterator{u: it.u, i: it.i} }
+
+func (it *uuidIterator) Next(key, value *toy.Object) bool {
+	if it.i < len(it.u) {
+		if key != nil {
+			*key = toy.Int(it.i)
+		}
+		if value != nil {
+			*value = toy.Int(it.u[it.i])
+		}
+		it.i++
+		return true
+	}
+	return false
 }
 
 func uuidV4(_ *toy.VM, args ...toy.Object) (toy.Object, error) {

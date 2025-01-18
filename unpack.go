@@ -10,10 +10,15 @@ import (
 )
 
 // An Unpacker defines custom argument unpacking behavior.
+// Is is generally not recommended to define custom unpacking behavior on objects,
+// since it results in implicit behavior.
 type Unpacker interface {
 	// Unpack unpacks the given object into Unpacker.
 	// If the given Object can't be unpacked into using Unpacker,
 	// it is recommended to return InvalidValueTypeError.
+	//
+	// Client code should not call this method.
+	// Instead, use the standalone Unpack function.
 	Unpack(o Object) error
 }
 
@@ -70,7 +75,7 @@ func UnpackArgs(args []Object, pairs ...any) error {
 			}
 			panic(fmt.Sprintf("expected *[]Object type for remaining arguments, got %T", pairs[2*i+1]))
 		}
-		if err := unpackArg(pairs[2*i+1], arg); err != nil {
+		if err := Unpack(pairs[2*i+1], arg); err != nil {
 			if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
 				err = &InvalidArgumentTypeError{
 					Name: name,
@@ -141,7 +146,7 @@ loop:
 			} else if pName == string(name) {
 				// found it
 				defined.SetBit(&defined, i, 1)
-				if err := unpackArg(pairs[2*i+1], value); err != nil {
+				if err := Unpack(pairs[2*i+1], value); err != nil {
 					if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
 						err = &InvalidEntryValueTypeError{
 							Name: pName,
@@ -245,7 +250,7 @@ loop:
 			} else if pName == string(name) {
 				// found it
 				defined.SetBit(&defined, i, 1)
-				if err := unpackArg(pairs[2*i+1], value); err != nil {
+				if err := Unpack(pairs[2*i+1], value); err != nil {
 					if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
 						err = &InvalidArgumentTypeError{
 							Name: pName,
@@ -279,7 +284,8 @@ loop:
 	return nil
 }
 
-func unpackArg(ptr any, o Object) error {
+// Unpack tries to unpack the given object into a pointer value.
+func Unpack(ptr any, o Object) error {
 	switch ptr := ptr.(type) {
 	case Unpacker:
 		return ptr.Unpack(o)
@@ -381,7 +387,7 @@ func unpackArg(ptr any, o Object) error {
 		b, ok := o.(HasBinaryOp)
 		if !ok {
 			return &InvalidValueTypeError{
-				Want: "object supporting binary operations",
+				Want: "binary-op",
 				Got:  TypeName(o),
 			}
 		}
@@ -390,7 +396,7 @@ func unpackArg(ptr any, o Object) error {
 		u, ok := o.(HasUnaryOp)
 		if !ok {
 			return &InvalidValueTypeError{
-				Want: "object supporting unary operations",
+				Want: "unary-op",
 				Got:  TypeName(o),
 			}
 		}
@@ -399,7 +405,7 @@ func unpackArg(ptr any, o Object) error {
 		i, ok := o.(IndexAccessible)
 		if !ok {
 			return &InvalidValueTypeError{
-				Want: "index accesible",
+				Want: "index-accesible",
 				Got:  TypeName(o),
 			}
 		}
@@ -408,7 +414,7 @@ func unpackArg(ptr any, o Object) error {
 		i, ok := o.(IndexAssignable)
 		if !ok {
 			return &InvalidValueTypeError{
-				Want: "index assignable",
+				Want: "index-assignable",
 				Got:  TypeName(o),
 			}
 		}
@@ -417,7 +423,7 @@ func unpackArg(ptr any, o Object) error {
 		f, ok := o.(FieldAccessible)
 		if !ok {
 			return &InvalidValueTypeError{
-				Want: "field accesible",
+				Want: "field-accesible",
 				Got:  TypeName(o),
 			}
 		}
@@ -426,7 +432,7 @@ func unpackArg(ptr any, o Object) error {
 		f, ok := o.(FieldAssignable)
 		if !ok {
 			return &InvalidValueTypeError{
-				Want: "field assignable",
+				Want: "field-assignable",
 				Got:  TypeName(o),
 			}
 		}
@@ -507,7 +513,7 @@ func unpackArg(ptr any, o Object) error {
 		iseq, ok := o.(IndexableSequence)
 		if !ok {
 			return &InvalidValueTypeError{
-				Want: "indexable sequence",
+				Want: "indexable-sequence",
 				Got:  TypeName(o),
 			}
 		}
@@ -549,7 +555,7 @@ func unpackArg(ptr any, o Object) error {
 				elem := reflect.New(paramVar.Type().Elem())
 				paramVar.Set(elem)
 			}
-			return unpackArg(paramVar.Interface(), o)
+			return Unpack(paramVar.Interface(), o)
 		}
 		// Nothing worked, panic.
 		panic(fmt.Sprintf("pointer element type does not implement Object: %T", ptr))

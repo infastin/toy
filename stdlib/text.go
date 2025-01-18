@@ -30,11 +30,11 @@ var TextModule = &toy.BuiltinModule{
 		"join":         toy.NewBuiltinFunction("text.join", textJoin),
 		"split":        toy.NewBuiltinFunction("text.split", textSplit),
 		"splitAfter":   toy.NewBuiltinFunction("text.splitAfter", textSplitAfter),
-		"fields":       toy.NewBuiltinFunction("text.fields", textFields),
+		"fields":       toy.NewBuiltinFunction("text.fields", makeASRSs("s", strings.Fields)),
 		"replace":      toy.NewBuiltinFunction("text.replace", textReplace),
 		"cut":          toy.NewBuiltinFunction("text.cut", textCut),
-		"cutPrefix":    toy.NewBuiltinFunction("text.cutPrefix", textCutPrefix),
-		"cutSuffix":    toy.NewBuiltinFunction("text.cutSuffix", textCutSuffix),
+		"cutPrefix":    toy.NewBuiltinFunction("text.cutPrefix", makeASSRSB("s", "prefix", strings.CutPrefix)),
+		"cutSuffix":    toy.NewBuiltinFunction("text.cutSuffix", makeASSRSB("s", "suffix", strings.CutSuffix)),
 		"index":        toy.NewBuiltinFunction("text.index", textIndex),
 		"indexAny":     toy.NewBuiltinFunction("text.indexAny", textIndexAny),
 		"lastIndex":    toy.NewBuiltinFunction("text.lastIndex", textLastIndex),
@@ -150,18 +150,6 @@ func textSplitAfter(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func textFields(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
-	var s string
-	if err := toy.UnpackArgs(args, "s", &s); err != nil {
-		return nil, err
-	}
-	var elems []toy.Object
-	for _, field := range strings.Fields(s) {
-		elems = append(elems, toy.String(field))
-	}
-	return toy.NewArray(elems), nil
-}
-
 func textReplace(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		s, old, new string
@@ -184,24 +172,6 @@ func textCut(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	before, after, found := strings.Cut(s, sep)
 	return toy.Tuple{toy.String(before), toy.String(after), toy.Bool(found)}, nil
-}
-
-func textCutPrefix(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
-	var s, prefix string
-	if err := toy.UnpackArgs(args, "s", &s, "prefix", &prefix); err != nil {
-		return nil, err
-	}
-	after, found := strings.CutPrefix(s, prefix)
-	return toy.Tuple{toy.String(after), toy.Bool(found)}, nil
-}
-
-func textCutSuffix(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
-	var s, suffix string
-	if err := toy.UnpackArgs(args, "s", &s, "suffix", &suffix); err != nil {
-		return nil, err
-	}
-	after, found := strings.CutSuffix(s, suffix)
-	return toy.Tuple{toy.String(after), toy.Bool(found)}, nil
 }
 
 func textIndex(_ *toy.VM, args ...toy.Object) (toy.Object, error) {

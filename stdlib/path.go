@@ -19,7 +19,7 @@ var PathModule = &toy.BuiltinModule{
 		"dir":   toy.NewBuiltinFunction("path.dir", makeASRS("path", path.Dir)),
 		"ext":   toy.NewBuiltinFunction("path.ext", makeASRS("path", path.Ext)),
 		"clean": toy.NewBuiltinFunction("path.clean", makeASRS("path", path.Clean)),
-		"split": toy.NewBuiltinFunction("path.split", pathSplit),
+		"split": toy.NewBuiltinFunction("path.split", makeASRSS("path", path.Split)),
 	},
 }
 
@@ -37,13 +37,4 @@ func pathJoin(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		elems = append(elems, string(str))
 	}
 	return toy.String(path.Join(elems...)), nil
-}
-
-func pathSplit(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
-	var s string
-	if err := toy.UnpackArgs(args, "path", &s); err != nil {
-		return nil, err
-	}
-	dir, file := path.Split(s)
-	return toy.Tuple{toy.String(dir), toy.String(file)}, nil
 }

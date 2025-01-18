@@ -17,9 +17,9 @@ var OSPathModule = &toy.BuiltinModule{
 		"dir":          toy.NewBuiltinFunction("path.dir", makeASRS("path", filepath.Dir)),
 		"ext":          toy.NewBuiltinFunction("path.ext", makeASRS("path", filepath.Ext)),
 		"clean":        toy.NewBuiltinFunction("path.clean", makeASRS("path", filepath.Clean)),
-		"split":        toy.NewBuiltinFunction("path.split", osPathSplit),
-		"splitList":    toy.NewBuiltinFunction("path.splitList", osPathSplitList),
-		"glob":         toy.NewBuiltinFunction("path.glob", osPathGlob),
+		"split":        toy.NewBuiltinFunction("path.split", makeASRSS("path", filepath.Split)),
+		"splitList":    toy.NewBuiltinFunction("path.splitList", makeASRSs("path", filepath.SplitList)),
+		"glob":         toy.NewBuiltinFunction("path.glob", makeASRSsE("pattern", filepath.Glob)),
 		"expand":       toy.NewBuiltinFunction("path.expand", osPathExpand),
 		"exists":       toy.NewBuiltinFunction("path.exists", osPathExists),
 		"isRegular":    toy.NewBuiltinFunction("path.isRegular", makeOSPathIs(os.ModeType)),
@@ -47,44 +47,6 @@ func osPathJoin(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		elems = append(elems, string(str))
 	}
 	return toy.String(filepath.Join(elems...)), nil
-}
-
-func osPathSplit(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
-	var s string
-	if err := toy.UnpackArgs(args, "path", &s); err != nil {
-		return nil, err
-	}
-	dir, file := filepath.Split(s)
-	return toy.Tuple{toy.String(dir), toy.String(file)}, nil
-}
-
-func osPathSplitList(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
-	var s string
-	if err := toy.UnpackArgs(args, "path", &s); err != nil {
-		return nil, err
-	}
-	parts := filepath.SplitList(s)
-	elems := make([]toy.Object, 0, len(parts))
-	for _, part := range parts {
-		elems = append(elems, toy.String(part))
-	}
-	return toy.NewArray(elems), nil
-}
-
-func osPathGlob(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
-	var pattern string
-	if err := toy.UnpackArgs(args, "pattern", &pattern); err != nil {
-		return nil, err
-	}
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
-	}
-	elems := make([]toy.Object, 0, len(matches))
-	for _, match := range matches {
-		elems = append(elems, toy.String(match))
-	}
-	return toy.Tuple{toy.NewArray(elems), toy.Nil}, nil
 }
 
 func osPathExpand(_ *toy.VM, args ...toy.Object) (toy.Object, error) {

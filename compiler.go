@@ -701,7 +701,7 @@ func (c *Compiler) compileAssign(
 	}
 
 	// it's fine for symbol to be nil,
-	// since it won't be used with selector expressions
+	// since it won't be used in selector expressions
 	var symbol *Symbol
 	if ident != "" {
 		var exists bool
@@ -807,9 +807,10 @@ func (c *Compiler) compileAssignDefine(
 		ident  string
 		expr   ast.Expr
 		sel    ast.Expr
+		isFunc bool
 		symbol *Symbol
 		exists bool
-		isFunc bool
+		depth  int
 	}
 
 	var redecl int
@@ -836,12 +837,15 @@ func (c *Compiler) compileAssignDefine(
 			_, isFunc = rhs[j].(*ast.FuncLit)
 		}
 
-		// it's fine for symbol to be nil,
-		// since it won't be used with selector expressions
-		var symbol *Symbol
-		var exists bool
+		var (
+			// it's fine for symbol to be nil,
+			// since it won't be used with selector expressions
+			symbol *Symbol
+			exists bool
+			depth  int
+		)
+
 		if ident != "" {
-			var depth int
 			symbol, depth, exists = c.symbolTable.Resolve(ident, false)
 			if op == token.Define {
 				if depth == 0 && exists {
@@ -866,9 +870,10 @@ func (c *Compiler) compileAssignDefine(
 			ident:  ident,
 			expr:   expr,
 			sel:    sel,
+			isFunc: isFunc,
 			symbol: symbol,
 			exists: exists,
-			isFunc: isFunc,
+			depth:  depth,
 		})
 	}
 
@@ -897,9 +902,7 @@ func (c *Compiler) compileAssignDefine(
 	}
 
 	for j, lr := range resolved {
-		if op == token.Define && !lr.exists && !lr.isFunc {
-			// even if symbol is nil, we can't get
-			// here because define operator is disallowed with selectors
+		if op == token.Define && (!lr.exists || lr.depth > 0) && !lr.isFunc {
 			lr.symbol = c.symbolTable.Define(lr.ident)
 		}
 
@@ -930,6 +933,8 @@ func (c *Compiler) compileAssignDefine(
 				c.emit(node, bytecode.OpSetIndex)
 			}
 		} else {
+			// symbol can't be nil here,
+			// since it can only be nil in selector expressions
 			switch lr.symbol.Scope {
 			case ScopeGlobal:
 				c.emit(node, bytecode.OpSetGlobal, lr.symbol.Index)
@@ -1573,4 +1578,3 @@ func untracec(c *Compiler) {
 	c.indent--
 	c.printTrace("}")
 }
-

@@ -15,6 +15,7 @@ import (
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/ast"
 	"github.com/infastin/toy/parser"
+	"github.com/infastin/toy/stdlib"
 	"github.com/infastin/toy/token"
 )
 
@@ -50,7 +51,7 @@ func (o *testopts) copy() *testopts {
 }
 
 func (o *testopts) Stdlib() *testopts {
-	// o.modules.AddMap(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
+	o.modules.AddMap(stdlib.StdLib)
 	return o
 }
 
@@ -395,6 +396,9 @@ out = fn() {
 	expectRun(t, `a, b := 1, 2; out = [a, b]`, nil, ARR{1, 2})
 	expectRun(t, `a, b := fn() { return 1, 2 }(); out = [a, b]`, nil, ARR{1, 2})
 	expectRun(t, `a, b := fn() { return tuple(1, 2) }(); out = [a, b]`, nil, ARR{1, 2})
+	expectRun(t, `a, b := fn() { return [1, 2] }(); out = [a, b]`, nil, ARR{1, 2})
+	expectRun(t, `a, b := (fn() => tuple(1, 2))(); out = [a, b]`, nil, ARR{1, 2})
+	expectRun(t, `a, b := (fn() => [1, 2])(); out = [a, b]`, nil, ARR{1, 2})
 	expectRun(t, `a, b := tuple(1, 2); out = [a, b]`, nil, ARR{1, 2})
 	expectRun(t, `a, b := 1, 2; a, b = b, a; out = [a, b]`, nil, ARR{2, 1})
 

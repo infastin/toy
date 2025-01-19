@@ -42,7 +42,7 @@ func (e *Enum[T]) String() string       { return fmt.Sprintf("<%s>", e.name) }
 func (e *Enum[T]) IsFalsy() bool        { return false }
 
 func (e *Enum[T]) Clone() toy.Object {
-	variants := make(map[string]T)
+	variants := make(map[string]T, len(e.variants))
 	for name, variant := range e.variants {
 		variants[name] = variant.Clone().(T)
 	}

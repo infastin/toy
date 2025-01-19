@@ -653,6 +653,39 @@ func Elements(iterable Iterable) iter.Seq[Object] {
 	}
 }
 
+// Enumerate returns a go1.23 iterator
+// over index/value pairs of the iterable.
+func Enumerate(iterable Iterable) iter.Seq2[int, Object] {
+	type hasElements interface {
+		Elements() iter.Seq[Object]
+	}
+	if iterable, ok := iterable.(hasElements); ok {
+		return func(yield func(int, Object) bool) {
+			i := 0
+			for elem := range iterable.Elements() {
+				if !yield(i, elem) {
+					break
+				}
+				i++
+			}
+		}
+	}
+	it := iterable.Iterate()
+	return func(yield func(int, Object) bool) {
+		if c, ok := it.(CloseableIterator); ok {
+			defer c.Close()
+		}
+		i := 0
+		var value Object
+		for it.Next(nil, &value) {
+			if !yield(i, value) {
+				break
+			}
+			i++
+		}
+	}
+}
+
 // Elements returns a go1.23 iterator over the entries (key/value pairs)
 // of the iterable.
 func Entries(iterable Iterable) iter.Seq2[Object, Object] {

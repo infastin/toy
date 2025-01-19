@@ -84,14 +84,12 @@ var IPType = toy.NewType[IP]("net.IP", func(_ *toy.VM, args ...toy.Object) (toy.
 			}
 		}
 		ip := make(IP, x.Len())
-		i := 0
-		for v := range toy.Elements(x) {
+		for i, v := range toy.Enumerate(x) {
 			b, ok := v.(toy.Int)
 			if !ok {
 				return nil, fmt.Errorf("value[%d]: want 'int', got '%s'", i, toy.TypeName(v))
 			}
 			ip[i] = byte(b)
-			i++
 		}
 		return ip, nil
 	default:
@@ -388,14 +386,12 @@ var IPMaskType = toy.NewType[IPMask]("net.IPMask", func(_ *toy.VM, args ...toy.O
 				}
 			}
 			m := make(IPMask, x.Len())
-			i := 0
-			for v := range toy.Elements(x) {
+			for i, v := range toy.Enumerate(x) {
 				b, ok := v.(toy.Int)
 				if !ok {
 					return nil, fmt.Errorf("value[%d]: want 'int', got '%s'", i, toy.TypeName(v))
 				}
 				m[i] = byte(b)
-				i++
 			}
 			return m, nil
 		default:
@@ -675,14 +671,12 @@ var MACType = toy.NewType[MAC]("net.MAC", func(_ *toy.VM, args ...toy.Object) (t
 			}
 		}
 		m := make(MAC, x.Len())
-		i := 0
-		for v := range toy.Elements(x) {
+		for i, v := range toy.Enumerate(x) {
 			b, ok := v.(toy.Int)
 			if !ok {
 				return nil, fmt.Errorf("value[%d]: want 'int', got '%s'", i, toy.TypeName(v))
 			}
 			m[i] = byte(b)
-			i++
 		}
 		return m, nil
 	default:

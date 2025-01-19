@@ -56,14 +56,12 @@ var UUIDType = toy.NewType[UUID]("uuid.UUID", func(_ *toy.VM, args ...toy.Object
 			}
 		}
 		var u UUID
-		i := 0
-		for v := range toy.Elements(x) {
+		for i, v := range toy.Enumerate(x) {
 			b, ok := v.(toy.Int)
 			if !ok {
 				return nil, fmt.Errorf("value[%d]: want 'int', got '%s'", i, toy.TypeName(v))
 			}
 			u[i] = byte(b)
-			i++
 		}
 		return u, nil
 	default:

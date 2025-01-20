@@ -1,4 +1,4 @@
-package stdlib
+package user
 
 import (
 	"fmt"
@@ -7,20 +7,21 @@ import (
 	"strconv"
 
 	"github.com/infastin/toy"
+	"github.com/infastin/toy/internal/fndef"
 )
 
-var OSUserModule = &toy.BuiltinModule{
+var Module = &toy.BuiltinModule{
 	Name: "user",
 	Members: map[string]toy.Object{
-		"current":       toy.NewBuiltinFunction("user.current", osUserCurrent),
-		"lookup":        toy.NewBuiltinFunction("user.lookup", osUserLookup),
-		"lookupID":      toy.NewBuiltinFunction("user.lookupID", osUserLookupID),
-		"groups":        toy.NewBuiltinFunction("user.groups", osUserGroups),
-		"lookupGroup":   toy.NewBuiltinFunction("user.lookupGroup", osUserLookupGroup),
-		"lookupGroupID": toy.NewBuiltinFunction("user.lookupGroupID", osUserLookupGroupID),
-		"cacheDir":      toy.NewBuiltinFunction("user.cacheDir", makeARSE(os.UserCacheDir)),
-		"configDir":     toy.NewBuiltinFunction("user.configDir", makeARSE(os.UserConfigDir)),
-		"homeDir":       toy.NewBuiltinFunction("user.homeDir", makeARSE(os.UserHomeDir)),
+		"current":       toy.NewBuiltinFunction("user.current", currentFn),
+		"lookup":        toy.NewBuiltinFunction("user.lookup", lookupFn),
+		"lookupID":      toy.NewBuiltinFunction("user.lookupID", lookupIDFn),
+		"groups":        toy.NewBuiltinFunction("user.groups", groupsFn),
+		"lookupGroup":   toy.NewBuiltinFunction("user.lookupGroup", lookupGroupFn),
+		"lookupGroupID": toy.NewBuiltinFunction("user.lookupGroupID", lookupGroupIDFn),
+		"cacheDir":      toy.NewBuiltinFunction("user.cacheDir", fndef.ARSE(os.UserCacheDir)),
+		"configDir":     toy.NewBuiltinFunction("user.configDir", fndef.ARSE(os.UserConfigDir)),
+		"homeDir":       toy.NewBuiltinFunction("user.homeDir", fndef.ARSE(os.UserHomeDir)),
 	},
 }
 
@@ -78,7 +79,7 @@ func (g *Group) FieldGet(name string) (toy.Object, error) {
 	return nil, toy.ErrNoSuchField
 }
 
-func osUserCurrent(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func currentFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
@@ -89,7 +90,7 @@ func osUserCurrent(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{(*User)(user), toy.Nil}, nil
 }
 
-func osUserLookup(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lookupFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
@@ -101,7 +102,7 @@ func osUserLookup(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{(*User)(user), toy.Nil}, nil
 }
 
-func osUserLookupID(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lookupIDFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var uid string
 	if err := toy.UnpackArgs(args, "uid", &uid); err != nil {
 		return nil, err
@@ -113,7 +114,7 @@ func osUserLookupID(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{(*User)(user), toy.Nil}, nil
 }
 
-func osUserGroups(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func groupsFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
@@ -135,7 +136,7 @@ func osUserGroups(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.NewArray(groups), toy.Nil}, nil
 }
 
-func osUserLookupGroup(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lookupGroupFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
@@ -147,7 +148,7 @@ func osUserLookupGroup(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{(*Group)(group), toy.Nil}, nil
 }
 
-func osUserLookupGroupID(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lookupGroupIDFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var gid string
 	if err := toy.UnpackArgs(args, "gid", &gid); err != nil {
 		return nil, err

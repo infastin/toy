@@ -1,4 +1,4 @@
-package stdlib
+package json
 
 import (
 	"encoding/json"
@@ -6,15 +6,16 @@ import (
 	"time"
 
 	"github.com/infastin/toy"
+	toytime "github.com/infastin/toy/stdlib/time"
 
 	"github.com/go-faster/jx"
 )
 
-var JSONModule = &toy.BuiltinModule{
+var Module = &toy.BuiltinModule{
 	Name: "json",
 	Members: map[string]toy.Object{
-		"encode": toy.NewBuiltinFunction("json.encode", jsonEncode),
-		"decode": toy.NewBuiltinFunction("json.decode", jsonDecode),
+		"encode": toy.NewBuiltinFunction("json.encode", encodeFn),
+		"decode": toy.NewBuiltinFunction("json.decode", decodeFn),
 	},
 }
 
@@ -66,11 +67,11 @@ func objectToJSON(enc *jx.Encoder, o toy.Object) (err error) {
 	case toy.Bytes:
 		enc.Base64(x)
 		return nil
-	case Time:
+	case toytime.Time:
 		enc.Str(time.Time(x).Format(time.RFC3339Nano))
 		return nil
-	case Duration:
-		enc.Str(x.String())
+	case toytime.Duration:
+		enc.Str(time.Duration(x).String())
 		return nil
 	case toy.Bool:
 		enc.Bool(bool(x))
@@ -88,7 +89,7 @@ func objectToJSON(enc *jx.Encoder, o toy.Object) (err error) {
 	}
 }
 
-func jsonEncode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func encodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		x      toy.Object
 		indent *int
@@ -180,7 +181,7 @@ func jsonToObject(dec *jx.Decoder) (toy.Object, error) {
 	return nil, dec.Skip()
 }
 
-func jsonDecode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func decodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var data toy.StringOrBytes
 	if err := toy.UnpackArgs(args, "data", &data); err != nil {
 		return nil, err

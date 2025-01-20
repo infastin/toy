@@ -1,8 +1,8 @@
-package stdlib
+package fndef
 
 import "github.com/infastin/toy"
 
-func makeAR(fn func()) toy.CallableFunc {
+func AR(fn func()) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		if len(args) != 0 {
 			return nil, &toy.WrongNumArgumentsError{Got: len(args)}
@@ -12,7 +12,7 @@ func makeAR(fn func()) toy.CallableFunc {
 	}
 }
 
-func makeASRS(name string, fn func(string) string) toy.CallableFunc {
+func ASRS(name string, fn func(string) string) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s string
 		if err := toy.UnpackArgs(args, name, &s); err != nil {
@@ -22,7 +22,7 @@ func makeASRS(name string, fn func(string) string) toy.CallableFunc {
 	}
 }
 
-func makeASRSS(name string, fn func(string) (string, string)) toy.CallableFunc {
+func ASRSS(name string, fn func(string) (string, string)) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s string
 		if err := toy.UnpackArgs(args, name, &s); err != nil {
@@ -33,7 +33,7 @@ func makeASRSS(name string, fn func(string) (string, string)) toy.CallableFunc {
 	}
 }
 
-func makeASRSs(name string, fn func(string) []string) toy.CallableFunc {
+func ASRSs(name string, fn func(string) []string) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s string
 		if err := toy.UnpackArgs(args, name, &s); err != nil {
@@ -48,7 +48,7 @@ func makeASRSs(name string, fn func(string) []string) toy.CallableFunc {
 	}
 }
 
-func makeASRSB(name string, fn func(string) (string, bool)) toy.CallableFunc {
+func ASRSB(name string, fn func(string) (string, bool)) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s string
 		if err := toy.UnpackArgs(args, name, &s); err != nil {
@@ -59,7 +59,7 @@ func makeASRSB(name string, fn func(string) (string, bool)) toy.CallableFunc {
 	}
 }
 
-func makeASSRB(n1, n2 string, fn func(string, string) bool) toy.CallableFunc {
+func ASSRB(n1, n2 string, fn func(string, string) bool) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s1, s2 string
 		if err := toy.UnpackArgs(args, n1, &s1, n2, &s2); err != nil {
@@ -69,7 +69,7 @@ func makeASSRB(n1, n2 string, fn func(string, string) bool) toy.CallableFunc {
 	}
 }
 
-func makeASSRSB(n1, n2 string, fn func(string, string) (string, bool)) toy.CallableFunc {
+func ASSRSB(n1, n2 string, fn func(string, string) (string, bool)) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s1, s2 string
 		if err := toy.UnpackArgs(args, n1, &s1, n2, &s2); err != nil {
@@ -80,7 +80,7 @@ func makeASSRSB(n1, n2 string, fn func(string, string) (string, bool)) toy.Calla
 	}
 }
 
-func makeASSRS(n1, n2 string, fn func(string, string) string) toy.CallableFunc {
+func ASSRS(n1, n2 string, fn func(string, string) string) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s1, s2 string
 		if err := toy.UnpackArgs(args, n1, &s1, n2, &s2); err != nil {
@@ -90,7 +90,7 @@ func makeASSRS(n1, n2 string, fn func(string, string) string) toy.CallableFunc {
 	}
 }
 
-func makeAFRF(name string, fn func(float64) float64) toy.CallableFunc {
+func AFRF(name string, fn func(float64) float64) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var f float64
 		if err := toy.UnpackArgs(args, name, &f); err != nil {
@@ -100,7 +100,7 @@ func makeAFRF(name string, fn func(float64) float64) toy.CallableFunc {
 	}
 }
 
-func makeAFFRF(n1, n2 string, fn func(float64, float64) float64) toy.CallableFunc {
+func AFFRF(n1, n2 string, fn func(float64, float64) float64) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var f1, f2 float64
 		if err := toy.UnpackArgs(args, n1, &f1, n2, &f2); err != nil {
@@ -110,7 +110,7 @@ func makeAFFRF(n1, n2 string, fn func(float64, float64) float64) toy.CallableFun
 	}
 }
 
-func makeAIFRF(n1, n2 string, fn func(int, float64) float64) toy.CallableFunc {
+func AIFRF(n1, n2 string, fn func(int, float64) float64) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var (
 			i1 int
@@ -123,7 +123,7 @@ func makeAIFRF(n1, n2 string, fn func(int, float64) float64) toy.CallableFunc {
 	}
 }
 
-func makeAFIRF(n1, n2 string, fn func(float64, int) float64) toy.CallableFunc {
+func AFIRF(n1, n2 string, fn func(float64, int) float64) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var (
 			f1 float64
@@ -136,7 +136,7 @@ func makeAFIRF(n1, n2 string, fn func(float64, int) float64) toy.CallableFunc {
 	}
 }
 
-func makeAFRI(name string, fn func(float64) int) toy.CallableFunc {
+func AFRI(name string, fn func(float64) int) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var f float64
 		if err := toy.UnpackArgs(args, name, &f); err != nil {
@@ -146,7 +146,7 @@ func makeAFRI(name string, fn func(float64) int) toy.CallableFunc {
 	}
 }
 
-func makeAIRF(name string, fn func(int) float64) toy.CallableFunc {
+func AIRF(name string, fn func(int) float64) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var i int
 		if err := toy.UnpackArgs(args, name, &i); err != nil {
@@ -156,7 +156,7 @@ func makeAIRF(name string, fn func(int) float64) toy.CallableFunc {
 	}
 }
 
-func makeAFRB(name string, fn func(float64) bool) toy.CallableFunc {
+func AFRB(name string, fn func(float64) bool) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var f float64
 		if err := toy.UnpackArgs(args, name, &f); err != nil {
@@ -166,7 +166,7 @@ func makeAFRB(name string, fn func(float64) bool) toy.CallableFunc {
 	}
 }
 
-func makeARI(fn func() int) toy.CallableFunc {
+func ARI(fn func() int) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		if len(args) != 0 {
 			return nil, &toy.WrongNumArgumentsError{Got: len(args)}
@@ -175,7 +175,7 @@ func makeARI(fn func() int) toy.CallableFunc {
 	}
 }
 
-func makeASSRE(n1, n2 string, fn func(string, string) error) toy.CallableFunc {
+func ASSRE(n1, n2 string, fn func(string, string) error) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s1, s2 string
 		if err := toy.UnpackArgs(args, n1, &s1, n2, &s2); err != nil {
@@ -188,7 +188,7 @@ func makeASSRE(n1, n2 string, fn func(string, string) error) toy.CallableFunc {
 	}
 }
 
-func makeASRE(name string, fn func(string) error) toy.CallableFunc {
+func ASRE(name string, fn func(string) error) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s string
 		if err := toy.UnpackArgs(args, name, &s); err != nil {
@@ -201,7 +201,7 @@ func makeASRE(name string, fn func(string) error) toy.CallableFunc {
 	}
 }
 
-func makeARS(fn func() string) toy.CallableFunc {
+func ARS(fn func() string) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		if len(args) != 0 {
 			return nil, &toy.WrongNumArgumentsError{Got: len(args)}
@@ -210,7 +210,7 @@ func makeARS(fn func() string) toy.CallableFunc {
 	}
 }
 
-func makeARSE(fn func() (string, error)) toy.CallableFunc {
+func ARSE(fn func() (string, error)) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		if len(args) != 0 {
 			return nil, &toy.WrongNumArgumentsError{Got: len(args)}
@@ -223,7 +223,7 @@ func makeARSE(fn func() (string, error)) toy.CallableFunc {
 	}
 }
 
-func makeASRSE(name string, fn func(string) (string, error)) toy.CallableFunc {
+func ASRSE(name string, fn func(string) (string, error)) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s string
 		if err := toy.UnpackArgs(args, name, &s); err != nil {
@@ -237,7 +237,7 @@ func makeASRSE(name string, fn func(string) (string, error)) toy.CallableFunc {
 	}
 }
 
-func makeASRSSE(name string, fn func(string) (string, string, error)) toy.CallableFunc {
+func ASRSSE(name string, fn func(string) (string, string, error)) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s string
 		if err := toy.UnpackArgs(args, name, &s); err != nil {
@@ -251,7 +251,7 @@ func makeASRSSE(name string, fn func(string) (string, string, error)) toy.Callab
 	}
 }
 
-func makeASRSsE(name string, fn func(string) ([]string, error)) toy.CallableFunc {
+func ASRSsE(name string, fn func(string) ([]string, error)) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s string
 		if err := toy.UnpackArgs(args, name, &s); err != nil {

@@ -1,4 +1,4 @@
-package stdlib
+package os
 
 import (
 	"fmt"
@@ -8,10 +8,13 @@ import (
 	"strings"
 
 	"github.com/infastin/toy"
+	"github.com/infastin/toy/internal/fndef"
+	"github.com/infastin/toy/stdlib/enum"
+	"github.com/infastin/toy/stdlib/time"
 	"github.com/infastin/toy/token"
 )
 
-var OSModule = &toy.BuiltinModule{
+var Module = &toy.BuiltinModule{
 	Name: "os",
 	Members: map[string]toy.Object{
 		"platform": toy.String(runtime.GOOS),
@@ -30,44 +33,44 @@ var OSModule = &toy.BuiltinModule{
 		"DirEntry": DirEntryType,
 		"File":     FileType,
 
-		"args":       toy.NewBuiltinFunction("os.args", osArgs),
-		"environ":    toy.NewBuiltinFunction("os.environ", osEnviron),
-		"hostname":   toy.NewBuiltinFunction("os.hostname", makeARSE(os.Hostname)),
-		"tempDir":    toy.NewBuiltinFunction("os.tempDir", makeARS(os.TempDir)),
-		"executable": toy.NewBuiltinFunction("os.executable", makeARSE(os.Executable)),
+		"args":       toy.NewBuiltinFunction("os.args", argsFn),
+		"environ":    toy.NewBuiltinFunction("os.environ", environFn),
+		"hostname":   toy.NewBuiltinFunction("os.hostname", fndef.ARSE(os.Hostname)),
+		"tempDir":    toy.NewBuiltinFunction("os.tempDir", fndef.ARS(os.TempDir)),
+		"executable": toy.NewBuiltinFunction("os.executable", fndef.ARSE(os.Executable)),
 
-		"readfile":   toy.NewBuiltinFunction("os.readfile", osReadFile),
-		"writefile":  toy.NewBuiltinFunction("os.writefile", osWriteFile),
-		"readdir":    toy.NewBuiltinFunction("os.readdir", osReadDir),
-		"mkdir":      toy.NewBuiltinFunction("os.mkdir", osMkdir),
-		"mkdirTemp":  toy.NewBuiltinFunction("os.mkdirTemp", osMkdirTemp),
-		"remove":     toy.NewBuiltinFunction("os.remove", osRemove),
-		"rename":     toy.NewBuiltinFunction("os.rename", makeASSRE("oldpath", "newpath", os.Rename)),
-		"link":       toy.NewBuiltinFunction("os.link", makeASSRE("oldname", "newname", os.Link)),
-		"readlink":   toy.NewBuiltinFunction("os.readlink", makeASRSE("name", os.Readlink)),
-		"symlink":    toy.NewBuiltinFunction("os.symlink", makeASSRE("oldname", "newname", os.Symlink)),
-		"chdir":      toy.NewBuiltinFunction("os.chdir", makeASRE("dir", os.Chdir)),
-		"chmod":      toy.NewBuiltinFunction("os.chmod", osChmod),
-		"chown":      toy.NewBuiltinFunction("os.chown", osChown),
-		"lchown":     toy.NewBuiltinFunction("os.lchown", osLchown),
-		"open":       toy.NewBuiltinFunction("os.open", osOpen),
-		"create":     toy.NewBuiltinFunction("os.create", osCreate),
-		"createTemp": toy.NewBuiltinFunction("os.createTemp", osCreateTemp),
-		"stat":       toy.NewBuiltinFunction("os.stat", osStat),
-		"lstat":      toy.NewBuiltinFunction("os.lstat", osLstat),
-		"truncate":   toy.NewBuiltinFunction("os.truncate", osTruncate),
-		"getwd":      toy.NewBuiltinFunction("os.getwd", makeARSE(os.Getwd)),
+		"readfile":   toy.NewBuiltinFunction("os.readfile", readFileFn),
+		"writefile":  toy.NewBuiltinFunction("os.writefile", writeFileFn),
+		"readdir":    toy.NewBuiltinFunction("os.readdir", readDirFn),
+		"mkdir":      toy.NewBuiltinFunction("os.mkdir", mkdirFn),
+		"mkdirTemp":  toy.NewBuiltinFunction("os.mkdirTemp", mkdirTempFn),
+		"remove":     toy.NewBuiltinFunction("os.remove", removeFn),
+		"rename":     toy.NewBuiltinFunction("os.rename", fndef.ASSRE("oldpath", "newpath", os.Rename)),
+		"link":       toy.NewBuiltinFunction("os.link", fndef.ASSRE("oldname", "newname", os.Link)),
+		"readlink":   toy.NewBuiltinFunction("os.readlink", fndef.ASRSE("name", os.Readlink)),
+		"symlink":    toy.NewBuiltinFunction("os.symlink", fndef.ASSRE("oldname", "newname", os.Symlink)),
+		"chdir":      toy.NewBuiltinFunction("os.chdir", fndef.ASRE("dir", os.Chdir)),
+		"chmod":      toy.NewBuiltinFunction("os.chmod", chmodFn),
+		"chown":      toy.NewBuiltinFunction("os.chown", chownFn),
+		"lchown":     toy.NewBuiltinFunction("os.lchown", lchownFn),
+		"open":       toy.NewBuiltinFunction("os.open", openFn),
+		"create":     toy.NewBuiltinFunction("os.create", createFn),
+		"createTemp": toy.NewBuiltinFunction("os.createTemp", createTempFn),
+		"stat":       toy.NewBuiltinFunction("os.stat", statFn),
+		"lstat":      toy.NewBuiltinFunction("os.lstat", lstatFn),
+		"truncate":   toy.NewBuiltinFunction("os.truncate", truncateFn),
+		"getwd":      toy.NewBuiltinFunction("os.getwd", fndef.ARSE(os.Getwd)),
 
-		"getuid":  toy.NewBuiltinFunction("os.getuid", makeARI(os.Getuid)),
-		"getgid":  toy.NewBuiltinFunction("os.getgid", makeARI(os.Getgid)),
-		"geteuid": toy.NewBuiltinFunction("os.geteuid", makeARI(os.Geteuid)),
-		"getegid": toy.NewBuiltinFunction("os.getegid", makeARI(os.Getegid)),
-		"getpid":  toy.NewBuiltinFunction("os.getpid", makeARI(os.Getpid)),
-		"getppid": toy.NewBuiltinFunction("os.getppid", makeARI(os.Getppid)),
+		"getuid":  toy.NewBuiltinFunction("os.getuid", fndef.ARI(os.Getuid)),
+		"getgid":  toy.NewBuiltinFunction("os.getgid", fndef.ARI(os.Getgid)),
+		"geteuid": toy.NewBuiltinFunction("os.geteuid", fndef.ARI(os.Geteuid)),
+		"getegid": toy.NewBuiltinFunction("os.getegid", fndef.ARI(os.Getegid)),
+		"getpid":  toy.NewBuiltinFunction("os.getpid", fndef.ARI(os.Getpid)),
+		"getppid": toy.NewBuiltinFunction("os.getppid", fndef.ARI(os.Getppid)),
 	},
 }
 
-var O = NewEnum("os.O", map[string]toy.Int{
+var O = enum.New("os.O", map[string]toy.Int{
 	"RDONLY": toy.Int(os.O_RDONLY),
 	"WRONLY": toy.Int(os.O_WRONLY),
 	"RDWR":   toy.Int(os.O_RDWR),
@@ -78,7 +81,7 @@ var O = NewEnum("os.O", map[string]toy.Int{
 	"TRUNC":  toy.Int(os.O_TRUNC),
 }, nil)
 
-var Seek = NewEnum("os.Seek", map[string]toy.Int{
+var Seek = enum.New("os.Seek", map[string]toy.Int{
 	"SET": toy.Int(io.SeekStart),
 	"END": toy.Int(io.SeekEnd),
 	"CUR": toy.Int(io.SeekCurrent),
@@ -86,7 +89,7 @@ var Seek = NewEnum("os.Seek", map[string]toy.Int{
 
 type FileMode os.FileMode
 
-var FileModeType = NewEnum("os.FileMode", map[string]FileMode{
+var FileModeType = enum.New("os.FileMode", map[string]FileMode{
 	"DIR":         FileMode(os.ModeDir),
 	"APPEND":      FileMode(os.ModeAppend),
 	"EXCLUSIVE":   FileMode(os.ModeExclusive),
@@ -207,7 +210,7 @@ func (m FileMode) UnaryOp(op token.Token) (toy.Object, error) {
 	return nil, toy.ErrInvalidOperator
 }
 
-func osReadFile(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func readFileFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
@@ -219,7 +222,7 @@ func osReadFile(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.Bytes(data), toy.Nil}, nil
 }
 
-func osWriteFile(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func writeFileFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		name string
 		data toy.StringOrBytes
@@ -234,7 +237,7 @@ func osWriteFile(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func osReadDir(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func readDirFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
@@ -250,7 +253,7 @@ func osReadDir(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.NewArray(elems), toy.Nil}, nil
 }
 
-func osMkdir(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func mkdirFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		name string
 		perm FileMode = 0755
@@ -271,7 +274,7 @@ func osMkdir(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func osMkdirTemp(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func mkdirTempFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var dir, pattern string
 	if err := toy.UnpackArgs(args, "dir", &dir, "pattern", &pattern); err != nil {
 		return nil, err
@@ -283,7 +286,7 @@ func osMkdirTemp(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.String(res), toy.Nil}, nil
 }
 
-func osRemove(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func removeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		name string
 		all  = false
@@ -303,7 +306,7 @@ func osRemove(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func osArgs(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func argsFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
@@ -314,7 +317,7 @@ func osArgs(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func osEnviron(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func environFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
@@ -327,7 +330,7 @@ func osEnviron(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return m, nil
 }
 
-func osChmod(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func chmodFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		name string
 		mode FileMode
@@ -341,7 +344,7 @@ func osChmod(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func osChown(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func chownFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		name     string
 		uid, gid int
@@ -355,7 +358,7 @@ func osChown(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func osLchown(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lchownFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		name     string
 		uid, gid int
@@ -389,7 +392,7 @@ func (f *FileInfo) FieldGet(name string) (toy.Object, error) {
 	case "mode":
 		return FileMode(f.info.Mode()), nil
 	case "modTime":
-		return Time(f.info.ModTime()), nil
+		return time.Time(f.info.ModTime()), nil
 	case "type":
 		return FileMode(f.info.Mode().Type()), nil
 	case "perm":
@@ -414,7 +417,7 @@ func (f *FileInfo) FieldGet(name string) (toy.Object, error) {
 	return nil, toy.ErrNoSuchField
 }
 
-func osStat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func statFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
@@ -426,7 +429,7 @@ func osStat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{&FileInfo{info: info}, toy.Nil}, nil
 }
 
-func osLstat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lstatFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
@@ -438,7 +441,7 @@ func osLstat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{&FileInfo{info: info}, toy.Nil}, nil
 }
 
-func osTruncate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func truncateFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		name string
 		size int64
@@ -486,18 +489,18 @@ func (e *DirEntry) FieldGet(name string) (toy.Object, error) {
 	case "isIrregular":
 		return toy.Bool(e.entry.Type()&os.ModeIrregular != 0), nil
 	}
-	method, ok := osDirEntryMethods[name]
+	method, ok := dirEntryMethods[name]
 	if ok {
 		return method.WithReceiver(e), nil
 	}
 	return nil, toy.ErrNoSuchField
 }
 
-var osDirEntryMethods = map[string]*toy.BuiltinFunction{
-	"info": toy.NewBuiltinFunction("info", osDirEntryInfo),
+var dirEntryMethods = map[string]*toy.BuiltinFunction{
+	"info": toy.NewBuiltinFunction("info", dirEntryInfoMd),
 }
 
-func osDirEntryInfo(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func dirEntryInfoMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(*DirEntry)
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
@@ -528,28 +531,28 @@ func (f *File) FieldGet(name string) (toy.Object, error) {
 	case "name":
 		return toy.String((*os.File)(f).Name()), nil
 	}
-	method, ok := osFileMethods[name]
+	method, ok := fileMethods[name]
 	if ok {
 		return method.WithReceiver(f), nil
 	}
 	return nil, toy.ErrNoSuchField
 }
 
-var osFileMethods = map[string]*toy.BuiltinFunction{
-	"write":    toy.NewBuiltinFunction("write", osFileWrite),
-	"read":     toy.NewBuiltinFunction("read", osFileRead),
-	"close":    toy.NewBuiltinFunction("close", osFileClose),
-	"stat":     toy.NewBuiltinFunction("stat", osFileStat),
-	"sync":     toy.NewBuiltinFunction("sync", osFileSync),
-	"truncate": toy.NewBuiltinFunction("truncate", osFileTruncate),
-	"chown":    toy.NewBuiltinFunction("chown", osFileChown),
-	"chmod":    toy.NewBuiltinFunction("chmod", osFileChmod),
-	"chdir":    toy.NewBuiltinFunction("chdir", osFileChdir),
-	"seek":     toy.NewBuiltinFunction("seek", osFileSeek),
-	"readdir":  toy.NewBuiltinFunction("readdir", osFileReaddir),
+var fileMethods = map[string]*toy.BuiltinFunction{
+	"write":    toy.NewBuiltinFunction("write", fileWriteMd),
+	"read":     toy.NewBuiltinFunction("read", fileReadMd),
+	"close":    toy.NewBuiltinFunction("close", fileCloseMd),
+	"stat":     toy.NewBuiltinFunction("stat", fileStatMd),
+	"sync":     toy.NewBuiltinFunction("sync", fileSyncMd),
+	"truncate": toy.NewBuiltinFunction("truncate", fileTruncateMd),
+	"chown":    toy.NewBuiltinFunction("chown", fileChownMd),
+	"chmod":    toy.NewBuiltinFunction("chmod", fileChmodMd),
+	"chdir":    toy.NewBuiltinFunction("chdir", fileChdirMd),
+	"seek":     toy.NewBuiltinFunction("seek", fileSeekMd),
+	"readdir":  toy.NewBuiltinFunction("readdir", fileReaddirMd),
 }
 
-func osFileWrite(_ *toy.VM, args ...toy.Object) (_ toy.Object, err error) {
+func fileWriteMd(_ *toy.VM, args ...toy.Object) (_ toy.Object, err error) {
 	var (
 		recv = args[0].(*File)
 		data toy.StringOrBytes
@@ -573,7 +576,7 @@ func osFileWrite(_ *toy.VM, args ...toy.Object) (_ toy.Object, err error) {
 	return toy.Tuple{toy.Int(n), toy.Nil}, nil
 }
 
-func osFileRead(_ *toy.VM, args ...toy.Object) (_ toy.Object, err error) {
+func fileReadMd(_ *toy.VM, args ...toy.Object) (_ toy.Object, err error) {
 	var (
 		recv = args[0].(*File)
 		buf  toy.Bytes
@@ -597,7 +600,7 @@ func osFileRead(_ *toy.VM, args ...toy.Object) (_ toy.Object, err error) {
 	return toy.Tuple{buf[:n], toy.Int(n), toy.Nil}, nil
 }
 
-func osFileClose(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileCloseMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(*File)
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
@@ -608,7 +611,7 @@ func osFileClose(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func osFileStat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileStatMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(*File)
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
@@ -620,7 +623,7 @@ func osFileStat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{&FileInfo{info: info}, toy.Nil}, nil
 }
 
-func osFileSync(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileSyncMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(*File)
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
@@ -631,7 +634,7 @@ func osFileSync(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func osFileTruncate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileTruncateMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv = args[0].(*File)
 		size int64
@@ -645,7 +648,7 @@ func osFileTruncate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func osFileChown(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileChownMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv     = args[0].(*File)
 		uid, gid int
@@ -659,7 +662,7 @@ func osFileChown(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func osFileChmod(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileChmodMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv = args[0].(*File)
 		mode FileMode
@@ -673,7 +676,7 @@ func osFileChmod(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func osFileChdir(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileChdirMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(*File)
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
@@ -684,7 +687,7 @@ func osFileChdir(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func osFileSeek(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileSeekMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv   = args[0].(*File)
 		offset int64
@@ -700,7 +703,7 @@ func osFileSeek(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.Int(ret), toy.Nil}, nil
 }
 
-func osFileReaddir(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileReaddirMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv = args[0].(*File)
 		n    = -1
@@ -719,7 +722,7 @@ func osFileReaddir(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.NewArray(elems), toy.Nil}, nil
 }
 
-func osOpen(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func openFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		name string
 		flag = os.O_RDONLY
@@ -735,7 +738,7 @@ func osOpen(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{(*File)(file), toy.Nil}, nil
 }
 
-func osCreate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func createFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
@@ -747,7 +750,7 @@ func osCreate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{(*File)(file), toy.Nil}, nil
 }
 
-func osCreateTemp(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func createTempFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var dir, pattern string
 	if err := toy.UnpackArgs(args, "dir", &dir, "pattern", &pattern); err != nil {
 		return nil, err

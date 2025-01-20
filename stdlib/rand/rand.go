@@ -1,4 +1,4 @@
-package stdlib
+package rand
 
 import (
 	"crypto/rand"
@@ -10,19 +10,19 @@ import (
 	"github.com/infastin/toy"
 )
 
-var RandModule = &toy.BuiltinModule{
+var Module = &toy.BuiltinModule{
 	Name: "rand",
 	Members: map[string]toy.Object{
-		"int":          toy.NewBuiltinFunction("rand.int", randInt),
-		"float":        toy.NewBuiltinFunction("rand.float", randFloat),
-		"text":         toy.NewBuiltinFunction("rand.text", randText),
-		"alpha":        toy.NewBuiltinFunction("rand.alpha", randAlpha),
-		"alphanumeric": toy.NewBuiltinFunction("rand.alphanumeric", randAlphanumeric),
-		"ascii":        toy.NewBuiltinFunction("rand.ascii", randASCII),
+		"int":          toy.NewBuiltinFunction("rand.int", intFn),
+		"float":        toy.NewBuiltinFunction("rand.float", floatFn),
+		"text":         toy.NewBuiltinFunction("rand.text", textFn),
+		"alpha":        toy.NewBuiltinFunction("rand.alpha", alphaFn),
+		"alphanumeric": toy.NewBuiltinFunction("rand.alphanumeric", alphanumericFn),
+		"ascii":        toy.NewBuiltinFunction("rand.ascii", asciiFn),
 	},
 }
 
-func randInt(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func intFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	maxNum := int64(math.MaxInt64)
 	if err := toy.UnpackArgs(args, "n?", &maxNum); err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func randInt(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Int(x.Int64()), nil
 }
 
-func randFloat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func floatFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
@@ -81,7 +81,7 @@ func randStr(count int, alphabet []rune) (string, error) {
 	return b.String(), nil
 }
 
-func randText(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func textFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		alphabet string
 		n        int
@@ -96,7 +96,7 @@ func randText(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(str), nil
 }
 
-func randAlpha(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func alphaFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var n int
 	if err := toy.UnpackArgs(args, "n", &n); err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func randAlpha(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(str), nil
 }
 
-func randAlphanumeric(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func alphanumericFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var n int
 	if err := toy.UnpackArgs(args, "n", &n); err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func randAlphanumeric(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(str), nil
 }
 
-func randASCII(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func asciiFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var n int
 	if err := toy.UnpackArgs(args, "n", &n); err != nil {
 		return nil, err

@@ -1,4 +1,4 @@
-package stdlib
+package yaml
 
 import (
 	"bytes"
@@ -9,15 +9,16 @@ import (
 	"time"
 
 	"github.com/infastin/toy"
+	toytime "github.com/infastin/toy/stdlib/time"
 
 	"gopkg.in/yaml.v3"
 )
 
-var YAMLModule = &toy.BuiltinModule{
+var Module = &toy.BuiltinModule{
 	Name: "yaml",
 	Members: map[string]toy.Object{
-		"encode": toy.NewBuiltinFunction("yaml.encode", yamlEncode),
-		"decode": toy.NewBuiltinFunction("yaml.decode", yamlDecode),
+		"encode": toy.NewBuiltinFunction("yaml.encode", encodeFn),
+		"decode": toy.NewBuiltinFunction("yaml.decode", decodeFn),
 	},
 }
 
@@ -144,17 +145,17 @@ func objectToYAML(o toy.Object) (*yaml.Node, error) {
 			Tag:   "!!binary",
 			Value: base64.StdEncoding.EncodeToString(x),
 		}, nil
-	case Time:
+	case toytime.Time:
 		return &yaml.Node{
 			Kind:  yaml.ScalarNode,
 			Tag:   "!!timestamp",
 			Value: time.Time(x).Format(time.RFC3339Nano),
 		}, nil
-	case Duration:
+	case toytime.Duration:
 		return &yaml.Node{
 			Kind:  yaml.ScalarNode,
 			Tag:   "!!str",
-			Value: x.String(),
+			Value: time.Duration(x).String(),
 		}, nil
 	case toy.Bool:
 		return &yaml.Node{
@@ -181,7 +182,7 @@ func objectToYAML(o toy.Object) (*yaml.Node, error) {
 	}
 }
 
-func yamlEncode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func encodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		x      toy.Object
 		indent = 2
@@ -251,7 +252,7 @@ func yamlToObject(node *yaml.Node) (toy.Object, error) {
 			return toy.Bytes(data), nil
 		case "!!timestamp":
 			t, _ := time.Parse(time.RFC3339Nano, node.Value)
-			return Time(t), nil
+			return toytime.Time(t), nil
 		case "!!bool":
 			b, _ := strconv.ParseBool(node.Value)
 			return toy.Bool(b), nil
@@ -268,7 +269,7 @@ func yamlToObject(node *yaml.Node) (toy.Object, error) {
 	return nil, fmt.Errorf("value with kind %d can't be decoded", node.Kind)
 }
 
-func yamlDecode(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func decodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var data toy.StringOrBytes
 	if err := toy.UnpackArgs(args, "data", &data); err != nil {
 		return nil, err

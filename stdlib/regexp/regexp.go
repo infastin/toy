@@ -1,4 +1,4 @@
-package stdlib
+package regexp
 
 import (
 	"fmt"
@@ -7,16 +7,16 @@ import (
 	"github.com/infastin/toy"
 )
 
-var RegexpModule = &toy.BuiltinModule{
+var Module = &toy.BuiltinModule{
 	Name: "regexp",
 	Members: map[string]toy.Object{
 		"Regexp": RegexpType,
 		"Match":  RegexpMatchType,
 
-		"compile": toy.NewBuiltinFunction("regexp.compile", regexpCompile),
-		"match":   toy.NewBuiltinFunction("regexp.match", regexpMatch),
-		"find":    toy.NewBuiltinFunction("regexp.find", regexpFind),
-		"replace": toy.NewBuiltinFunction("regexp.replace", regexpReplace),
+		"compile": toy.NewBuiltinFunction("regexp.compile", compileFn),
+		"match":   toy.NewBuiltinFunction("regexp.match", matchFn),
+		"find":    toy.NewBuiltinFunction("regexp.find", findFn),
+		"replace": toy.NewBuiltinFunction("regexp.replace", replaceFn),
 	},
 }
 
@@ -52,19 +52,19 @@ func (r *Regexp) IsFalsy() bool        { return false }
 func (r *Regexp) Clone() toy.Object    { return r }
 
 func (r *Regexp) FieldGet(name string) (toy.Object, error) {
-	m, ok := regexpRegexpMethods[name]
+	m, ok := regexpMethods[name]
 	if !ok {
 		return nil, toy.ErrNoSuchField
 	}
 	return m.WithReceiver(r), nil
 }
 
-var regexpRegexpMethods = map[string]*toy.BuiltinFunction{
-	"find":    toy.NewBuiltinFunction("find", regexpRegexpFind),
-	"replace": toy.NewBuiltinFunction("replace", regexpRegexpReplace),
+var regexpMethods = map[string]*toy.BuiltinFunction{
+	"find":    toy.NewBuiltinFunction("find", regexpFindMd),
+	"replace": toy.NewBuiltinFunction("replace", regexpReplaceMd),
 }
 
-func regexpRegexpFind(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func regexpFindMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv  = args[0].(*Regexp)
 		input toy.StringOrBytes
@@ -76,7 +76,7 @@ func regexpRegexpFind(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return regexpFindStringSubmatch((*regexp.Regexp)(recv), input.String(), n)
 }
 
-func regexpRegexpReplace(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func regexpReplaceMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv  = args[0].(*Regexp)
 		input toy.StringOrBytes
@@ -125,7 +125,7 @@ func (m RegexpMatch) FieldGet(name string) (toy.Object, error) {
 	return nil, toy.ErrNoSuchField
 }
 
-func regexpCompile(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func compileFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var expr string
 	if err := toy.UnpackArgs(args, "expr", &expr); err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func regexpCompile(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return (*Regexp)(r), nil
 }
 
-func regexpMatch(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func matchFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		pattern string
 		data    toy.StringOrBytes
@@ -152,7 +152,7 @@ func regexpMatch(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(matched), nil
 }
 
-func regexpFind(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func findFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		expr  string
 		input toy.StringOrBytes
@@ -168,7 +168,7 @@ func regexpFind(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return regexpFindStringSubmatch(r, input.String(), n)
 }
 
-func regexpReplace(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func replaceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		expr  string
 		input toy.StringOrBytes

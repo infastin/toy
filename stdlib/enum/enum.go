@@ -1,4 +1,4 @@
-package stdlib
+package enum
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ type Enum[T toy.Object] struct {
 	fn       toy.CallableFunc
 }
 
-func NewEnum[T toy.Object](name string, variants map[string]T, constructor toy.CallableFunc) toy.ObjectType {
+func New[T toy.Object](name string, variants map[string]T, constructor toy.CallableFunc) toy.ObjectType {
 	fn := constructor
 	if fn == nil {
 		fn = func(v *toy.VM, args ...toy.Object) (toy.Object, error) {

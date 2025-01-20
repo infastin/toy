@@ -1,4 +1,4 @@
-package stdlib
+package time
 
 import (
 	"fmt"
@@ -9,21 +9,21 @@ import (
 	"github.com/infastin/toy/token"
 )
 
-var TimeModule = &toy.BuiltinModule{
+var Module = &toy.BuiltinModule{
 	Name: "time",
 	Members: map[string]toy.Object{
 		"Time":     TimeType,
 		"Duration": DurationType,
 
-		"parse":         toy.NewBuiltinFunction("time.parse", timeParse),
-		"now":           toy.NewBuiltinFunction("time.now", timeNow),
-		"date":          toy.NewBuiltinFunction("time.date", timeDate),
-		"parseDuration": toy.NewBuiltinFunction("time.parseDuration", timeParseDuration),
-		"since":         toy.NewBuiltinFunction("time.since", timeSince),
-		"until":         toy.NewBuiltinFunction("time.until", timeUntil),
-		"unix":          toy.NewBuiltinFunction("time.unix", timeUnix),
-		"unixMicro":     toy.NewBuiltinFunction("time.unixMicro", timeUnixMicro),
-		"unixMilli":     toy.NewBuiltinFunction("time.unixMilli", timeUnixMilli),
+		"parse":         toy.NewBuiltinFunction("time.parse", parseFn),
+		"now":           toy.NewBuiltinFunction("time.now", nowFn),
+		"date":          toy.NewBuiltinFunction("time.date", dateFn),
+		"parseDuration": toy.NewBuiltinFunction("time.parseDuration", parseDurationFn),
+		"since":         toy.NewBuiltinFunction("time.since", sinceFn),
+		"until":         toy.NewBuiltinFunction("time.until", untilFn),
+		"unix":          toy.NewBuiltinFunction("time.unix", unixFn),
+		"unixMicro":     toy.NewBuiltinFunction("time.unixMicro", unixMicroFn),
+		"unixMilli":     toy.NewBuiltinFunction("time.unixMilli", unixMilliFn),
 
 		"nsec": Duration(time.Nanosecond),
 		"usec": Duration(time.Microsecond),
@@ -195,21 +195,21 @@ func (t Time) FieldGet(name string) (toy.Object, error) {
 	case "unixNano":
 		return toy.Int(time.Time(t).UnixNano()), nil
 	}
-	method, ok := timeTimeMethods[name]
+	method, ok := timeMethods[name]
 	if !ok {
 		return nil, toy.ErrNoSuchField
 	}
 	return method.WithReceiver(t), nil
 }
 
-var timeTimeMethods = map[string]*toy.BuiltinFunction{
-	"format":     toy.NewBuiltinFunction("format", timeTimeFormat),
-	"inLocation": toy.NewBuiltinFunction("inLocation", timeTimeInLocation),
-	"round":      toy.NewBuiltinFunction("round", timeTimeRound),
-	"truncate":   toy.NewBuiltinFunction("truncate", timeTimeTruncate),
+var timeMethods = map[string]*toy.BuiltinFunction{
+	"format":     toy.NewBuiltinFunction("format", timeFormatMd),
+	"inLocation": toy.NewBuiltinFunction("inLocation", timeInLocationMd),
+	"round":      toy.NewBuiltinFunction("round", timeRoundMd),
+	"truncate":   toy.NewBuiltinFunction("truncate", timeTruncateMd),
 }
 
-func timeTimeFormat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func timeFormatMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv   = args[0].(Time)
 		layout string
@@ -220,7 +220,7 @@ func timeTimeFormat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(time.Time(recv).Format(layout)), nil
 }
 
-func timeTimeInLocation(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func timeInLocationMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv     = args[0].(Time)
 		location string
@@ -235,7 +235,7 @@ func timeTimeInLocation(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{Time(time.Time(recv).In(loc)), toy.Nil}, nil
 }
 
-func timeTimeRound(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func timeRoundMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv = args[0].(Time)
 		dur  Duration
@@ -246,7 +246,7 @@ func timeTimeRound(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Time(time.Time(recv).Round(time.Duration(dur))), nil
 }
 
-func timeTimeTruncate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func timeTruncateMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv = args[0].(Time)
 		dur  Duration
@@ -257,7 +257,7 @@ func timeTimeTruncate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Time(time.Time(recv).Truncate(time.Duration(dur))), nil
 }
 
-func timeParse(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		x        string
 		layout   = time.RFC3339Nano
@@ -284,14 +284,14 @@ func timeParse(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{Time(t), toy.Nil}, nil
 }
 
-func timeNow(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func nowFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	return Time(time.Now()), nil
 }
 
-func timeDate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func dateFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		year, month, day, hour, min, sec, nsec int
 		location                               string
@@ -438,11 +438,11 @@ func (d Duration) FieldGet(name string) (toy.Object, error) {
 }
 
 var timeDurationMethods = map[string]*toy.BuiltinFunction{
-	"round":    toy.NewBuiltinFunction("round", timeDurationRound),
-	"truncate": toy.NewBuiltinFunction("truncate", timeDurationTruncate),
+	"round":    toy.NewBuiltinFunction("round", durationRoundMd),
+	"truncate": toy.NewBuiltinFunction("truncate", durationTruncateMd),
 }
 
-func timeDurationRound(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func durationRoundMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv = args[0].(Duration)
 		m    Duration
@@ -453,7 +453,7 @@ func timeDurationRound(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Duration(time.Duration(recv).Round(time.Duration(m))), nil
 }
 
-func timeDurationTruncate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func durationTruncateMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv = args[0].(Duration)
 		m    Duration
@@ -464,7 +464,7 @@ func timeDurationTruncate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Duration(time.Duration(recv).Truncate(time.Duration(m))), nil
 }
 
-func timeParseDuration(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseDurationFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var x string
 	if err := toy.UnpackArgs(args, "x", &x); err != nil {
 		return nil, err
@@ -476,7 +476,7 @@ func timeParseDuration(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{Duration(d), toy.Nil}, nil
 }
 
-func timeSince(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func sinceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var t Time
 	if err := toy.UnpackArgs(args, "t", &t); err != nil {
 		return nil, err
@@ -484,7 +484,7 @@ func timeSince(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Duration(time.Since(time.Time(t))), nil
 }
 
-func timeUntil(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func untilFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var t Time
 	if err := toy.UnpackArgs(args, "t", &t); err != nil {
 		return nil, err
@@ -492,7 +492,7 @@ func timeUntil(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Duration(time.Until(time.Time(t))), nil
 }
 
-func timeUnix(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func unixFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var sec, nsec int64
 	if err := toy.UnpackArgs(args, "sec", &sec, "nsec", &nsec); err != nil {
 		return nil, err
@@ -500,7 +500,7 @@ func timeUnix(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Time(time.Unix(sec, nsec)), nil
 }
 
-func timeUnixMicro(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func unixMicroFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var usec int64
 	if err := toy.UnpackArgs(args, "usec", &usec); err != nil {
 		return nil, err
@@ -508,7 +508,7 @@ func timeUnixMicro(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Time(time.UnixMicro(usec)), nil
 }
 
-func timeUnixMilli(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func unixMilliFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var msec int64
 	if err := toy.UnpackArgs(args, "msec", &msec); err != nil {
 		return nil, err

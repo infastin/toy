@@ -1,4 +1,4 @@
-package stdlib
+package net
 
 import (
 	"bytes"
@@ -10,42 +10,44 @@ import (
 
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/hash"
+	"github.com/infastin/toy/internal/fndef"
+	"github.com/infastin/toy/stdlib/enum"
 	"github.com/infastin/toy/token"
 )
 
-var NetModule = &toy.BuiltinModule{
+var Module = &toy.BuiltinModule{
 	Name: "net",
 	Members: map[string]toy.Object{
 		"IP":       IPType,
-		"parseIP":  toy.NewBuiltinFunction("parseIP", netParseIP),
-		"ipv4":     toy.NewBuiltinFunction("ipv4", netIPv4),
-		"lookupIP": toy.NewBuiltinFunction("lookupIP", netLookupIP),
+		"parseIP":  toy.NewBuiltinFunction("parseIP", parseIPFn),
+		"ipv4":     toy.NewBuiltinFunction("ipv4", ipv4Fn),
+		"lookupIP": toy.NewBuiltinFunction("lookupIP", lookupIPFn),
 
 		"IPMask":   IPMaskType,
-		"cidrMask": toy.NewBuiltinFunction("cidrMask", netCIDRMask),
-		"ipv4Mask": toy.NewBuiltinFunction("ipv4Mask", netIPv4Mask),
+		"cidrMask": toy.NewBuiltinFunction("cidrMask", cidrMaskFn),
+		"ipv4Mask": toy.NewBuiltinFunction("ipv4Mask", ipv4MaskFn),
 
 		"IPNet":     IPNetType,
-		"parseCIDR": toy.NewBuiltinFunction("parseCIDR", netParseCIDR),
+		"parseCIDR": toy.NewBuiltinFunction("parseCIDR", parseCIDRFn),
 
 		"MAC":      MACType,
-		"parseMAC": toy.NewBuiltinFunction("parseMAC", netParseMAC),
+		"parseMAC": toy.NewBuiltinFunction("parseMAC", parseMACFn),
 
 		"Addr":           AddrType,
-		"interfaceAddrs": toy.NewBuiltinFunction("interfaceAddrs", netInterfaceAddrs),
+		"interfaceAddrs": toy.NewBuiltinFunction("interfaceAddrs", interfaceAddrsFn),
 
 		"IPAddr":        IPAddrType,
-		"resolveIPAddr": toy.NewBuiltinFunction("resolveIPAddr", netResolveIPAddr),
+		"resolveIPAddr": toy.NewBuiltinFunction("resolveIPAddr", resolveIPAddrFn),
 
 		"Interface":       InterfaceType,
 		"InterfaceFlags":  InterfaceFlagsType,
-		"lookupInterface": toy.NewBuiltinFunction("lookupInterface", netLookupInterface),
-		"interfaces":      toy.NewBuiltinFunction("interfaces", netInterfaces),
+		"lookupInterface": toy.NewBuiltinFunction("lookupInterface", lookupInterfaceFn),
+		"interfaces":      toy.NewBuiltinFunction("interfaces", interfacesFn),
 
-		"joinHostPort":  toy.NewBuiltinFunction("joinHostPort", makeASSRS("host", "port", net.JoinHostPort)),
-		"splitHostPort": toy.NewBuiltinFunction("splitHostPort", makeASRSSE("hostport", net.SplitHostPort)),
-		"lookupAddr":    toy.NewBuiltinFunction("lookupAddr", makeASRSsE("addr", net.LookupAddr)),
-		"lookupHost":    toy.NewBuiltinFunction("lookupHost", makeASRSsE("host", net.LookupHost)),
+		"joinHostPort":  toy.NewBuiltinFunction("joinHostPort", fndef.ASSRS("host", "port", net.JoinHostPort)),
+		"splitHostPort": toy.NewBuiltinFunction("splitHostPort", fndef.ASRSSE("hostport", net.SplitHostPort)),
+		"lookupAddr":    toy.NewBuiltinFunction("lookupAddr", fndef.ASRSsE("addr", net.LookupAddr)),
+		"lookupHost":    toy.NewBuiltinFunction("lookupHost", fndef.ASRSsE("host", net.LookupHost)),
 	},
 }
 
@@ -122,7 +124,7 @@ func (ip IP) Compare(op token.Token, rhs toy.Object) (bool, error) {
 }
 
 func (ip IP) FieldGet(name string) (toy.Object, error) {
-	method, ok := netIPMethods[name]
+	method, ok := ipMethods[name]
 	if !ok {
 		return nil, toy.ErrNoSuchField
 	}
@@ -192,21 +194,21 @@ func (it *ipIterator) Next(key, value *toy.Object) bool {
 	return false
 }
 
-var netIPMethods = map[string]*toy.BuiltinFunction{
-	"isUnspecified":        toy.NewBuiltinFunction("isUnspecified", netIPIsUnspecified),
-	"isLoopback":           toy.NewBuiltinFunction("isLoopback", netIPIsLoopback),
-	"isPrivate":            toy.NewBuiltinFunction("isPrivate", netIPIsPrivate),
-	"isMulticast":          toy.NewBuiltinFunction("isMulticast", netIPIsMulticast),
-	"isLinkLocalMulticast": toy.NewBuiltinFunction("isLinkLocalMulticast", netIPIsLinkLocalMulticast),
-	"isLinkLocalUnicast":   toy.NewBuiltinFunction("isLinkLocalUnicast", netIPIsLinkLocalUnicast),
-	"isGlobalUnicast":      toy.NewBuiltinFunction("isGlobalUnicast", netIPIsGlobalUnicast),
-	"to4":                  toy.NewBuiltinFunction("to4", netIPTo4),
-	"to16":                 toy.NewBuiltinFunction("to16", netIPTo16),
-	"mask":                 toy.NewBuiltinFunction("mask", netIPMask),
-	"defaultMask":          toy.NewBuiltinFunction("defaultMask", netIPDefaultMask),
+var ipMethods = map[string]*toy.BuiltinFunction{
+	"isUnspecified":        toy.NewBuiltinFunction("isUnspecified", ipIsUnspecifiedMd),
+	"isLoopback":           toy.NewBuiltinFunction("isLoopback", ipIsLoopbackMd),
+	"isPrivate":            toy.NewBuiltinFunction("isPrivate", ipIsPrivateMd),
+	"isMulticast":          toy.NewBuiltinFunction("isMulticast", ipIsMulticastMd),
+	"isLinkLocalMulticast": toy.NewBuiltinFunction("isLinkLocalMulticast", ipIsLinkLocalMulticastMd),
+	"isLinkLocalUnicast":   toy.NewBuiltinFunction("isLinkLocalUnicast", ipIsLinkLocalUnicastMd),
+	"isGlobalUnicast":      toy.NewBuiltinFunction("isGlobalUnicast", ipIsGlobalUnicastMd),
+	"to4":                  toy.NewBuiltinFunction("to4", ipTo4Md),
+	"to16":                 toy.NewBuiltinFunction("to16", ipTo16Md),
+	"mask":                 toy.NewBuiltinFunction("mask", ipMaskMd),
+	"defaultMask":          toy.NewBuiltinFunction("defaultMask", ipDefaultMaskMd),
 }
 
-func netIPIsUnspecified(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsUnspecifiedMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -215,7 +217,7 @@ func netIPIsUnspecified(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(net.IP(recv).IsUnspecified()), nil
 }
 
-func netIPIsLoopback(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsLoopbackMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -224,7 +226,7 @@ func netIPIsLoopback(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(net.IP(recv).IsLoopback()), nil
 }
 
-func netIPIsPrivate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsPrivateMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -233,7 +235,7 @@ func netIPIsPrivate(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(net.IP(recv).IsPrivate()), nil
 }
 
-func netIPIsMulticast(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsMulticastMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -242,7 +244,7 @@ func netIPIsMulticast(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(net.IP(recv).IsMulticast()), nil
 }
 
-func netIPIsLinkLocalMulticast(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsLinkLocalMulticastMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -251,7 +253,7 @@ func netIPIsLinkLocalMulticast(_ *toy.VM, args ...toy.Object) (toy.Object, error
 	return toy.Bool(net.IP(recv).IsLinkLocalMulticast()), nil
 }
 
-func netIPIsLinkLocalUnicast(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsLinkLocalUnicastMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -260,7 +262,7 @@ func netIPIsLinkLocalUnicast(_ *toy.VM, args ...toy.Object) (toy.Object, error) 
 	return toy.Bool(net.IP(recv).IsLinkLocalUnicast()), nil
 }
 
-func netIPIsGlobalUnicast(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsGlobalUnicastMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -269,7 +271,7 @@ func netIPIsGlobalUnicast(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(net.IP(recv).IsGlobalUnicast()), nil
 }
 
-func netIPTo4(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipTo4Md(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -278,7 +280,7 @@ func netIPTo4(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return IP(net.IP(recv).To4()), nil
 }
 
-func netIPTo16(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipTo16Md(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -287,7 +289,7 @@ func netIPTo16(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return IP(net.IP(recv).To16()), nil
 }
 
-func netIPMask(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipMaskMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		recv = args[0].(IP)
 		mask IPMask
@@ -298,7 +300,7 @@ func netIPMask(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return IP(net.IP(recv).Mask(net.IPMask(mask))), nil
 }
 
-func netIPDefaultMask(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipDefaultMaskMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -307,7 +309,7 @@ func netIPDefaultMask(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return IP(net.IP(recv).DefaultMask()), nil
 }
 
-func netParseIP(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseIPFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
@@ -319,7 +321,7 @@ func netParseIP(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{IP(ip), toy.Nil}, nil
 }
 
-func netIPv4(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipv4Fn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var a, b, c, d byte
 	if err := toy.UnpackArgs(args, "a", &a, "b", &b, "c", &c, "d", &d); err != nil {
 		return nil, err
@@ -327,7 +329,7 @@ func netIPv4(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return IP(net.IPv4(a, b, c, d)), nil
 }
 
-func netLookupIP(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lookupIPFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var host string
 	if err := toy.UnpackArgs(args, "host", &host); err != nil {
 		return nil, err
@@ -434,7 +436,7 @@ func (m IPMask) Compare(op token.Token, rhs toy.Object) (bool, error) {
 }
 
 func (m IPMask) FieldGet(name string) (toy.Object, error) {
-	method, ok := netIPMaskMethods[name]
+	method, ok := ipMaskMethods[name]
 	if !ok {
 		return nil, toy.ErrNoSuchField
 	}
@@ -504,11 +506,11 @@ func (it *ipMaskIterator) Next(key, value *toy.Object) bool {
 	return false
 }
 
-var netIPMaskMethods = map[string]*toy.BuiltinFunction{
-	"size": toy.NewBuiltinFunction("size", netIPMaskSize),
+var ipMaskMethods = map[string]*toy.BuiltinFunction{
+	"size": toy.NewBuiltinFunction("size", ipMaskSizeMd),
 }
 
-func netIPMaskSize(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipMaskSizeMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	recv := args[0].(IPMask)
 	args = args[1:]
 	if len(args) != 0 {
@@ -518,7 +520,7 @@ func netIPMaskSize(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.Int(ones), toy.Int(bits)}, nil
 }
 
-func netCIDRMask(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func cidrMaskFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var ones, bits int
 	if err := toy.UnpackArgs(args, "ones", &ones, "bits", &bits); err != nil {
 		return nil, err
@@ -530,7 +532,7 @@ func netCIDRMask(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{IPMask(mask), toy.Nil}, nil
 }
 
-func netIPv4Mask(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipv4MaskFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var a, b, c, d byte
 	if err := toy.UnpackArgs(args, "a", &a, "b", &b, "c", &c, "d", &d); err != nil {
 		return nil, err
@@ -538,7 +540,7 @@ func netIPv4Mask(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return IPMask(net.IPv4Mask(a, b, c, d)), nil
 }
 
-func netParseCIDR(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseCIDRFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
@@ -771,7 +773,7 @@ func (it *macIterator) Next(key, value *toy.Object) bool {
 	return false
 }
 
-func netParseMAC(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseMACFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
@@ -804,7 +806,7 @@ func (a *Addr) FieldGet(name string) (toy.Object, error) {
 	return nil, toy.ErrNoSuchField
 }
 
-func netInterfaceAddrs(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func interfaceAddrsFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
@@ -838,7 +840,7 @@ func (a *IPAddr) FieldGet(name string) (toy.Object, error) {
 	return nil, toy.ErrNoSuchField
 }
 
-func netResolveIPAddr(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func resolveIPAddrFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var network, address string
 	if err := toy.UnpackArgs(args, "network", &network, "address", &address); err != nil {
 		return nil, err
@@ -886,7 +888,7 @@ func (i *Interface) FieldGet(name string) (toy.Object, error) {
 
 type InterfaceFlags net.Flags
 
-var InterfaceFlagsType = NewEnum("net.InterfaceFlags", map[string]InterfaceFlags{
+var InterfaceFlagsType = enum.New("net.InterfaceFlags", map[string]InterfaceFlags{
 	"UP":             InterfaceFlags(net.FlagUp),
 	"BROADCAST":      InterfaceFlags(net.FlagBroadcast),
 	"LOOPBACK":       InterfaceFlags(net.FlagLoopback),
@@ -976,7 +978,7 @@ func (f InterfaceFlags) UnaryOp(op token.Token) (toy.Object, error) {
 	return nil, toy.ErrInvalidOperator
 }
 
-func netLookupInterface(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lookupInterfaceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 1,
@@ -1006,7 +1008,7 @@ func netLookupInterface(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 }
 
-func netInterfaces(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func interfacesFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}

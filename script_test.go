@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/infastin/toy"
-	"github.com/infastin/toy/stdlib"
+	toymath "github.com/infastin/toy/stdlib/math"
 	"github.com/infastin/toy/token"
 
 	"golang.org/x/text/cases"
@@ -59,7 +59,7 @@ func TestScript_Run(t *testing.T) {
 
 func TestScript_BuiltinModules(t *testing.T) {
 	s := toy.NewScript([]byte(`math := import("math"); a := math.abs(-19.84)`))
-	s.SetImports(toy.ModuleMap{"math": stdlib.MathModule})
+	s.SetImports(toy.ModuleMap{"math": toymath.Module})
 	c, err := s.Run()
 	expectNoError(t, err)
 	expectNotNil(t, c)

@@ -1,4 +1,4 @@
-package stdlib
+package fmt
 
 import (
 	"os"
@@ -7,17 +7,17 @@ import (
 	"github.com/infastin/toy"
 )
 
-var FmtModule = &toy.BuiltinModule{
+var Module = &toy.BuiltinModule{
 	Name: "fmt",
 	Members: map[string]toy.Object{
-		"print":   toy.NewBuiltinFunction("fmt.print", fmtPrint),
-		"println": toy.NewBuiltinFunction("fmt.println", fmtPrintln),
-		"printf":  toy.NewBuiltinFunction("fmt.printf", fmtPrintf),
-		"printfn": toy.NewBuiltinFunction("fmt.printfn", fmtPrintfn),
+		"print":   toy.NewBuiltinFunction("fmt.print", printFn),
+		"println": toy.NewBuiltinFunction("fmt.println", printlnFn),
+		"printf":  toy.NewBuiltinFunction("fmt.printf", printfFn),
+		"printfn": toy.NewBuiltinFunction("fmt.printfn", printfnFn),
 	},
 }
 
-func fmtPrint(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func printFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var b strings.Builder
 	for i, arg := range args {
 		var s toy.String
@@ -35,7 +35,7 @@ func fmtPrint(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func fmtPrintln(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func printlnFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var b strings.Builder
 	for i, arg := range args {
 		var s toy.String
@@ -52,7 +52,7 @@ func fmtPrintln(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func fmtPrintf(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func printfFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		format string
 		rest   []toy.Object
@@ -70,7 +70,7 @@ func fmtPrintf(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func fmtPrintfn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func printfnFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		format string
 		rest   []toy.Object

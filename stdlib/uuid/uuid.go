@@ -1,4 +1,4 @@
-package stdlib
+package uuid
 
 import (
 	"fmt"
@@ -10,14 +10,14 @@ import (
 	"github.com/google/uuid"
 )
 
-var UUIDModule = &toy.BuiltinModule{
+var Module = &toy.BuiltinModule{
 	Name: "uuid",
 	Members: map[string]toy.Object{
 		"UUID":      UUIDType,
-		"uuid4":     toy.NewBuiltinFunction("uuid.uuid4", uuidV4),
-		"uuid7":     toy.NewBuiltinFunction("uuid.uuid7", uuidV7),
-		"parse":     toy.NewBuiltinFunction("uuid.parse", uuidParse),
-		"fromBytes": toy.NewBuiltinFunction("uuid.fromBytes", uuidFromBytes),
+		"uuid4":     toy.NewBuiltinFunction("uuid.uuid4", v4Fn),
+		"uuid7":     toy.NewBuiltinFunction("uuid.uuid7", v7Fn),
+		"parse":     toy.NewBuiltinFunction("uuid.parse", parseFn),
+		"fromBytes": toy.NewBuiltinFunction("uuid.fromBytes", fromBytesFn),
 	},
 }
 
@@ -156,7 +156,7 @@ func (it *uuidIterator) Next(key, value *toy.Object) bool {
 	return false
 }
 
-func uuidV4(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func v4Fn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
@@ -167,7 +167,7 @@ func uuidV4(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return UUID(u), nil
 }
 
-func uuidV7(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func v7Fn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
@@ -178,7 +178,7 @@ func uuidV7(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return UUID(u), nil
 }
 
-func uuidParse(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
@@ -190,7 +190,7 @@ func uuidParse(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{UUID(u), toy.Nil}, nil
 }
 
-func uuidFromBytes(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fromBytesFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var data toy.Bytes
 	if err := toy.UnpackArgs(args, "data", &data); err != nil {
 		return nil, err

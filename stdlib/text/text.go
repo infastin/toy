@@ -1,4 +1,4 @@
-package stdlib
+package text
 
 import (
 	"fmt"
@@ -6,43 +6,44 @@ import (
 	"unicode/utf8"
 
 	"github.com/infastin/toy"
+	"github.com/infastin/toy/internal/fndef"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
 
-var TextModule = &toy.BuiltinModule{
+var Module = &toy.BuiltinModule{
 	Name: "text",
 	Members: map[string]toy.Object{
-		"contains":     toy.NewBuiltinFunction("text.contains", textContains),
-		"containsAny":  toy.NewBuiltinFunction("text.containsAny", makeASSRB("s", "chars", strings.ContainsAny)),
-		"hasPrefix":    toy.NewBuiltinFunction("text.hasPrefix", makeASSRB("s", "prefix", strings.HasPrefix)),
-		"hasSuffix":    toy.NewBuiltinFunction("text.hasSuffix", makeASSRB("s", "suffix", strings.HasSuffix)),
-		"trimLeft":     toy.NewBuiltinFunction("text.trimLeft", makeASSRS("s", "cutset", strings.TrimLeft)),
-		"trimRight":    toy.NewBuiltinFunction("text.trimRight", makeASSRS("s", "cutset", strings.TrimRight)),
-		"trimPrefix":   toy.NewBuiltinFunction("text.trimPrefix", makeASSRS("s", "prefix", strings.TrimPrefix)),
-		"trimSuffix":   toy.NewBuiltinFunction("text.trimSuffix", makeASSRS("s", "suffix", strings.TrimSuffix)),
-		"trimSpace":    toy.NewBuiltinFunction("text.trimSpace", makeASRS("s", strings.TrimSpace)),
-		"trim":         toy.NewBuiltinFunction("text.trim", makeASSRS("s", "cutset", strings.Trim)),
-		"toLower":      toy.NewBuiltinFunction("text.toLower", makeASRS("s", strings.ToLower)),
-		"toUpper":      toy.NewBuiltinFunction("text.toUpper", makeASRS("s", strings.ToUpper)),
-		"toTitle":      toy.NewBuiltinFunction("text.toTitle", textToTitle),
-		"join":         toy.NewBuiltinFunction("text.join", textJoin),
-		"split":        toy.NewBuiltinFunction("text.split", textSplit),
-		"splitAfter":   toy.NewBuiltinFunction("text.splitAfter", textSplitAfter),
-		"fields":       toy.NewBuiltinFunction("text.fields", makeASRSs("s", strings.Fields)),
-		"replace":      toy.NewBuiltinFunction("text.replace", textReplace),
-		"cut":          toy.NewBuiltinFunction("text.cut", textCut),
-		"cutPrefix":    toy.NewBuiltinFunction("text.cutPrefix", makeASSRSB("s", "prefix", strings.CutPrefix)),
-		"cutSuffix":    toy.NewBuiltinFunction("text.cutSuffix", makeASSRSB("s", "suffix", strings.CutSuffix)),
-		"index":        toy.NewBuiltinFunction("text.index", textIndex),
-		"indexAny":     toy.NewBuiltinFunction("text.indexAny", textIndexAny),
-		"lastIndex":    toy.NewBuiltinFunction("text.lastIndex", textLastIndex),
-		"lastIndexAny": toy.NewBuiltinFunction("text.lastIndexAny", textLastIndexAny),
+		"contains":     toy.NewBuiltinFunction("text.contains", containsFn),
+		"containsAny":  toy.NewBuiltinFunction("text.containsAny", fndef.ASSRB("s", "chars", strings.ContainsAny)),
+		"hasPrefix":    toy.NewBuiltinFunction("text.hasPrefix", fndef.ASSRB("s", "prefix", strings.HasPrefix)),
+		"hasSuffix":    toy.NewBuiltinFunction("text.hasSuffix", fndef.ASSRB("s", "suffix", strings.HasSuffix)),
+		"trimLeft":     toy.NewBuiltinFunction("text.trimLeft", fndef.ASSRS("s", "cutset", strings.TrimLeft)),
+		"trimRight":    toy.NewBuiltinFunction("text.trimRight", fndef.ASSRS("s", "cutset", strings.TrimRight)),
+		"trimPrefix":   toy.NewBuiltinFunction("text.trimPrefix", fndef.ASSRS("s", "prefix", strings.TrimPrefix)),
+		"trimSuffix":   toy.NewBuiltinFunction("text.trimSuffix", fndef.ASSRS("s", "suffix", strings.TrimSuffix)),
+		"trimSpace":    toy.NewBuiltinFunction("text.trimSpace", fndef.ASRS("s", strings.TrimSpace)),
+		"trim":         toy.NewBuiltinFunction("text.trim", fndef.ASSRS("s", "cutset", strings.Trim)),
+		"toLower":      toy.NewBuiltinFunction("text.toLower", fndef.ASRS("s", strings.ToLower)),
+		"toUpper":      toy.NewBuiltinFunction("text.toUpper", fndef.ASRS("s", strings.ToUpper)),
+		"toTitle":      toy.NewBuiltinFunction("text.toTitle", toTitleFn),
+		"join":         toy.NewBuiltinFunction("text.join", joinFn),
+		"split":        toy.NewBuiltinFunction("text.split", splitFn),
+		"splitAfter":   toy.NewBuiltinFunction("text.splitAfter", splitAfterFn),
+		"fields":       toy.NewBuiltinFunction("text.fields", fndef.ASRSs("s", strings.Fields)),
+		"replace":      toy.NewBuiltinFunction("text.replace", replaceFn),
+		"cut":          toy.NewBuiltinFunction("text.cut", cutFn),
+		"cutPrefix":    toy.NewBuiltinFunction("text.cutPrefix", fndef.ASSRSB("s", "prefix", strings.CutPrefix)),
+		"cutSuffix":    toy.NewBuiltinFunction("text.cutSuffix", fndef.ASSRSB("s", "suffix", strings.CutSuffix)),
+		"index":        toy.NewBuiltinFunction("text.index", indexFn),
+		"indexAny":     toy.NewBuiltinFunction("text.indexAny", indexAnyFn),
+		"lastIndex":    toy.NewBuiltinFunction("text.lastIndex", lastIndexFn),
+		"lastIndexAny": toy.NewBuiltinFunction("text.lastIndexAny", lastIndexAnyFn),
 	},
 }
 
-func textContains(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func containsFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 2 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 2,
@@ -72,7 +73,7 @@ func textContains(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 }
 
-func textToTitle(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func toTitleFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
@@ -81,7 +82,7 @@ func textToTitle(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(caser.String(s)), nil
 }
 
-func textJoin(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func joinFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		elems toy.Sequence
 		sep   string
@@ -100,7 +101,7 @@ func textJoin(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(strings.Join(strs, sep)), nil
 }
 
-func textSplit(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func splitFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		s, sep string
 		n      *int
@@ -125,7 +126,7 @@ func textSplit(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func textSplitAfter(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func splitAfterFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		s, sep string
 		n      *int
@@ -150,7 +151,7 @@ func textSplitAfter(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func textReplace(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func replaceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var (
 		s, old, new string
 		n           *int
@@ -165,7 +166,7 @@ func textReplace(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 }
 
-func textCut(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func cutFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s, sep string
 	if err := toy.UnpackArgs(args, "s", &s, "sep", &sep); err != nil {
 		return nil, err
@@ -174,7 +175,7 @@ func textCut(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.String(before), toy.String(after), toy.Bool(found)}, nil
 }
 
-func textIndex(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func indexFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 2 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 2,
@@ -209,7 +210,7 @@ func textIndex(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func textIndexAny(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func indexAnyFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s, chars string
 	if err := toy.UnpackArgs(args, "s", &s, "chars", &chars); err != nil {
 		return nil, err
@@ -221,7 +222,7 @@ func textIndexAny(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func textLastIndex(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lastIndexFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if len(args) != 2 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 2,
@@ -256,7 +257,7 @@ func textLastIndex(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func textLastIndexAny(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lastIndexAnyFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	var s, chars string
 	if err := toy.UnpackArgs(args, "s", &s, "chars", &chars); err != nil {
 		return nil, err

@@ -352,6 +352,8 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 	if ok {
 		if res, err := xc.Compare(op, y); err == nil {
 			return res, nil
+		} else if x.Type() == y.Type() {
+			return false, err
 		}
 	}
 	yc, ok := y.(Comparable)

@@ -135,10 +135,12 @@ func isNil(v any) bool {
 	return kind >= reflect.Chan && kind <= reflect.Slice && value.IsNil()
 }
 
-type ARR []any
-type IARR []any
-type MAP map[string]any
-type IMAP map[string]any
+type (
+	ARR  []any
+	IARR []any
+	MAP  map[string]any
+	IMAP map[string]any
+)
 
 func makeMap(pairs ...any) *toy.Map {
 	out := new(toy.Map)
@@ -150,7 +152,7 @@ func makeMap(pairs ...any) *toy.Map {
 }
 
 func makeImmutableMap(pars ...any) *toy.Map {
-	return makeMap(pars...).AsImmutable().(*toy.Map)
+	return makeMap(pars...).Freeze().(*toy.Map)
 }
 
 func makeArray(args ...any) *toy.Array {
@@ -162,7 +164,7 @@ func makeArray(args ...any) *toy.Array {
 }
 
 func makeImmutableArray(args ...any) *toy.Array {
-	return makeArray(args...).AsImmutable().(*toy.Array)
+	return makeArray(args...).Freeze().(*toy.Array)
 }
 
 func makeTuple(args ...any) toy.Tuple {
@@ -208,7 +210,7 @@ func toObject(v any) toy.Object {
 		for k, v := range v {
 			m.IndexSet(toy.String(k), toObject(v))
 		}
-		return m.AsImmutable()
+		return m.Freeze()
 	case nil:
 		return toy.Nil
 	}

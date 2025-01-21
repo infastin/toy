@@ -19,7 +19,7 @@ const (
 	OpArray                         // Array object
 	OpMap                           // Map object
 	OpTuple                         // Tuple object
-	OpImmutable                     // Create immutable copy
+	OpFreeze                        // Make object immutable
 	OpIndex                         // Index access operation
 	OpSetIndex                      // Index assignment operation
 	OpField                         // Field access operation
@@ -68,7 +68,7 @@ var OpcodeNames = [...]string{
 	OpArray:           "ARR",
 	OpMap:             "MAP",
 	OpTuple:           "TUPLE",
-	OpImmutable:       "IMMUT",
+	OpFreeze:          "FREEZE",
 	OpIndex:           "INDEX",
 	OpSetIndex:        "SETINDEX",
 	OpField:           "FIELD",
@@ -115,7 +115,7 @@ var OpcodeOperands = [...][]int{
 	OpArray:           {2, 1},
 	OpMap:             {2},
 	OpTuple:           {2, 1},
-	OpImmutable:       {},
+	OpFreeze:          {},
 	OpIndex:           {1},
 	OpSetIndex:        {},
 	OpField:           {},

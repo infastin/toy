@@ -574,10 +574,10 @@ func (c *Compiler) Compile(node ast.Node) error {
 		if err := c.Compile(node.Result); err != nil {
 			return err
 		}
-		c.emit(node, bytecode.OpImmutable)
 		if len(c.currentDeferMap()) != 0 {
 			c.emit(nil, bytecode.OpRunDefer)
 		}
+		c.emit(node, bytecode.OpFreeze)
 		c.emit(node, bytecode.OpReturn, 1)
 	case *ast.CondExpr:
 		if err := c.Compile(node.Cond); err != nil {

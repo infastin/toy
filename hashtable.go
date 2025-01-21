@@ -343,13 +343,14 @@ func (ht *hashtable) cloneAll(other *hashtable) error {
 	return nil
 }
 
-func (ht *hashtable) cloneAllImmutable(other *hashtable) error {
-	for e := other.head; e != nil; e = e.next {
-		if err := ht.insert(AsImmutable(e.key), AsImmutable(e.value)); err != nil {
-			return err
+func (ht *hashtable) freeze() {
+	if !ht.immutable {
+		ht.immutable = true
+		for e := ht.head; e != nil; e = e.next {
+			e.key = Freeze(e.key)
+			e.value = Freeze(e.value)
 		}
 	}
-	return nil
 }
 
 func (ht *hashtable) addAll(other *hashtable) error {

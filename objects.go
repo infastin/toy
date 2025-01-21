@@ -45,12 +45,15 @@ type Hashable interface {
 	Hash() uint64
 }
 
-// Freezable represents an object that can create immutable copies.
+// Freezable represents an object that can be made immutable.
+// Types that do not implement Freezable are assumed to be immutable.
 type Freezable interface {
 	Object
-	// AsImmutable returns an immutable deep-copy of the object.
-	// If the object is already immutable, the same object may be returned.
-	AsImmutable() Object
+	// Freeze returns an immutable object.
+	// Typically it should just make the object immutable and return it,
+	// but in some cases (arrays) it may create an immutable copy of the object.
+	// If the object is already immutable, the same object must be returned.
+	Freeze() Object
 	// Immutable returns true if the object is immutable.
 	Immutable() bool
 }
@@ -279,25 +282,26 @@ func Hash(x Object) (uint64, error) {
 	return xh.Hash(), nil
 }
 
-// AsImmutable tries to create an immutable copy of the given Object.
-// If it fails, calls Clone() method otherwise.
-func AsImmutable(x Object) Object {
+// Freeze makes the given object immutable.
+// If the object type does not implement Freezable,
+// Freeze does nothing.
+func Freeze(x Object) Object {
 	xf, ok := x.(Freezable)
-	if !ok {
-		return x.Clone()
+	if ok {
+		return xf.Freeze()
 	}
-	return xf.AsImmutable()
+	return x
 }
 
 // Immutable returns true if an Object is immutable.
-// All instances of types that don't implement Freezable interface
-// are considered mutable.
+// All instances of types that do not implement Freezable
+// are considered immutable.
 func Immutable(x Object) bool {
 	m, ok := x.(Freezable)
-	if !ok {
-		return false
+	if ok {
+		return m.Immutable()
 	}
-	return m.Immutable()
+	return true
 }
 
 // Equal returns whether two objects are equal or not.
@@ -1422,8 +1426,9 @@ func (o Char) BinaryOp(op token.Token, other Object, right bool) (Object, error)
 }
 
 // Array represents a array of objects.
-// Array is mutable by default, but it is possible to create
-// an immutable copy of it using AsImmutable method.
+// Array is mutable by default.
+// Freeze will create an immutable copy if the array is mutable,
+// otherwise the same array will be returned.
 type Array struct {
 	elems     []Object
 	immutable bool
@@ -1471,13 +1476,13 @@ func (o *Array) Clone() Object {
 	return &Array{elems: elems, immutable: false}
 }
 
-func (o *Array) AsImmutable() Object {
+func (o *Array) Freeze() Object {
 	if o.immutable {
 		return o
 	}
 	elems := make([]Object, 0, len(o.elems))
 	for _, elem := range o.elems {
-		elems = append(elems, AsImmutable(elem))
+		elems = append(elems, Freeze(elem))
 	}
 	return &Array{elems: elems, immutable: true}
 }
@@ -1706,8 +1711,7 @@ func (it *arrayIterator) Close() {
 }
 
 // Map represents a mapping of hashable objects to objects.
-// Map is mutable by default, but it is possible to create
-// an immutable copy of it using AsImmutable method.
+// Map is mutable by default. Freeze will make it immutable.
 type Map struct {
 	ht hashtable
 }
@@ -1749,15 +1753,9 @@ func (o *Map) Clone() Object {
 	return m
 }
 
-func (o *Map) AsImmutable() Object {
-	if o.ht.immutable {
-		return o
-	}
-	m := new(Map)
-	m.ht.init(o.Len())
-	m.ht.cloneAllImmutable(&o.ht)
-	m.ht.immutable = true
-	return m
+func (o *Map) Freeze() Object {
+	o.ht.freeze()
+	return o
 }
 
 func (o *Map) Immutable() bool { return o.ht.immutable }

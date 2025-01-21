@@ -85,7 +85,7 @@ func builtinFreeze(_ *VM, args ...Object) (Object, error) {
 			Got:     len(args),
 		}
 	}
-	return AsImmutable(args[0]), nil
+	return Freeze(args[0]), nil
 }
 
 func builtinLen(_ *VM, args ...Object) (Object, error) {

@@ -177,7 +177,7 @@ func makeMap(pairs ...any) *Map {
 }
 
 func makeImmutableMap(pars ...any) *Map {
-	return makeMap(pars...).AsImmutable().(*Map)
+	return makeMap(pars...).Freeze().(*Map)
 }
 
 func makeArray(args ...any) *Array {
@@ -189,7 +189,7 @@ func makeArray(args ...any) *Array {
 }
 
 func makeImmutableArray(args ...any) *Array {
-	return makeArray(args...).AsImmutable().(*Array)
+	return makeArray(args...).Freeze().(*Array)
 }
 
 func makeTuple(args ...any) Tuple {
@@ -200,10 +200,12 @@ func makeTuple(args ...any) Tuple {
 	return tup
 }
 
-type ARR []any
-type IARR []any
-type MAP map[string]any
-type IMAP map[string]any
+type (
+	ARR  []any
+	IARR []any
+	MAP  map[string]any
+	IMAP map[string]any
+)
 
 func toObject(v any) Object {
 	switch v := v.(type) {
@@ -240,7 +242,7 @@ func toObject(v any) Object {
 		for k, v := range v {
 			m.IndexSet(String(k), toObject(v))
 		}
-		return m.AsImmutable()
+		return m.Freeze()
 	}
 	panic(fmt.Errorf("unknown type: %T", v))
 }

@@ -1833,7 +1833,6 @@ for x in [1, 2, 3] {
 }
 
 func TestIf(t *testing.T) {
-
 	expectRun(t, `if (true) { out = 10 }`, nil, 10)
 	expectRun(t, `if (false) { out = 10 }`, nil, toy.Nil)
 	expectRun(t, `if (false) { out = 10 } else { out = 20 }`, nil, 20)
@@ -3589,7 +3588,7 @@ func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 
 		expectedObj := toObject(expected)
 		if f, ok := expectedObj.(toy.Freezable); ok {
-			expectedObj = f.AsImmutable()
+			expectedObj = f.Freeze()
 		}
 
 		modules.AddSourceModule("__code__",

@@ -260,9 +260,9 @@ func (v *VM) run() {
 
 			v.stack[v.sp] = tup
 			v.sp++
-		case bytecode.OpImmutable:
+		case bytecode.OpFreeze:
 			value := v.stack[v.sp-1]
-			v.stack[v.sp-1] = AsImmutable(value)
+			v.stack[v.sp-1] = Freeze(value)
 		case bytecode.OpIndex:
 			v.ip++
 			withOk := int(v.curInsts[v.ip])

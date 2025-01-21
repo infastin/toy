@@ -327,12 +327,12 @@ func Equal(x, y Object) (bool, error) {
 // having the same value is defined implicitly.
 func Compare(op token.Token, x, y Object) (bool, error) {
 	if x == Nil || y == Nil {
-		eq := (x == Nil) != (y == Nil)
+		eq := (x != Nil) == (y != Nil)
 		switch op {
 		case token.Equal:
-			return !eq, nil
-		case token.NotEqual:
 			return eq, nil
+		case token.NotEqual:
+			return !eq, nil
 		}
 	}
 	if xt, ok := x.(ObjectType); ok {

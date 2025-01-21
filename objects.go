@@ -319,21 +319,32 @@ func Equal(x, y Object) (bool, error) {
 // Equality comparsion with NilValue is defined implicitly,
 // so types do not need to implement it themselves.
 //
-// Equality comparison between ObjectType is defined implicitly.
+// Equality comparison between ObjectType is defined implicitly,
+// but types that implement ObjectType can implement Comparable
+// to override this behaviour.
 //
-// Equality comparsion for two objects holding the same reference
-// is also defined implicitly.
+// Equality comparsion for two Go-comparable objects
+// having the same value is defined implicitly.
 func Compare(op token.Token, x, y Object) (bool, error) {
 	if x == Nil || y == Nil {
+		eq := (x == Nil) != (y == Nil)
 		switch op {
 		case token.Equal:
-			return false, nil
+			return !eq, nil
 		case token.NotEqual:
-			return true, nil
+			return eq, nil
 		}
 	}
 	if xt, ok := x.(ObjectType); ok {
 		if yt, ok := y.(ObjectType); ok {
+			xtc, ok := xt.(Comparable)
+			if ok {
+				res, err := xtc.Compare(op, yt)
+				if err != nil {
+					return false, err
+				}
+				return res, nil
+			}
 			switch op {
 			case token.Equal:
 				return xt == yt, nil

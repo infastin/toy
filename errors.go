@@ -20,6 +20,9 @@ var (
 	// ErrNotConvertable is an error where an Object of some type
 	// cannot be converted to another type.
 	ErrNotConvertible = errors.New("not convertible")
+
+	// ErrDivisionByZero represents a division by zero error.
+	ErrDivisionByZero = errors.New("division by zero")
 )
 
 // InvalidValueTypeError represents an invalid index type error.

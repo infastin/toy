@@ -405,6 +405,8 @@ func BinaryOp(op token.Token, x, y Object) (Object, error) {
 	if ok {
 		if res, err := xb.BinaryOp(op, y, false); err == nil {
 			return res, nil
+		} else if x.Type() == y.Type() {
+			return nil, err
 		}
 	}
 	yb, ok := y.(HasBinaryOp)
@@ -1043,6 +1045,9 @@ func (o Int) BinaryOp(op token.Token, other Object, right bool) (Object, error) 
 		case token.Mul:
 			return o * y, nil
 		case token.Quo:
+			if y == 0 {
+				return nil, ErrDivisionByZero
+			}
 			return o / y, nil
 		case token.Rem:
 			return o % y, nil

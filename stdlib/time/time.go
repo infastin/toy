@@ -390,9 +390,15 @@ func (d Duration) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Ob
 	case token.Quo:
 		switch y := other.(type) {
 		case Duration:
+			if y == 0 {
+				return nil, toy.ErrDivisionByZero
+			}
 			return d / y, nil
 		case toy.Int:
 			if !right {
+				if y == 0 {
+					return nil, toy.ErrDivisionByZero
+				}
 				return d / Duration(y), nil
 			}
 		}

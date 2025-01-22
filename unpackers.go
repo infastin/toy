@@ -30,15 +30,34 @@ func (s *StringOrBytes) Unpack(o Object) error {
 // functions to accept Int and Float as an argument.
 type IntOrFloat float64
 
-func (a *IntOrFloat) Unpack(o Object) error {
+func (i *IntOrFloat) Unpack(o Object) error {
 	switch o := o.(type) {
 	case Int:
-		*a = IntOrFloat(o)
+		*i = IntOrFloat(o)
 	case Float:
-		*a = IntOrFloat(o)
+		*i = IntOrFloat(o)
 	default:
 		return &InvalidValueTypeError{
 			Want: "int or float",
+			Got:  TypeName(o),
+		}
+	}
+	return nil
+}
+
+// StringOrChar implements Unpacker interface allowing
+// functions to accept String and Char as an argument.
+type StringOrChar string
+
+func (s *StringOrChar) Unpack(o Object) error {
+	switch o := o.(type) {
+	case String:
+		*s = StringOrChar(o)
+	case Char:
+		*s = StringOrChar(o)
+	default:
+		return &InvalidValueTypeError{
+			Want: "string or char",
 			Got:  TypeName(o),
 		}
 	}

@@ -2,6 +2,7 @@ package text
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -15,6 +16,8 @@ import (
 var Module = &toy.BuiltinModule{
 	Name: "text",
 	Members: map[string]toy.Object{
+		"Builder": BuilderType,
+
 		"contains":     toy.NewBuiltinFunction("text.contains", containsFn),
 		"containsAny":  toy.NewBuiltinFunction("text.containsAny", fndef.ASSRB("s", "chars", strings.ContainsAny)),
 		"hasPrefix":    toy.NewBuiltinFunction("text.hasPrefix", fndef.ASSRB("s", "prefix", strings.HasPrefix)),
@@ -40,37 +43,27 @@ var Module = &toy.BuiltinModule{
 		"indexAny":     toy.NewBuiltinFunction("text.indexAny", indexAnyFn),
 		"lastIndex":    toy.NewBuiltinFunction("text.lastIndex", lastIndexFn),
 		"lastIndexAny": toy.NewBuiltinFunction("text.lastIndexAny", lastIndexAnyFn),
+
+		"quote":          toy.NewBuiltinFunction("text.quote", fndef.ASRS("s", strconv.Quote)),
+		"quoteToASCII":   toy.NewBuiltinFunction("text.quoteToASCII", fndef.ASRS("s", strconv.QuoteToASCII)),
+		"quoteToGraphic": toy.NewBuiltinFunction("text.quoteToGraphic", fndef.ASRS("s", strconv.QuoteToGraphic)),
+		"unquote":        toy.NewBuiltinFunction("text.unquote", fndef.ASRSE("s", strconv.Unquote)),
+
+		"parseInt":   toy.NewBuiltinFunction("text.parseInt", parseInt),
+		"parseFloat": toy.NewBuiltinFunction("text.parseFloat", parseFloat),
+		"parseBool":  toy.NewBuiltinFunction("text.parseBool", fndef.ASRBE("s", strconv.ParseBool)),
 	},
 }
 
 func containsFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
-	if len(args) != 2 {
-		return nil, &toy.WrongNumArgumentsError{
-			WantMin: 2,
-			WantMax: 2,
-			Got:     len(args),
-		}
+	var (
+		s      string
+		subset toy.StringOrChar
+	)
+	if err := toy.UnpackArgs(args, "s", &s, "subset", &subset); err != nil {
+		return nil, err
 	}
-	s1, ok := args[0].(toy.String)
-	if !ok {
-		return nil, &toy.InvalidArgumentTypeError{
-			Name: "s",
-			Want: "string",
-			Got:  toy.TypeName(args[0]),
-		}
-	}
-	switch a2 := args[1].(type) {
-	case toy.String:
-		return toy.Bool(strings.Contains(string(s1), string(a2))), nil
-	case toy.Char:
-		return toy.Bool(strings.ContainsRune(string(s1), rune(a2))), nil
-	default:
-		return nil, &toy.InvalidArgumentTypeError{
-			Name: "subset",
-			Want: "string or char",
-			Got:  toy.TypeName(a2),
-		}
-	}
+	return toy.Bool(strings.Contains(string(s), string(subset))), nil
 }
 
 func toTitleFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
@@ -176,34 +169,14 @@ func cutFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 }
 
 func indexFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
-	if len(args) != 2 {
-		return nil, &toy.WrongNumArgumentsError{
-			WantMin: 2,
-			WantMax: 2,
-			Got:     len(args),
-		}
+	var (
+		s      string
+		subset toy.StringOrChar
+	)
+	if err := toy.UnpackArgs(args, "s", &s, "subset", &subset); err != nil {
+		return nil, err
 	}
-	s, ok := args[0].(toy.String)
-	if !ok {
-		return nil, &toy.InvalidArgumentTypeError{
-			Name: "s",
-			Want: "string",
-			Got:  toy.TypeName(args[0]),
-		}
-	}
-	var idx int
-	switch a := args[1].(type) {
-	case toy.String:
-		idx = strings.Index(string(s), string(a))
-	case toy.Char:
-		idx = strings.IndexRune(string(s), rune(a))
-	default:
-		return nil, &toy.InvalidArgumentTypeError{
-			Name: "subset",
-			Want: "string or char",
-			Got:  toy.TypeName(a),
-		}
-	}
+	idx := strings.Index(string(s), string(subset))
 	if idx <= 0 {
 		return toy.Int(idx), nil
 	}
@@ -223,34 +196,14 @@ func indexAnyFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 }
 
 func lastIndexFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
-	if len(args) != 2 {
-		return nil, &toy.WrongNumArgumentsError{
-			WantMin: 2,
-			WantMax: 2,
-			Got:     len(args),
-		}
+	var (
+		s      string
+		subset toy.StringOrChar
+	)
+	if err := toy.UnpackArgs(args, "s", &s, "subset", &subset); err != nil {
+		return nil, err
 	}
-	s, ok := args[0].(toy.String)
-	if !ok {
-		return nil, &toy.InvalidArgumentTypeError{
-			Name: "s",
-			Want: "string",
-			Got:  toy.TypeName(args[0]),
-		}
-	}
-	var idx int
-	switch a := args[1].(type) {
-	case toy.String:
-		idx = strings.LastIndex(string(s), string(a))
-	case toy.Char:
-		idx = strings.LastIndex(string(s), string(a))
-	default:
-		return nil, &toy.InvalidArgumentTypeError{
-			Name: "subset",
-			Want: "string or char",
-			Got:  toy.TypeName(a),
-		}
-	}
+	idx := strings.LastIndex(string(s), string(subset))
 	if idx <= 0 {
 		return toy.Int(idx), nil
 	}
@@ -267,4 +220,112 @@ func lastIndexAnyFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return toy.Int(idx), nil
 	}
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
+}
+
+func parseInt(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	var (
+		s    string
+		base = 10
+	)
+	if err := toy.UnpackArgs(args, "s", &s, "base?", &base); err != nil {
+		return nil, err
+	}
+	i, err := strconv.ParseInt(s, base, 64)
+	if err != nil {
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+	}
+	return toy.Tuple{toy.Int(i), toy.Nil}, nil
+}
+
+func parseFloat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	var s string
+	if err := toy.UnpackArgs(args, "s", &s); err != nil {
+		return nil, err
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+	}
+	return toy.Tuple{toy.Float(f), toy.Nil}, nil
+}
+
+type Builder strings.Builder
+
+var BuilderType = toy.NewType[*Builder]("text.Builder", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	if len(args) != 0 {
+		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
+	}
+	return new(Builder), nil
+})
+
+func (b *Builder) Type() toy.ObjectType { return BuilderType }
+func (b *Builder) String() string       { return "<text.Builder>" }
+func (b *Builder) IsFalsy() bool        { return (*strings.Builder)(b).Len() == 0 }
+
+func (b *Builder) Clone() toy.Object {
+	c := new(strings.Builder)
+	c.WriteString(b.String())
+	return (*Builder)(c)
+}
+
+func (b *Builder) Len() int { return (*strings.Builder)(b).Len() }
+
+func (b *Builder) Convert(p any) error {
+	switch p := p.(type) {
+	case *toy.String:
+		*p = toy.String((*strings.Builder)(b).String())
+	default:
+		return toy.ErrNotConvertible
+	}
+	return nil
+}
+
+func (b *Builder) FieldGet(name string) (toy.Object, error) {
+	method, ok := builderMethods[name]
+	if !ok {
+		return nil, toy.ErrNoSuchField
+	}
+	return method.WithReceiver(b), nil
+}
+
+var builderMethods = map[string]*toy.BuiltinFunction{
+	"write": toy.NewBuiltinFunction("text.write", builderWriteMd),
+	"reset": toy.NewBuiltinFunction("text.reset", builderResetMd),
+}
+
+func builderWriteMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	recv := args[0].(*Builder)
+	args = args[1:]
+	if len(args) != 1 {
+		return nil, &toy.WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
+	}
+	switch x := args[0].(type) {
+	case toy.String:
+		(*strings.Builder)(recv).WriteString(string(x))
+	case toy.Bytes:
+		(*strings.Builder)(recv).Write(x)
+	case toy.Char:
+		(*strings.Builder)(recv).WriteRune(rune(x))
+	default:
+		return nil, &toy.InvalidArgumentTypeError{
+			Name: "x",
+			Want: "string, bytes or char",
+			Got:  toy.TypeName(x),
+		}
+	}
+	return toy.Nil, nil
+}
+
+func builderResetMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	recv := args[0].(*Builder)
+	args = args[1:]
+	if len(args) != 0 {
+		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
+	}
+	(*strings.Builder)(recv).Reset()
+	return toy.Nil, nil
 }

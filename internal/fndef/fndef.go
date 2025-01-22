@@ -268,3 +268,17 @@ func ASRSsE(name string, fn func(string) ([]string, error)) toy.CallableFunc {
 		return toy.Tuple{toy.NewArray(elems), toy.Nil}, nil
 	}
 }
+
+func ASRBE(name string, fn func(string) (bool, error)) toy.CallableFunc {
+	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+		var s string
+		if err := toy.UnpackArgs(args, name, &s); err != nil {
+			return nil, err
+		}
+		res, err := fn(s)
+		if err != nil {
+			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		}
+		return toy.Tuple{toy.Bool(res), toy.Nil}, nil
+	}
+}

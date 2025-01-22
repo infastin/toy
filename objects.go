@@ -325,7 +325,7 @@ func Equal(x, y Object) (bool, error) {
 //
 // Equality comparsion for two Go-comparable objects
 // having the same value is defined implicitly.
-func Compare(op token.Token, x, y Object) (bool, error) {
+func Compare(op token.Token, x, y Object) (res bool, err error) {
 	if x == Nil || y == Nil {
 		eq := (x != Nil) == (y != Nil)
 		switch op {
@@ -365,7 +365,7 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 	}
 	xc, ok := x.(Comparable)
 	if ok {
-		if res, err := xc.Compare(op, y); err == nil {
+		if res, err = xc.Compare(op, y); err == nil {
 			return res, nil
 		} else if x.Type() == y.Type() {
 			return false, err
@@ -373,10 +373,10 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 	}
 	yc, ok := y.(Comparable)
 	if !ok {
-		return false, fmt.Errorf("operation '%s %s %s' is not supported",
-			TypeName(x), op.String(), TypeName(y))
+		return false, fmt.Errorf("operation '%s %s %s' has failed: %w",
+			TypeName(x), op.String(), TypeName(y), err)
 	}
-	op0 := op
+	xOp := op
 	switch op {
 	case token.Less:
 		op = token.Greater
@@ -387,10 +387,10 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 	case token.GreaterEq:
 		op = token.LessEq
 	}
-	res, err := yc.Compare(op, x)
-	if err != nil {
+	res, yErr := yc.Compare(op, x)
+	if yErr != nil {
 		return false, fmt.Errorf("operation '%s %s %s' has failed: %w",
-			TypeName(x), op0.String(), TypeName(y), err)
+			TypeName(x), xOp.String(), TypeName(y), err)
 	}
 	return res, nil
 }
@@ -400,10 +400,10 @@ func Compare(op token.Token, x, y Object) (bool, error) {
 // it will try to perform the same operation for y and x.
 // It will return an error if the given binary operation
 // can't be performed on the given objects or if the operation has failed.
-func BinaryOp(op token.Token, x, y Object) (Object, error) {
+func BinaryOp(op token.Token, x, y Object) (res Object, err error) {
 	xb, ok := x.(HasBinaryOp)
 	if ok {
-		if res, err := xb.BinaryOp(op, y, false); err == nil {
+		if res, err = xb.BinaryOp(op, y, false); err == nil {
 			return res, nil
 		} else if x.Type() == y.Type() {
 			return nil, err
@@ -411,11 +411,11 @@ func BinaryOp(op token.Token, x, y Object) (Object, error) {
 	}
 	yb, ok := y.(HasBinaryOp)
 	if !ok {
-		return nil, fmt.Errorf("operation '%s %s %s' is not supported",
-			TypeName(x), op.String(), TypeName(y))
+		return nil, fmt.Errorf("operation '%s %s %s' has failed: %w",
+			TypeName(x), op.String(), TypeName(y), err)
 	}
-	res, err := yb.BinaryOp(op, x, true)
-	if err != nil {
+	res, yErr := yb.BinaryOp(op, x, true)
+	if yErr != nil {
 		return nil, fmt.Errorf("operation '%s %s %s' has failed: %w",
 			TypeName(x), op.String(), TypeName(y), err)
 	}

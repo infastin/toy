@@ -544,6 +544,11 @@ loop:
 				Expr:   x,
 				RBrace: rbrace,
 			})
+		default:
+			// something fishy...
+			// don't need to report an error
+			// because there is already some
+			break loop
 		}
 	}
 	rquote := p.expect(kind)

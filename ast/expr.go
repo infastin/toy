@@ -559,27 +559,79 @@ func (e *SliceExpr) String() string {
 	return b.String()
 }
 
-// StringLit represents a string literal.
-type StringLit struct {
+// PlainText represents a text inside of string literals.
+type PlainText struct {
 	Value    string
 	ValuePos token.Pos
-	Literal  string
+}
+
+func (e *PlainText) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *PlainText) Pos() token.Pos {
+	return e.ValuePos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *PlainText) End() token.Pos {
+	return token.Pos(int(e.ValuePos) + len(e.Value))
+}
+
+func (e *PlainText) String() string {
+	return e.Value
+}
+
+// StringInterpolationExpr represents string interpolation in string literals.
+type StringInterpolationExpr struct {
+	LBrace token.Pos
+	Expr   Expr
+	RBrace token.Pos
+}
+
+func (e *StringInterpolationExpr) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *StringInterpolationExpr) Pos() token.Pos {
+	return e.LBrace
+}
+
+// End returns the position of first character immediately after the node.
+func (e *StringInterpolationExpr) End() token.Pos {
+	return e.RBrace + 1
+}
+
+func (e *StringInterpolationExpr) String() string {
+	return "{" + e.Expr.String() + "}"
+}
+
+// StringLit represents a string literal.
+type StringLit struct {
+	Kind   token.Token
+	LQuote token.Pos
+	Exprs  []Expr
+	RQuote token.Pos
 }
 
 func (e *StringLit) exprNode() {}
 
 // Pos returns the position of first character belonging to the node.
 func (e *StringLit) Pos() token.Pos {
-	return e.ValuePos
+	return e.LQuote
 }
 
 // End returns the position of first character immediately after the node.
 func (e *StringLit) End() token.Pos {
-	return token.Pos(int(e.ValuePos) + len(e.Literal))
+	return token.Pos(int(e.RQuote) + len(e.Kind.String()))
 }
 
 func (e *StringLit) String() string {
-	return e.Literal
+	var b strings.Builder
+	b.WriteString(e.Kind.String())
+	for _, expr := range e.Exprs {
+		b.WriteString(expr.String())
+	}
+	b.WriteString(e.Kind.String())
+	return b.String()
 }
 
 // UnaryExpr represents an unary operator expression.

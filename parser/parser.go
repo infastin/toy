@@ -5,6 +5,8 @@ import (
 	"io"
 	"sort"
 	"strconv"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/infastin/toy/ast"
 	"github.com/infastin/toy/token"
@@ -224,7 +226,7 @@ func (p *Parser) parsePrimaryExpr() ast.Expr {
 		defer untracep(tracep(p, "PrimaryExpression"))
 	}
 	x := p.parseOperand()
-L:
+loop:
 	for {
 		switch p.token {
 		case token.Period:
@@ -244,7 +246,7 @@ L:
 		case token.LParen:
 			x = p.parseCall(x)
 		default:
-			break L
+			break loop
 		}
 	}
 	return x
@@ -410,15 +412,10 @@ func (p *Parser) parseOperand() ast.Expr {
 		return x
 	case token.Char:
 		return p.parseCharLit()
-	case token.String:
-		v, _ := strconv.Unquote(p.tokenLit)
-		x := &ast.StringLit{
-			Value:    v,
-			ValuePos: p.pos,
-			Literal:  p.tokenLit,
-		}
-		p.next()
-		return x
+	case token.DoubleQuote: // string literal
+		return p.parseStringLit(token.DoubleQuote)
+	case token.Backtick: // raw string literal
+		return p.parseStringLit(token.Backtick)
 	case token.True:
 		x := &ast.BoolLit{
 			Value:    true,
@@ -470,13 +467,12 @@ func (p *Parser) parseOperand() ast.Expr {
 func (p *Parser) parseImportExpr() ast.Expr {
 	pos := p.expect(token.Import)
 	lparen := p.expect(token.LParen)
-	if p.token != token.String {
+	if p.token != token.DoubleQuote {
 		p.errorExpected(p.pos, "module name")
 		p.advance(stmtStart)
 		return &ast.BadExpr{From: pos, To: p.pos}
 	}
-	moduleName, _ := strconv.Unquote(p.tokenLit)
-	p.next()
+	moduleName := p.parseSimpleString(token.DoubleQuote)
 	rparen := p.expect(token.RParen)
 	return &ast.ImportExpr{
 		ModuleName: moduleName,
@@ -506,6 +502,69 @@ func (p *Parser) parseCharLit() ast.Expr {
 		From: pos,
 		To:   p.pos,
 	}
+}
+
+func (p *Parser) parseStringLit(kind token.Token) ast.Expr {
+	if p.trace {
+		defer untracep(tracep(p, "StringLit"))
+	}
+
+	var unescape func(string) string
+	switch kind {
+	case token.DoubleQuote:
+		unescape = unescapeString
+	case token.Backtick:
+		unescape = unescapeRawString
+	}
+
+	lquote := p.expect(kind)
+	var exprs []ast.Expr
+loop:
+	for p.token != kind && p.token != token.EOF && p.token != token.Semicolon {
+		switch p.token {
+		case token.PlainText:
+			exprs = append(exprs, &ast.PlainText{
+				Value:    unescape(p.tokenLit),
+				ValuePos: p.pos,
+			})
+			p.next()
+		case token.LBrace:
+			lbrace := p.pos
+			p.next()
+			x := p.parseExpr()
+			if _, isBad := x.(*ast.BadExpr); isBad {
+				break loop
+			}
+			rbrace := p.expect(token.RBrace)
+			exprs = append(exprs, &ast.StringInterpolationExpr{
+				LBrace: lbrace,
+				Expr:   x,
+				RBrace: rbrace,
+			})
+		}
+	}
+	rquote := p.expect(kind)
+
+	return &ast.StringLit{
+		Kind:   kind,
+		LQuote: lquote,
+		Exprs:  exprs,
+		RQuote: rquote,
+	}
+}
+
+func (p *Parser) parseSimpleString(kind token.Token) string {
+	str := p.parseStringLit(kind).(*ast.StringLit)
+	if len(str.Exprs) == 0 {
+		return ""
+	}
+	if len(str.Exprs) == 1 {
+		if plain, ok := str.Exprs[0].(*ast.PlainText); ok {
+			return plain.Value
+		}
+	}
+	p.error(str.Pos(), "cannot use string interpolation")
+	return ""
 }
 
 func (p *Parser) parseFuncLit() ast.Expr {
@@ -644,8 +703,9 @@ func (p *Parser) parseStmt() (stmt ast.Stmt) {
 	switch p.token {
 	case // simple statements
 		token.Func, token.Ident, token.Int,
-		token.Float, token.Char, token.String, token.True, token.False,
-		token.Nil, token.Import, token.LParen, token.LBrace,
+		token.Float, token.Char, token.DoubleQuote, token.Backtick,
+		token.True, token.False, token.Nil,
+		token.Import, token.LParen, token.LBrace,
 		token.LBrack, token.Add, token.Sub, token.Mul, token.And, token.Xor,
 		token.Not:
 		s := p.parseSimpleStmt(labelOk)
@@ -1166,7 +1226,7 @@ func (p *Parser) next() {
 		case p.token.IsLiteral():
 			p.printTrace(s, p.tokenLit)
 		case p.token.IsOperator(), p.token.IsKeyword():
-			p.printTrace(`"` + s + `"`)
+			p.printTrace(strconv.Quote(s))
 		default:
 			p.printTrace(s)
 		}
@@ -1197,6 +1257,66 @@ func (p *Parser) safePos(pos token.Pos) token.Pos {
 		return token.Pos(fileBase + fileSize)
 	}
 	return pos
+}
+
+func unescapeString(s string) string {
+	if strings.IndexByte(s, '\\') == -1 {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	in := s
+	for len(in) > 0 {
+		if in[0] != '\\' {
+			_, sz := utf8.DecodeRuneInString(in)
+			b.WriteString(in[:sz])
+			in = in[sz:]
+			continue
+		}
+		switch ch := in[1]; ch {
+		case '"':
+			b.WriteByte('"')
+			in = in[2:]
+		case '{':
+			b.WriteByte('{')
+			in = in[2:]
+		default:
+			r, multibyte, rem, _ := strconv.UnquoteChar(in, '"')
+			if r < utf8.RuneSelf || !multibyte {
+				b.WriteByte(byte(r))
+			} else {
+				b.WriteRune(r)
+			}
+			in = rem
+		}
+	}
+	return b.String()
+}
+
+func unescapeRawString(s string) string {
+	if strings.IndexByte(s, '\\') == -1 {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	in := s
+	for len(in) > 0 {
+		if in[0] != '\\' {
+			_, sz := utf8.DecodeRuneInString(in)
+			b.WriteString(in[:sz])
+			in = in[sz:]
+			continue
+		}
+		switch ch := in[1]; ch {
+		case '`', '{', '\\':
+			b.WriteByte(ch)
+			in = in[2:]
+		default:
+			// skip
+			in = in[2:]
+		}
+	}
+	return b.String()
 }
 
 func tracep(p *Parser, msg string) *Parser {

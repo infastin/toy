@@ -16,6 +16,7 @@ const (
 	OpOrJump                        // Logical OR jump
 	OpJump                          // Jump
 	OpNull                          // Push null
+	OpString                        // String literal
 	OpArray                         // Array object
 	OpMap                           // Map object
 	OpTuple                         // Tuple object
@@ -65,6 +66,7 @@ var OpcodeNames = [...]string{
 	OpNull:            "NULL",
 	OpGetGlobal:       "GETG",
 	OpSetGlobal:       "SETG",
+	OpString:          "STR",
 	OpArray:           "ARR",
 	OpMap:             "MAP",
 	OpTuple:           "TUPLE",
@@ -112,6 +114,7 @@ var OpcodeOperands = [...][]int{
 	OpNull:            {},
 	OpGetGlobal:       {2},
 	OpSetGlobal:       {2},
+	OpString:          {2},
 	OpArray:           {2, 1},
 	OpMap:             {2},
 	OpTuple:           {2, 1},

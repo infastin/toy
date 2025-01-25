@@ -176,11 +176,44 @@ func (c *Compiler) Compile(node ast.Node) error {
 			c.emit(node, bytecode.OpFalse)
 		}
 	case *ast.StringLit:
-		c.emit(node, bytecode.OpConstant,
-			c.addConstant(String(node.Value)))
+		if len(node.Exprs) == 0 {
+			// empty string
+			c.emit(node, bytecode.OpConstant, c.addConstant(String("")))
+			return nil
+		}
+		if len(node.Exprs) == 1 {
+			// maybe we don't need to build a string
+			switch expr := node.Exprs[0].(type) {
+			case *ast.PlainText:
+				// we don't need to build a string here,
+				// since it's already a string
+				c.emit(expr, bytecode.OpConstant, c.addConstant(String(expr.Value)))
+				return nil
+			case *ast.StringInterpolationExpr:
+				if str, ok := expr.Expr.(*ast.StringLit); ok {
+					// we don't need to build a string here,
+					// since it will be built by the nested string literal
+					if err := c.Compile(str); err != nil {
+						return err
+					}
+					return nil
+				}
+			}
+		}
+		// build a string here
+		for _, expr := range node.Exprs {
+			switch expr := expr.(type) {
+			case *ast.PlainText:
+				c.emit(expr, bytecode.OpConstant, c.addConstant(String(expr.Value)))
+			case *ast.StringInterpolationExpr:
+				if err := c.Compile(expr.Expr); err != nil {
+					return err
+				}
+			}
+		}
+		c.emit(node, bytecode.OpString, len(node.Exprs))
 	case *ast.CharLit:
-		c.emit(node, bytecode.OpConstant,
-			c.addConstant(Char(node.Value)))
+		c.emit(node, bytecode.OpConstant, c.addConstant(Char(node.Value)))
 	case *ast.NilLit:
 		c.emit(node, bytecode.OpNull)
 	case *ast.UnaryExpr:
@@ -574,7 +607,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 		// export statement is simply ignore when compiling non-module code
 		if c.parent == nil {
-			break
+			return nil
 		}
 		if err := c.Compile(node.Result); err != nil {
 			return err

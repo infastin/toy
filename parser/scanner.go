@@ -8,8 +8,10 @@ import (
 	"github.com/infastin/toy/token"
 )
 
-// byte order mark
-const bom = 0xFEFF
+const (
+	bom = 0xFEFF // byte order mark
+	eof = -1     // end of file
+)
 
 // ScanMode represents a scanner mode.
 type ScanMode int
@@ -26,16 +28,19 @@ type ScannerErrorHandler func(pos token.FilePos, msg string)
 // Scanner reads the Toy source text.
 // It's based on Go's scanner implementation.
 type Scanner struct {
-	file         *token.File         // source file handle
-	src          []byte              // source
-	ch           rune                // current character
-	offset       int                 // character offset
-	readOffset   int                 // reading offset (position after current character)
-	lineOffset   int                 // current line offset
-	insertSemi   bool                // insert a semicolon before next newline
-	errorHandler ScannerErrorHandler // error reporting; or nil
-	errorCount   int                 // number of errors encountered
-	mode         ScanMode
+	file          *token.File         // source file handle
+	src           []byte              // source
+	ch            rune                // current character
+	offset        int                 // character offset
+	readOffset    int                 // reading offset (position after current character)
+	lineOffset    int                 // current line offset
+	insertSemi    bool                // insert a semicolon before next newline
+	stringLevel   int                 // > 0: in string literal, even: in string interpolation
+	stringKind    []token.Token       // stack of string quotes
+	interpolation []bool              // stack of braces; true: brace corresponds to string interpolation
+	errorHandler  ScannerErrorHandler // error reporting; or nil
+	errorCount    int                 // number of errors encountered
+	mode          ScanMode
 }
 
 // NewScanner creates a Scanner.
@@ -82,24 +87,40 @@ func (s *Scanner) Scan() (
 	pos = s.file.FileSetPos(s.offset)
 	insertSemi := false
 
+	// check if scanning text of a string
+	if s.stringLevel%2 == 1 {
+		switch s.stringKind[len(s.stringKind)-1] {
+		case token.DoubleQuote:
+			tok, literal, insertSemi = s.scanString()
+		case token.Backtick:
+			tok, literal, insertSemi = s.scanRawString()
+		}
+		goto leave
+	}
+
 	// determine token value
 	switch ch := s.ch; {
 	case isLetter(ch):
 		literal = s.scanIdentifier()
-		tok = token.Lookup(literal)
-		switch tok {
-		case token.Ident, token.Break, token.Continue, token.Return,
-			token.Export, token.True, token.False, token.Nil:
+		if len(literal) > 1 {
+			// keywords are longer than one letter – avoid lookup otherwise
+			tok = token.Lookup(literal)
+			switch tok {
+			case token.Ident, token.Break, token.Continue, token.Return,
+				token.Export, token.True, token.False, token.Nil:
+				insertSemi = true
+			}
+		} else {
 			insertSemi = true
+			tok = token.Ident
 		}
 	case ('0' <= ch && ch <= '9') || (ch == '.' && '0' <= s.peek() && s.peek() <= '9'):
 		insertSemi = true
 		tok, literal = s.scanNumber()
 	default:
 		s.next() // always make progress
-
 		switch ch {
-		case -1: // EOF
+		case eof:
 			if s.insertSemi {
 				s.insertSemi = false // EOF consumed
 				return token.Semicolon, "\n", pos
@@ -109,18 +130,20 @@ func (s *Scanner) Scan() (
 			// we only reach here if s.insertSemi was set in the first place
 			s.insertSemi = false // newline consumed
 			return token.Semicolon, "\n", pos
-		case '"':
-			insertSemi = true
-			tok = token.String
-			literal = s.scanString()
 		case '\'':
 			insertSemi = true
 			tok = token.Char
 			literal = s.scanRune()
+		case '"':
+			// we only reach here at the beginning of a string
+			s.stringLevel++
+			s.stringKind = append(s.stringKind, token.DoubleQuote)
+			tok = token.DoubleQuote
 		case '`':
-			insertSemi = true
-			tok = token.String
-			literal = s.scanRawString()
+			// we only reach here at the beginning of a raw string
+			s.stringLevel++
+			s.stringKind = append(s.stringKind, token.Backtick)
+			tok = token.Backtick
 		case ':':
 			tok = s.switch2(token.Colon, '=', token.Define)
 		case '.':
@@ -149,9 +172,20 @@ func (s *Scanner) Scan() (
 			tok = token.RBrack
 		case '{':
 			tok = token.LBrace
+			if len(s.interpolation) > 0 {
+				// append only if we are inside of string interpolation
+				s.interpolation = append(s.interpolation, false)
+			}
 		case '}':
-			insertSemi = true
 			tok = token.RBrace
+			insertSemi = true
+			if len(s.interpolation) > 0 {
+				if s.interpolation[len(s.interpolation)-1] {
+					insertSemi = false // we don't want semicolon when leaving string interpolation
+					s.stringLevel--
+				}
+				s.interpolation = s.interpolation[:len(s.interpolation)-1]
+			}
 		case '+':
 			tok = s.switch3(token.Add, '=', token.AddAssign, '+', token.Inc)
 			if tok == token.Inc {
@@ -229,6 +263,7 @@ func (s *Scanner) Scan() (
 		}
 	}
 
+leave:
 	if s.mode&DontInsertSemis == 0 {
 		s.insertSemi = insertSemi
 	}
@@ -264,7 +299,7 @@ func (s *Scanner) next() {
 			s.lineOffset = s.offset
 			s.file.AddLine(s.offset)
 		}
-		s.ch = -1 // eof
+		s.ch = eof
 	}
 }
 
@@ -434,13 +469,13 @@ func (s *Scanner) scanNumber() (token.Token, string) {
 	return tok, string(s.src[offs:s.offset])
 }
 
-func (s *Scanner) scanEscape(quote rune) bool {
+func (s *Scanner) scanEscape() bool {
 	offs := s.offset
 
 	var n int
 	var base, max uint32
 	switch s.ch {
-	case 'a', 'b', 'f', 'n', 'r', 't', 'v', '\\', quote:
+	case 'a', 'b', 'f', 'n', 'r', 't', 'v', '\\':
 		s.next()
 		return true
 	case '0', '1', '2', '3', '4', '5', '6', '7':
@@ -509,7 +544,9 @@ func (s *Scanner) scanRune() string {
 		}
 		n++
 		if ch == '\\' {
-			if !s.scanEscape('\'') {
+			if s.ch == '\'' {
+				s.next()
+			} else if !s.scanEscape() {
 				valid = false
 			}
 			// continue to read to closing quote
@@ -523,42 +560,100 @@ func (s *Scanner) scanRune() string {
 	return string(s.src[offs:s.offset])
 }
 
-func (s *Scanner) scanString() string {
-	offs := s.offset - 1 // '"' opening already consumed
+func (s *Scanner) scanString() (tok token.Token, literal string, insertSemi bool) {
+	offs := s.offset
+
+	ch := s.ch
+	if ch == '\n' || ch < 0 {
+		s.error(offs, "string literal not terminated")
+		if ch == '\n' {
+			return token.Semicolon, "", s.insertSemi
+		}
+		return token.EOF, "", s.insertSemi
+	}
+	s.next()
+	switch ch {
+	case '"':
+		s.stringLevel--
+		s.stringKind = s.stringKind[:len(s.stringKind)-1]
+		return token.DoubleQuote, "", true
+	case '{':
+		s.stringLevel++
+		s.interpolation = append(s.interpolation, true)
+		return token.LBrace, "", false
+	}
+
 	for {
-		ch := s.ch
+		if ch == '\\' {
+			if s.ch == '"' || s.ch == '{' {
+				s.next()
+			} else {
+				s.scanEscape()
+			}
+		}
+		ch = s.ch
 		if ch == '\n' || ch < 0 {
 			s.error(offs, "string literal not terminated")
 			break
 		}
-		s.next()
-		if ch == '"' {
+		if ch == '"' || ch == '{' {
 			break
 		}
-		if ch == '\\' {
-			s.scanEscape('"')
-		}
+		s.next()
 	}
-	return string(s.src[offs:s.offset])
+
+	return token.PlainText, string(s.src[offs:s.offset]), false
 }
 
-func (s *Scanner) scanRawString() string {
-	offs := s.offset - 1 // '`' opening already consumed
+func (s *Scanner) scanRawString() (tok token.Token, literal string, insertSemi bool) {
+	offs := s.offset
+
+	ch := s.ch
+	if ch < 0 {
+		s.error(offs, "raw string literal not terminated")
+		return token.EOF, "", s.insertSemi
+	}
+	s.next()
+	switch ch {
+	case '`':
+		s.stringLevel--
+		s.stringKind = s.stringKind[:len(s.stringKind)-1]
+		return token.Backtick, "", true
+	case '{':
+		s.stringLevel++
+		s.interpolation = append(s.interpolation, true)
+		return token.LBrace, "", false
+	}
 
 	hasCR := false
 	for {
-		ch := s.ch
+		switch ch {
+		case '\\':
+			if s.ch == '\r' {
+				hasCR = true
+				s.next()
+			}
+			if s.ch == '\\' || s.ch == '`' || s.ch == '{' || s.ch == '\n' {
+				s.next()
+			} else {
+				msg := "unknown escape sequence"
+				if s.ch < 0 {
+					msg = "escape sequence not terminated"
+				}
+				s.error(s.offset, msg)
+			}
+		case '\r':
+			hasCR = true
+		}
+		ch = s.ch
 		if ch < 0 {
 			s.error(offs, "raw string literal not terminated")
 			break
 		}
-		s.next()
-		if ch == '`' {
+		if ch == '`' || ch == '{' {
 			break
 		}
-		if ch == '\r' {
-			hasCR = true
-		}
+		s.next()
 	}
 
 	lit := s.src[offs:s.offset]
@@ -566,7 +661,7 @@ func (s *Scanner) scanRawString() string {
 		lit = StripCR(lit, false)
 	}
 
-	return string(lit)
+	return token.PlainText, string(lit), false
 }
 
 // StripCR removes carriage return characters.

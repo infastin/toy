@@ -9,17 +9,22 @@ type Token int
 
 // List of tokens
 const (
+	// Special tokens
 	Illegal Token = iota
 	EOF
 	Comment
+	PlainText // foo
+
 	_literalBeg
-	Ident
-	Int
-	Float
-	Char
-	String
+	// Identifiers and basic type literals
+	Ident // foo
+	Int   // 12345
+	Float // 123.45
+	Char  // 'x'
 	_literalEnd
+
 	_operatorBeg
+	// Operators and delimiters
 	Add          // +
 	Sub          // -
 	Mul          // *
@@ -68,7 +73,10 @@ const (
 	Colon        // :
 	Question     // ?
 	Arrow        // =>
+	DoubleQuote  // "
+	Backtick     // `
 	_operatorEnd
+
 	_keywordBeg
 	Break
 	Continue
@@ -91,11 +99,11 @@ var tokens = [...]string{
 	Illegal:      "ILLEGAL",
 	EOF:          "EOF",
 	Comment:      "COMMENT",
+	PlainText:    "PLAINTEXT",
 	Ident:        "IDENT",
 	Int:          "INT",
 	Float:        "FLOAT",
 	Char:         "CHAR",
-	String:       "STRING",
 	Add:          "+",
 	Sub:          "-",
 	Mul:          "*",
@@ -144,6 +152,8 @@ var tokens = [...]string{
 	Colon:        ":",
 	Question:     "?",
 	Arrow:        "=>",
+	DoubleQuote:  "\"",
+	Backtick:     "`",
 	Break:        "break",
 	Continue:     "continue",
 	Else:         "else",
@@ -162,15 +172,12 @@ var tokens = [...]string{
 
 func (tok Token) String() string {
 	s := ""
-
 	if 0 <= tok && tok < Token(len(tokens)) {
 		s = tokens[tok]
 	}
-
 	if s == "" {
 		s = "token(" + strconv.Itoa(int(tok)) + ")"
 	}
-
 	return s
 }
 

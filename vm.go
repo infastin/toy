@@ -2,6 +2,7 @@ package toy
 
 import (
 	"fmt"
+	"strings"
 	"sync/atomic"
 
 	"github.com/infastin/toy/bytecode"
@@ -194,6 +195,23 @@ func (v *VM) run() {
 			globalIndex := read2(v.curInsts, v.ip)
 			val := v.globals[globalIndex]
 			v.stack[v.sp] = val
+			v.sp++
+		case bytecode.OpString:
+			v.ip += 2
+			numParts := read2(v.curInsts, v.ip)
+
+			var b strings.Builder
+			for i := v.sp - numParts; i < v.sp; i++ {
+				var s String
+				if err := Convert(&s, v.stack[i]); err != nil {
+					v.err = err
+					return
+				}
+				b.WriteString(string(s))
+			}
+			v.sp -= numParts
+
+			v.stack[v.sp] = String(b.String())
 			v.sp++
 		case bytecode.OpArray:
 			v.ip += 3

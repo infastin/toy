@@ -33,9 +33,10 @@ const (
 	And               // &
 	Or                // |
 	Xor               // ^
+	AndNot            // &^
 	Shl               // <<
 	Shr               // >>
-	AndNot            // &^
+	Nullish           // ??
 	AddAssign         // +=
 	SubAssign         // -=
 	MulAssign         // *=
@@ -44,9 +45,10 @@ const (
 	AndAssign         // &=
 	OrAssign          // |=
 	XorAssign         // ^=
+	AndNotAssign      // &^=
 	ShlAssign         // <<=
 	ShrAssign         // >>=
-	AndNotAssign      // &^=
+	NullishAssign     // ??=
 	LAnd              // &&
 	LOr               // ||
 	Inc               // ++
@@ -79,6 +81,7 @@ const (
 	_operatorEnd
 
 	_keywordBeg
+	// Keywords
 	Break
 	Continue
 	Else
@@ -97,14 +100,19 @@ const (
 )
 
 var tokens = [...]string{
-	Illegal:           "ILLEGAL",
-	EOF:               "EOF",
-	Comment:           "COMMENT",
-	PlainText:         "PLAINTEXT",
-	Ident:             "IDENT",
-	Int:               "INT",
-	Float:             "FLOAT",
-	Char:              "CHAR",
+	// Special tokens
+	Illegal:   "ILLEGAL",
+	EOF:       "EOF",
+	Comment:   "COMMENT",
+	PlainText: "PLAINTEXT",
+
+	// Identifiers and basic type literals
+	Ident: "IDENT",
+	Int:   "INT",
+	Float: "FLOAT",
+	Char:  "CHAR",
+
+	// Operators and delimiters
 	Add:               "+",
 	Sub:               "-",
 	Mul:               "*",
@@ -113,9 +121,10 @@ var tokens = [...]string{
 	And:               "&",
 	Or:                "|",
 	Xor:               "^",
+	AndNot:            "&^",
 	Shl:               "<<",
 	Shr:               ">>",
-	AndNot:            "&^",
+	Nullish:           "??",
 	AddAssign:         "+=",
 	SubAssign:         "-=",
 	MulAssign:         "*=",
@@ -124,9 +133,10 @@ var tokens = [...]string{
 	AndAssign:         "&=",
 	OrAssign:          "|=",
 	XorAssign:         "^=",
+	AndNotAssign:      "&^=",
 	ShlAssign:         "<<=",
 	ShrAssign:         ">>=",
-	AndNotAssign:      "&^=",
+	NullishAssign:     "??=",
 	LAnd:              "&&",
 	LOr:               "||",
 	Inc:               "++",
@@ -156,20 +166,22 @@ var tokens = [...]string{
 	DoubleQuote:       "\"",
 	Backtick:          "`",
 	DoubleSingleQuote: "''",
-	Break:             "break",
-	Continue:          "continue",
-	Else:              "else",
-	For:               "for",
-	Func:              "fn",
-	If:                "if",
-	Return:            "return",
-	Defer:             "defer",
-	Export:            "export",
-	True:              "true",
-	False:             "false",
-	In:                "in",
-	Nil:               "nil",
-	Import:            "import",
+
+	// Keywords
+	Break:    "break",
+	Continue: "continue",
+	Else:     "else",
+	For:      "for",
+	Func:     "fn",
+	If:       "if",
+	Return:   "return",
+	Defer:    "defer",
+	Export:   "export",
+	True:     "true",
+	False:    "false",
+	In:       "in",
+	Nil:      "nil",
+	Import:   "import",
 }
 
 func (tok Token) String() string {
@@ -193,7 +205,7 @@ func (tok Token) Precedence() int {
 		return 1
 	case LAnd:
 		return 2
-	case Equal, NotEqual, Less, LessEq, Greater, GreaterEq:
+	case Equal, NotEqual, Less, LessEq, Greater, GreaterEq, Nullish:
 		return 3
 	case Add, Sub, Or, Xor:
 		return 4

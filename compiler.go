@@ -160,7 +160,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 			c.emit(node, bytecode.OpCompare, int(node.Token))
 		case token.Add, token.Sub, token.Mul, token.Quo, token.Rem,
 			token.And, token.Or, token.Xor, token.AndNot,
-			token.Shl, token.Shr:
+			token.Shl, token.Shr, token.Nullish:
 			c.emit(node, bytecode.OpBinaryOp, int(node.Token))
 		default:
 			return c.errorf(node, "invalid binary operator: %s",
@@ -784,14 +784,16 @@ func (c *Compiler) compileAssign(
 		c.emit(node, bytecode.OpBinaryOp, int(token.And))
 	case token.OrAssign:
 		c.emit(node, bytecode.OpBinaryOp, int(token.Or))
-	case token.AndNotAssign:
-		c.emit(node, bytecode.OpBinaryOp, int(token.AndNot))
 	case token.XorAssign:
 		c.emit(node, bytecode.OpBinaryOp, int(token.Xor))
+	case token.AndNotAssign:
+		c.emit(node, bytecode.OpBinaryOp, int(token.AndNot))
 	case token.ShlAssign:
 		c.emit(node, bytecode.OpBinaryOp, int(token.Shl))
 	case token.ShrAssign:
 		c.emit(node, bytecode.OpBinaryOp, int(token.Shr))
+	case token.NullishAssign:
+		c.emit(node, bytecode.OpBinaryOp, int(token.Nullish))
 	}
 
 	var isField bool

@@ -371,6 +371,8 @@ func Compare(op token.Token, x, y Object) (res bool, err error) {
 		} else if x.Type() == y.Type() {
 			return false, err
 		}
+	} else {
+		err = ErrInvalidOperator
 	}
 	yc, ok := y.(Comparable)
 	if !ok {
@@ -409,6 +411,8 @@ func BinaryOp(op token.Token, x, y Object) (res Object, err error) {
 		} else if x.Type() == y.Type() {
 			return nil, err
 		}
+	} else {
+		err = ErrInvalidOperator
 	}
 	yb, ok := y.(HasBinaryOp)
 	if !ok {
@@ -432,8 +436,8 @@ func UnaryOp(op token.Token, x Object) (Object, error) {
 	}
 	xu, ok := x.(HasUnaryOp)
 	if !ok {
-		return nil, fmt.Errorf("operation '%s%s' is not supported",
-			op.String(), TypeName(x))
+		return nil, fmt.Errorf("operation '%s%s' has failed: %w",
+			op.String(), TypeName(x), ErrInvalidOperator)
 	}
 	res, err := xu.UnaryOp(op)
 	if err != nil {

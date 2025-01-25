@@ -113,11 +113,21 @@ func (v *VM) run() {
 			right := v.stack[v.sp-1]
 			left := v.stack[v.sp-2]
 
-			res, err := BinaryOp(tok, left, right)
-			if err != nil {
-				v.sp -= 2
-				v.err = err
-				return
+			var res Object
+			if tok == token.Nullish {
+				if left != Nil {
+					res = left
+				} else {
+					res = right
+				}
+			} else {
+				var err error
+				res, err = BinaryOp(tok, left, right)
+				if err != nil {
+					v.sp -= 2
+					v.err = err
+					return
+				}
 			}
 
 			v.stack[v.sp-2] = res

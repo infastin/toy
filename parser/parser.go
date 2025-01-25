@@ -231,7 +231,6 @@ loop:
 		switch p.token {
 		case token.Period:
 			p.next()
-
 			switch p.token {
 			case token.Ident:
 				x = p.parseSelector(x)
@@ -1059,8 +1058,8 @@ func (p *Parser) parseSimpleStmt(mode int) ast.Stmt {
 		return &ast.BadStmt{From: x[0].Pos(), To: colon + 1}
 	case token.Define,
 		token.AddAssign, token.SubAssign, token.MulAssign, token.QuoAssign,
-		token.RemAssign, token.AndAssign, token.OrAssign, token.XorAssign,
-		token.ShlAssign, token.ShrAssign, token.AndNotAssign:
+		token.RemAssign, token.AndAssign, token.OrAssign, token.XorAssign, token.AndNotAssign,
+		token.ShlAssign, token.ShrAssign, token.NullishAssign:
 		// define or assign statement
 		pos, tok := p.pos, p.token
 		p.next()

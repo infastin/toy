@@ -165,7 +165,12 @@ func (s *Scanner) Scan() (
 		case ',':
 			tok = token.Comma
 		case '?':
-			tok = token.Question
+			if s.ch == '?' {
+				s.next()
+				tok = s.switch2(token.Nullish, '=', token.NullishAssign)
+			} else {
+				tok = token.Question
+			}
 		case ';':
 			tok = token.Semicolon
 			literal = ";"

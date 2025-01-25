@@ -82,11 +82,10 @@ func (s *Scanner) Scan() (
 	literal string,
 	pos token.Pos,
 ) {
-	pos = s.file.FileSetPos(s.offset)
 	insertSemi := false
-
 	// check if scanning text of a string
 	if s.stringLevel%2 == 1 {
+		pos = s.file.FileSetPos(s.offset)
 		switch s.stringKind[len(s.stringKind)-1] {
 		case token.DoubleQuote:
 			tok, literal, insertSemi = s.scanString()
@@ -97,8 +96,8 @@ func (s *Scanner) Scan() (
 		}
 		goto leave
 	}
-
 	s.skipWhitespace()
+	pos = s.file.FileSetPos(s.offset)
 
 	// determine token value
 	switch ch := s.ch; {

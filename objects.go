@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/infastin/toy/hash"
+	"github.com/infastin/toy/parser"
 	"github.com/infastin/toy/token"
 )
 
@@ -1752,7 +1753,13 @@ func (o *Map) String() string {
 		if b.Len() != 1 {
 			b.WriteString(", ")
 		}
-		b.WriteString(key.String())
+		if keyStr, ok := key.(String); ok && parser.IsIdent(string(keyStr)) {
+			b.WriteString(string(keyStr))
+		} else {
+			b.WriteByte('[')
+			b.WriteString(key.String())
+			b.WriteByte(']')
+		}
 		b.WriteString(": ")
 		b.WriteString(value.String())
 	}

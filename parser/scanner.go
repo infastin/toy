@@ -744,6 +744,22 @@ func isDigit(ch rune) bool {
 		ch >= utf8.RuneSelf && unicode.IsDigit(ch)
 }
 
+func IsIdent(s string) bool {
+	r, sz := utf8.DecodeRuneInString(s)
+	if !isLetter(r) {
+		return false
+	}
+	s = s[sz:]
+	for len(s) != 0 {
+		r, sz := utf8.DecodeRuneInString(s)
+		if !isLetter(r) && !isDigit(r) {
+			return false
+		}
+		s = s[sz:]
+	}
+	return true
+}
+
 func digitVal(ch rune) int {
 	switch {
 	case '0' <= ch && ch <= '9':

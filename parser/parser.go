@@ -416,6 +416,8 @@ func (p *Parser) parseOperand() ast.Expr {
 		return p.parseStringLit(token.DoubleQuote)
 	case token.Backtick: // raw string literal
 		return p.parseStringLit(token.Backtick)
+	case token.DoubleSingleQuote: // indented string literal
+		return p.parseStringLit(token.DoubleSingleQuote)
 	case token.True:
 		x := &ast.BoolLit{
 			Value:    true,
@@ -515,6 +517,8 @@ func (p *Parser) parseStringLit(kind token.Token) ast.Expr {
 		unescape = unescapeString
 	case token.Backtick:
 		unescape = unescapeRawString
+	case token.DoubleSingleQuote:
+		unescape = unescapeIndentedString
 	}
 
 	lquote := p.expect(kind)
@@ -702,8 +706,8 @@ func (p *Parser) parseStmt() (stmt ast.Stmt) {
 	}
 	switch p.token {
 	case // simple statements
-		token.Func, token.Ident, token.Int,
-		token.Float, token.Char, token.DoubleQuote, token.Backtick,
+		token.Func, token.Ident, token.Int, token.Float, token.Char,
+		token.DoubleQuote, token.Backtick, token.DoubleSingleQuote,
 		token.True, token.False, token.Nil,
 		token.Import, token.LParen, token.LBrace,
 		token.LBrack, token.Add, token.Sub, token.Mul, token.And, token.Xor,
@@ -1309,6 +1313,32 @@ func unescapeRawString(s string) string {
 		}
 		switch ch := in[1]; ch {
 		case '`', '{', '\\':
+			b.WriteByte(ch)
+			in = in[2:]
+		default:
+			// skip
+			in = in[2:]
+		}
+	}
+	return b.String()
+}
+
+func unescapeIndentedString(s string) string {
+	if strings.IndexByte(s, '\\') == -1 {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	in := s
+	for len(in) > 0 {
+		if in[0] != '\\' {
+			_, sz := utf8.DecodeRuneInString(in)
+			b.WriteString(in[:sz])
+			in = in[sz:]
+			continue
+		}
+		switch ch := in[1]; ch {
+		case '\'', '{', '\\':
 			b.WriteByte(ch)
 			in = in[2:]
 		default:

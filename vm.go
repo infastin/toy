@@ -197,8 +197,9 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 		case bytecode.OpString:
-			v.ip += 2
-			numParts := read2(v.curInsts, v.ip)
+			v.ip += 3
+			numParts := read2(v.curInsts, v.ip-1)
+			unindent := int(v.curInsts[v.ip])
 
 			var b strings.Builder
 			for i := v.sp - numParts; i < v.sp; i++ {
@@ -211,7 +212,11 @@ func (v *VM) run() {
 			}
 			v.sp -= numParts
 
-			v.stack[v.sp] = String(b.String())
+			str := b.String()
+			if unindent == 1 {
+				str = unindentString(str)
+			}
+			v.stack[v.sp] = String(str)
 			v.sp++
 		case bytecode.OpArray:
 			v.ip += 3

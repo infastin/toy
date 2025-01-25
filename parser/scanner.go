@@ -82,8 +82,6 @@ func (s *Scanner) Scan() (
 	literal string,
 	pos token.Pos,
 ) {
-	s.skipWhitespace()
-
 	pos = s.file.FileSetPos(s.offset)
 	insertSemi := false
 
@@ -94,9 +92,13 @@ func (s *Scanner) Scan() (
 			tok, literal, insertSemi = s.scanString()
 		case token.Backtick:
 			tok, literal, insertSemi = s.scanRawString()
+		case token.DoubleSingleQuote:
+			tok, literal, insertSemi = s.scanIndentedString()
 		}
 		goto leave
 	}
+
+	s.skipWhitespace()
 
 	// determine token value
 	switch ch := s.ch; {
@@ -131,9 +133,16 @@ func (s *Scanner) Scan() (
 			s.insertSemi = false // newline consumed
 			return token.Semicolon, "\n", pos
 		case '\'':
-			insertSemi = true
-			tok = token.Char
-			literal = s.scanRune()
+			if s.ch == '\'' {
+				s.next()
+				s.stringLevel++
+				s.stringKind = append(s.stringKind, token.DoubleSingleQuote)
+				tok = token.DoubleSingleQuote
+			} else {
+				insertSemi = true
+				tok = token.Char
+				literal = s.scanRune()
+			}
 		case '"':
 			// we only reach here at the beginning of a string
 			s.stringLevel++
@@ -651,6 +660,68 @@ func (s *Scanner) scanRawString() (tok token.Token, literal string, insertSemi b
 			break
 		}
 		if ch == '`' || ch == '{' {
+			break
+		}
+		s.next()
+	}
+
+	lit := s.src[offs:s.offset]
+	if hasCR {
+		lit = StripCR(lit, false)
+	}
+
+	return token.PlainText, string(lit), false
+}
+
+func (s *Scanner) scanIndentedString() (tok token.Token, literal string, insertSemi bool) {
+	offs := s.offset
+
+	ch := s.ch
+	if ch < 0 {
+		s.error(offs, "indented string literal not terminated")
+		return token.EOF, "", s.insertSemi
+	}
+	s.next()
+	switch ch {
+	case '\'':
+		if s.ch == '\'' {
+			s.next()
+			s.stringLevel--
+			s.stringKind = s.stringKind[:len(s.stringKind)-1]
+			return token.DoubleSingleQuote, "", true
+		}
+	case '{':
+		s.stringLevel++
+		s.interpolation = append(s.interpolation, true)
+		return token.LBrace, "", false
+	}
+
+	hasCR := false
+	for {
+		switch ch {
+		case '\\':
+			if s.ch == '\r' {
+				hasCR = true
+				s.next()
+			}
+			if s.ch == '\\' || s.ch == '\'' || s.ch == '{' || s.ch == '\n' {
+				s.next()
+			} else {
+				msg := "unknown escape sequence"
+				if s.ch < 0 {
+					msg = "escape sequence not terminated"
+				}
+				s.error(s.offset, msg)
+			}
+		case '\r':
+			hasCR = true
+		}
+		ch = s.ch
+		if ch < 0 {
+			s.error(offs, "indented string literal not terminated")
+			break
+		}
+		if (ch == '\'' && s.peek() == '\'') || ch == '{' {
 			break
 		}
 		s.next()

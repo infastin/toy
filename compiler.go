@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"unicode"
 
 	"github.com/infastin/toy/ast"
 	"github.com/infastin/toy/bytecode"
@@ -187,7 +188,12 @@ func (c *Compiler) Compile(node ast.Node) error {
 			case *ast.PlainText:
 				// we don't need to build a string here,
 				// since it's already a string
-				c.emit(expr, bytecode.OpConstant, c.addConstant(String(expr.Value)))
+				str := expr.Value
+				if node.Kind == token.DoubleSingleQuote {
+					// unindent indented string
+					str = unindentString(str)
+				}
+				c.emit(expr, bytecode.OpConstant, c.addConstant(String(str)))
 				return nil
 			case *ast.StringInterpolationExpr:
 				if str, ok := expr.Expr.(*ast.StringLit); ok {
@@ -211,7 +217,11 @@ func (c *Compiler) Compile(node ast.Node) error {
 				}
 			}
 		}
-		c.emit(node, bytecode.OpString, len(node.Exprs))
+		var unindent int
+		if node.Kind == token.DoubleSingleQuote {
+			unindent = 1
+		}
+		c.emit(node, bytecode.OpString, len(node.Exprs), unindent)
 	case *ast.CharLit:
 		c.emit(node, bytecode.OpConstant, c.addConstant(Char(node.Value)))
 	case *ast.NilLit:
@@ -1593,6 +1603,48 @@ func resolveAssignLHS(expr ast.Expr) (name string, x, sel ast.Expr) {
 			return "", x, sel
 		}
 	}
+}
+
+// unindentString strips indentation from the start of each line.
+// Number of spaces to be stripped is equal to the minimal
+// indentation of the string as a whole (ignoring lines with no non-space text).
+// Completely strips the first line if there is no non-space text.
+func unindentString(s string) string {
+	lines := strings.Split(s, "\n")
+	if len(lines) > 0 {
+		trim := strings.TrimSpace(lines[0])
+		if len(trim) == 0 {
+			lines = lines[1:]
+		}
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+
+	indent := -1
+	for _, line := range lines {
+		j := strings.IndexFunc(line, func(r rune) bool {
+			return !unicode.IsSpace(r)
+		})
+		if j == -1 {
+			continue
+		}
+		if indent == -1 || j < indent {
+			indent = j
+		}
+	}
+
+	var b strings.Builder
+	for i, line := range lines {
+		if i != 0 {
+			b.WriteByte('\n')
+		}
+		if len(line) > indent {
+			b.WriteString(line[indent:])
+		}
+	}
+
+	return b.String()
 }
 
 func iterateInstructions(b []byte, fn func(pos int, opcode bytecode.Opcode, operands []int) bool) {

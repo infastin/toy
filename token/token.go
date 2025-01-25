@@ -25,56 +25,57 @@ const (
 
 	_operatorBeg
 	// Operators and delimiters
-	Add          // +
-	Sub          // -
-	Mul          // *
-	Quo          // /
-	Rem          // %
-	And          // &
-	Or           // |
-	Xor          // ^
-	Shl          // <<
-	Shr          // >>
-	AndNot       // &^
-	AddAssign    // +=
-	SubAssign    // -=
-	MulAssign    // *=
-	QuoAssign    // /=
-	RemAssign    // %=
-	AndAssign    // &=
-	OrAssign     // |=
-	XorAssign    // ^=
-	ShlAssign    // <<=
-	ShrAssign    // >>=
-	AndNotAssign // &^=
-	LAnd         // &&
-	LOr          // ||
-	Inc          // ++
-	Dec          // --
-	Equal        // ==
-	Less         // <
-	Greater      // >
-	Assign       // =
-	Not          // !
-	NotEqual     // !=
-	LessEq       // <=
-	GreaterEq    // >=
-	Define       // :=
-	Ellipsis     // ...
-	LParen       // (
-	LBrack       // [
-	LBrace       // {
-	Comma        // ,
-	Period       // .
-	RParen       // )
-	RBrack       // ]
-	RBrace       // }
-	Semicolon    // ;
-	Colon        // :
-	Question     // ?
-	Arrow        // =>
-	DoubleQuote  // "
-	Backtick     // `
+	Add               // +
+	Sub               // -
+	Mul               // *
+	Quo               // /
+	Rem               // %
+	And               // &
+	Or                // |
+	Xor               // ^
+	Shl               // <<
+	Shr               // >>
+	AndNot            // &^
+	AddAssign         // +=
+	SubAssign         // -=
+	MulAssign         // *=
+	QuoAssign         // /=
+	RemAssign         // %=
+	AndAssign         // &=
+	OrAssign          // |=
+	XorAssign         // ^=
+	ShlAssign         // <<=
+	ShrAssign         // >>=
+	AndNotAssign      // &^=
+	LAnd              // &&
+	LOr               // ||
+	Inc               // ++
+	Dec               // --
+	Equal             // ==
+	Less              // <
+	Greater           // >
+	Assign            // =
+	Not               // !
+	NotEqual          // !=
+	LessEq            // <=
+	GreaterEq         // >=
+	Define            // :=
+	Ellipsis          // ...
+	LParen            // (
+	LBrack            // [
+	LBrace            // {
+	Comma             // ,
+	Period            // .
+	RParen            // )
+	RBrack            // ]
+	RBrace            // }
+	Semicolon         // ;
+	Colon             // :
+	Question          // ?
+	Arrow             // =>
+	DoubleQuote       // "
+	Backtick          // `
+	DoubleSingleQuote // ''
 	_operatorEnd
 
 	_keywordBeg
@@ -96,78 +97,79 @@ const (
 )
 
 var tokens = [...]string{
-	Illegal:      "ILLEGAL",
-	EOF:          "EOF",
-	Comment:      "COMMENT",
-	PlainText:    "PLAINTEXT",
-	Ident:        "IDENT",
-	Int:          "INT",
-	Float:        "FLOAT",
-	Char:         "CHAR",
-	Add:          "+",
-	Sub:          "-",
-	Mul:          "*",
-	Quo:          "/",
-	Rem:          "%",
-	And:          "&",
-	Or:           "|",
-	Xor:          "^",
-	Shl:          "<<",
-	Shr:          ">>",
-	AndNot:       "&^",
-	AddAssign:    "+=",
-	SubAssign:    "-=",
-	MulAssign:    "*=",
-	QuoAssign:    "/=",
-	RemAssign:    "%=",
-	AndAssign:    "&=",
-	OrAssign:     "|=",
-	XorAssign:    "^=",
-	ShlAssign:    "<<=",
-	ShrAssign:    ">>=",
-	AndNotAssign: "&^=",
-	LAnd:         "&&",
-	LOr:          "||",
-	Inc:          "++",
-	Dec:          "--",
-	Equal:        "==",
-	Less:         "<",
-	Greater:      ">",
-	Assign:       "=",
-	Not:          "!",
-	NotEqual:     "!=",
-	LessEq:       "<=",
-	GreaterEq:    ">=",
-	Define:       ":=",
-	Ellipsis:     "...",
-	LParen:       "(",
-	LBrack:       "[",
-	LBrace:       "{",
-	Comma:        ",",
-	Period:       ".",
-	RParen:       ")",
-	RBrack:       "]",
-	RBrace:       "}",
-	Semicolon:    ";",
-	Colon:        ":",
-	Question:     "?",
-	Arrow:        "=>",
-	DoubleQuote:  "\"",
-	Backtick:     "`",
-	Break:        "break",
-	Continue:     "continue",
-	Else:         "else",
-	For:          "for",
-	Func:         "fn",
-	If:           "if",
-	Return:       "return",
-	Defer:        "defer",
-	Export:       "export",
-	True:         "true",
-	False:        "false",
-	In:           "in",
-	Nil:          "nil",
-	Import:       "import",
+	Illegal:           "ILLEGAL",
+	EOF:               "EOF",
+	Comment:           "COMMENT",
+	PlainText:         "PLAINTEXT",
+	Ident:             "IDENT",
+	Int:               "INT",
+	Float:             "FLOAT",
+	Char:              "CHAR",
+	Add:               "+",
+	Sub:               "-",
+	Mul:               "*",
+	Quo:               "/",
+	Rem:               "%",
+	And:               "&",
+	Or:                "|",
+	Xor:               "^",
+	Shl:               "<<",
+	Shr:               ">>",
+	AndNot:            "&^",
+	AddAssign:         "+=",
+	SubAssign:         "-=",
+	MulAssign:         "*=",
+	QuoAssign:         "/=",
+	RemAssign:         "%=",
+	AndAssign:         "&=",
+	OrAssign:          "|=",
+	XorAssign:         "^=",
+	ShlAssign:         "<<=",
+	ShrAssign:         ">>=",
+	AndNotAssign:      "&^=",
+	LAnd:              "&&",
+	LOr:               "||",
+	Inc:               "++",
+	Dec:               "--",
+	Equal:             "==",
+	Less:              "<",
+	Greater:           ">",
+	Assign:            "=",
+	Not:               "!",
+	NotEqual:          "!=",
+	LessEq:            "<=",
+	GreaterEq:         ">=",
+	Define:            ":=",
+	Ellipsis:          "...",
+	LParen:            "(",
+	LBrack:            "[",
+	LBrace:            "{",
+	Comma:             ",",
+	Period:            ".",
+	RParen:            ")",
+	RBrack:            "]",
+	RBrace:            "}",
+	Semicolon:         ";",
+	Colon:             ":",
+	Question:          "?",
+	Arrow:             "=>",
+	DoubleQuote:       "\"",
+	Backtick:          "`",
+	DoubleSingleQuote: "''",
+	Break:             "break",
+	Continue:          "continue",
+	Else:              "else",
+	For:               "for",
+	Func:              "fn",
+	If:                "if",
+	Return:            "return",
+	Defer:             "defer",
+	Export:            "export",
+	True:              "true",
+	False:             "false",
+	In:                "in",
+	Nil:               "nil",
+	Import:            "import",
 }
 
 func (tok Token) String() string {

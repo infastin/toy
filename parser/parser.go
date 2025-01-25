@@ -1032,23 +1032,24 @@ func (p *Parser) parseMapElementLit() *ast.MapElementLit {
 	if p.trace {
 		defer untracep(tracep(p, "MapElementLit"))
 	}
-	var (
-		key    ast.Expr
-		lbrack token.Pos
-	)
+	var key ast.Expr
 	switch p.token {
 	case token.Ident:
-		key = &ast.StringLit{
-			Value:    p.tokenLit,
-			ValuePos: p.pos,
-			Literal:  p.tokenLit,
+		key = &ast.Ident{
+			Name:    p.tokenLit,
+			NamePos: p.pos,
 		}
 		p.next()
 	case token.LBrack:
-		lbrack = p.pos
+		lbrack := p.pos
 		p.next()
-		key = p.parseExpr()
-		p.expect(token.RBrack)
+		expr := p.parseExpr()
+		rbrack := p.expect(token.RBrack)
+		key = &ast.MapKeyExpr{
+			LBrack: lbrack,
+			Expr:   expr,
+			RBrack: rbrack,
+		}
 	default:
 		p.errorExpected(p.pos, "map key")
 	}
@@ -1058,7 +1059,6 @@ func (p *Parser) parseMapElementLit() *ast.MapElementLit {
 		Key:      key,
 		ColonPos: colonPos,
 		Value:    valueExpr,
-		LBrack:   lbrack,
 	}
 }
 

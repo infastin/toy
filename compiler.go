@@ -340,8 +340,13 @@ func (c *Compiler) Compile(node ast.Node) error {
 		c.emit(node, bytecode.OpArray, len(node.Elements), splat)
 	case *ast.MapLit:
 		for _, elt := range node.Elements {
-			if err := c.Compile(elt.Key); err != nil {
-				return err
+			switch key := elt.Key.(type) {
+			case *ast.Ident:
+				c.emit(key, bytecode.OpConstant, c.addConstant(String(key.Name)))
+			case *ast.MapKeyExpr:
+				if err := c.Compile(key.Expr); err != nil {
+					return err
+				}
 			}
 			if err := c.Compile(elt.Value); err != nil {
 				return err

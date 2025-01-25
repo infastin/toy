@@ -1,7 +1,6 @@
 package ast
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/infastin/toy/token"
@@ -401,6 +400,29 @@ func (e *IntLit) String() string {
 	return e.Literal
 }
 
+// MapKeyExpr represents a map key expression.
+type MapKeyExpr struct {
+	LBrack token.Pos
+	Expr   Expr
+	RBrack token.Pos
+}
+
+func (e *MapKeyExpr) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *MapKeyExpr) Pos() token.Pos {
+	return e.LBrack
+}
+
+// End returns the position of first character immediately after the node.
+func (e *MapKeyExpr) End() token.Pos {
+	return e.RBrack + 1
+}
+
+func (e *MapKeyExpr) String() string {
+	return "[" + e.Expr.String() + "]"
+}
+
 // MapElementLit represents a map element.
 type MapElementLit struct {
 	LBrack   token.Pos
@@ -425,18 +447,7 @@ func (e *MapElementLit) End() token.Pos {
 }
 
 func (e *MapElementLit) String() string {
-	var b strings.Builder
-	if e.LBrack.IsValid() {
-		b.WriteByte('[')
-		b.WriteString(e.Key.String())
-		b.WriteByte(']')
-	} else {
-		key, _ := strconv.Unquote(e.Key.String())
-		b.WriteString(key)
-	}
-	b.WriteString(": ")
-	b.WriteString(e.Value.String())
-	return b.String()
+	return e.Key.String() + ": " + e.Value.String()
 }
 
 // MapLit represents a map literal.

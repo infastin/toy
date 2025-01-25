@@ -425,7 +425,6 @@ func (e *MapKeyExpr) String() string {
 
 // MapElementLit represents a map element.
 type MapElementLit struct {
-	LBrack   token.Pos
 	Key      Expr
 	ColonPos token.Pos
 	Value    Expr
@@ -435,9 +434,6 @@ func (e *MapElementLit) exprNode() {}
 
 // Pos returns the position of first character belonging to the node.
 func (e *MapElementLit) Pos() token.Pos {
-	if e.LBrack.IsValid() {
-		return e.LBrack
-	}
 	return e.Key.Pos()
 }
 

@@ -73,6 +73,7 @@ type CompiledFunction struct {
 	instructions  []byte
 	numLocals     int // number of local variables (including function parameters)
 	numParameters int
+	numOptionals  int
 	varArgs       bool
 	sourceMap     map[int]token.Pos
 	deferMap      []token.Pos
@@ -88,6 +89,7 @@ func (o *CompiledFunction) Clone() Object {
 		instructions:  o.instructions,
 		numLocals:     o.numLocals,
 		numParameters: o.numParameters,
+		numOptionals:  o.numOptionals,
 		varArgs:       o.varArgs,
 		sourceMap:     o.sourceMap,
 		deferMap:      o.deferMap,
@@ -101,27 +103,36 @@ func (o *CompiledFunction) Call(v *VM, args ...Object) (Object, error) {
 	}
 	numArgs := len(args)
 
+	numRealParams := o.numParameters
 	if o.varArgs {
-		// if the closure is variadic,
-		// roll up all variadic parameters into an array
-		numRealArgs := o.numParameters - 1
-		numVarArgs := numArgs - numRealArgs
-		if numVarArgs >= 0 {
-			varArgs := slices.Clone(args[numRealArgs:])
-			args = append(args[:numRealArgs], NewArray(varArgs))
-			numArgs = numRealArgs + 1
+		numRealParams--
+	}
+	numRequiredParams := numRealParams - o.numOptionals
+
+	if o.numOptionals > 0 && numArgs >= numRequiredParams {
+		for i := numArgs; i < numRealParams; i++ {
+			args = append(args, Nil)
 		}
+		numArgs = len(args)
+	}
+
+	if o.varArgs && numArgs >= numRealParams {
+		// if the function is variadic,
+		// roll up all variadic parameters into an array
+		varArgs := slices.Clone(args[numRealParams:])
+		args = append(args[:numRealParams], NewArray(varArgs))
+		numArgs = numRealParams + 1
 	}
 
 	if numArgs != o.numParameters {
 		if o.varArgs {
 			return nil, &WrongNumArgumentsError{
-				WantMin: o.numParameters - 1,
+				WantMin: numRequiredParams,
 				Got:     numArgs,
 			}
 		}
 		return nil, &WrongNumArgumentsError{
-			WantMin: o.numParameters,
+			WantMin: numRequiredParams,
 			WantMax: o.numParameters,
 			Got:     numArgs,
 		}
@@ -146,7 +157,7 @@ func (o *CompiledFunction) Call(v *VM, args ...Object) (Object, error) {
 
 	// update call frame
 	v.curFrame.ip = v.ip // store current ip before call
-	v.curFrame = &(v.frames[v.framesIndex])
+	v.curFrame = &v.frames[v.framesIndex]
 	v.curFrame.fn = o
 	v.curFrame.freeVars = o.free
 	v.curFrame.basePointer = v.sp
@@ -183,6 +194,7 @@ func (o *CompiledFunction) WithReceiver(recv Object) *CompiledFunction {
 		instructions:  o.instructions,
 		numLocals:     o.numLocals,
 		numParameters: o.numParameters,
+		numOptionals:  o.numOptionals,
 		varArgs:       o.varArgs,
 		sourceMap:     o.sourceMap,
 		deferMap:      o.deferMap,
@@ -193,6 +205,7 @@ func (o *CompiledFunction) WithReceiver(recv Object) *CompiledFunction {
 func (o *CompiledFunction) Instructions() []byte { return slices.Clone(o.instructions) }
 func (o *CompiledFunction) NumLocals() int       { return o.numLocals }
 func (o *CompiledFunction) NumParameters() int   { return o.numParameters }
+func (o *CompiledFunction) NumOptionals() int    { return o.numOptionals }
 func (o *CompiledFunction) VarArgs() bool        { return o.varArgs }
 
 // sourcePos returns the source position of the instruction at ip.

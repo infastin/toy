@@ -550,8 +550,6 @@ func (v *VM) run() {
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
 			sp := v.curFrame.basePointer + localIndex
-			// local variables can be mutated by other actions
-			// so always store the copy of popped value
 			val := v.stack[v.sp-1]
 			v.sp--
 			v.stack[sp] = val
@@ -559,16 +557,13 @@ func (v *VM) run() {
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
 			sp := v.curFrame.basePointer + localIndex
-			// update pointee of v.stack[sp] instead of replacing the pointer
-			// itself. this is needed because there can be free variables
-			// referencing the same local variables
 			val := v.stack[v.sp-1]
 			v.sp--
 			if obj, ok := v.stack[sp].(*objectPtr); ok {
 				*obj.p = val
-				val = obj
+			} else {
+				v.stack[sp] = val
 			}
-			v.stack[sp] = val // also use a copy of popped value
 		case bytecode.OpGetLocal:
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
@@ -618,18 +613,18 @@ func (v *VM) run() {
 			}
 			free := make([]*objectPtr, numFree)
 			for i := 0; i < numFree; i++ {
-				switch freeVar := (v.stack[v.sp-numFree+i]).(type) {
-				case *objectPtr:
-					free[i] = freeVar
-				default:
-					free[i] = &objectPtr{p: &v.stack[v.sp-numFree+i]}
-				}
+				// we always expect *objectPtr here
+				// because the compiler only produces OpClosure
+				// alongside OpGetLocalPtr and OpGetFreePtr,
+				// which always push *objectPtr onto the stack
+				free[i] = v.stack[v.sp-numFree+i].(*objectPtr)
 			}
 			v.sp -= numFree
 			cl := &CompiledFunction{
 				instructions:  fn.instructions,
 				numLocals:     fn.numLocals,
 				numParameters: fn.numParameters,
+				numOptionals:  fn.numOptionals,
 				varArgs:       fn.varArgs,
 				sourceMap:     fn.sourceMap,
 				deferMap:      fn.deferMap,

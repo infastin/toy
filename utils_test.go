@@ -116,9 +116,10 @@ func expectEqualError(t testing.TB, expected, actual *toy.Error, msg ...any) {
 
 func expectEqualCompiledFunction(t testing.TB, expected, actual *toy.CompiledFunction, msg ...any) {
 	expectEqual(t, expected.Instructions(), actual.Instructions(), msg...)
-	expectEqual(t, expected.NumParameters(), actual.NumParameters(), msg...)
-	expectEqual(t, expected.VarArgs(), actual.VarArgs(), msg...)
 	expectEqual(t, expected.NumLocals(), actual.NumLocals(), msg...)
+	expectEqual(t, expected.NumParameters(), actual.NumParameters(), msg...)
+	expectEqual(t, expected.NumOptionals(), actual.NumOptionals(), msg...)
+	expectEqual(t, expected.VarArgs(), actual.VarArgs(), msg...)
 }
 
 func expectEqualBytecode(t testing.TB, expected, actual *toy.Bytecode, msg ...any) {

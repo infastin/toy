@@ -22,10 +22,11 @@ type Node interface {
 
 // IdentList represents a list of identifiers.
 type IdentList struct {
-	LParen  token.Pos
-	VarArgs bool
-	List    []*Ident
-	RParen  token.Pos
+	LParen       token.Pos
+	List         []*Ident
+	NumOptionals int
+	VarArgs      bool
+	RParen       token.Pos
 }
 
 // Pos returns the position of first character belonging to the node.
@@ -50,22 +51,33 @@ func (n *IdentList) End() token.Pos {
 	return token.NoPos
 }
 
-// NumFields returns the number of fields.
-func (n *IdentList) NumFields() int {
-	if n == nil {
-		return 0
-	}
-	return len(n.List)
-}
-
 func (n *IdentList) String() string {
-	var list []string
-	for i, e := range n.List {
-		if n.VarArgs && i == len(n.List)-1 {
-			list = append(list, "..."+e.String())
+	numParams := len(n.List)
+	numRequired := numParams - n.NumOptionals
+	if n.VarArgs {
+		numRequired--
+	}
+	var b strings.Builder
+	b.WriteByte('(')
+	i := 0
+	for ; i < numRequired; i++ {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(n.List[i].String())
+	}
+	for ; i < numParams; i++ {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		if i == numParams-1 {
+			b.WriteString("...")
+			b.WriteString(n.List[i].String())
 		} else {
-			list = append(list, e.String())
+			b.WriteString(n.List[i].String())
+			b.WriteByte('?')
 		}
 	}
-	return "(" + strings.Join(list, ", ") + ")"
+	b.WriteByte(')')
+	return b.String()
 }

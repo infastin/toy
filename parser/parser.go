@@ -523,7 +523,7 @@ func (p *Parser) parseStringLit(kind token.Token) ast.Expr {
 	lquote := p.expect(kind)
 	var exprs []ast.Expr
 loop:
-	for p.token != kind && p.token != token.EOF && p.token != token.Semicolon {
+	for p.token != kind && p.token != token.EOF {
 		switch p.token {
 		case token.PlainText:
 			exprs = append(exprs, &ast.PlainText{
@@ -675,32 +675,42 @@ func (p *Parser) parseIdentList() *ast.IdentList {
 		defer untracep(tracep(p, "IdentList"))
 	}
 
-	var params []*ast.Ident
 	lparen := p.expect(token.LParen)
+
+	var params []*ast.Ident
+	numOptionals := 0
 	isVarArgs := false
-	if p.token != token.RParen {
+
+	for p.token != token.RParen && p.token != token.EOF {
 		if p.token == token.Ellipsis {
 			isVarArgs = true
 			p.next()
 		}
-
 		params = append(params, p.parseIdent())
-		for !isVarArgs && p.token == token.Comma {
+		if isVarArgs {
+			break
+		}
+		if numOptionals != 0 && p.token != token.Question {
+			p.errorExpected(p.pos, "optional parameter")
+			break
+		}
+		if p.token == token.Question {
+			numOptionals++
 			p.next()
-			if p.token == token.Ellipsis {
-				isVarArgs = true
-				p.next()
-			}
-			params = append(params, p.parseIdent())
+		}
+		if !p.expectComma("function parameter") {
+			break
 		}
 	}
 
 	rparen := p.expect(token.RParen)
+
 	return &ast.IdentList{
-		LParen:  lparen,
-		RParen:  rparen,
-		VarArgs: isVarArgs,
-		List:    params,
+		LParen:       lparen,
+		List:         params,
+		NumOptionals: numOptionals,
+		VarArgs:      isVarArgs,
+		RParen:       rparen,
 	}
 }
 
@@ -1147,6 +1157,7 @@ func (p *Parser) parseMapLit() *ast.MapLit {
 
 	p.exprLevel--
 	rbrace := p.expect(token.RBrace)
+
 	return &ast.MapLit{
 		LBrace:   lbrace,
 		RBrace:   rbrace,

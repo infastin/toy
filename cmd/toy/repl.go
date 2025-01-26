@@ -274,7 +274,7 @@ func (m *model) charBackward() {
 func (m *model) deleteCharBefore() {
 	if m.col > 0 {
 		m.input[m.line] = slices.Delete(m.input[m.line], m.col-1, m.col)
-		m.col -= 1
+		m.col--
 	} else if m.line > 0 {
 		m.col = len(m.input[m.line-1])
 		m.input[m.line-1] = append(m.input[m.line-1], m.input[m.line]...)
@@ -504,17 +504,17 @@ loop:
 		tok, _, _ := scanner.Scan()
 		switch tok {
 		case token.LParen:
-			parens += 1
+			parens++
 		case token.RParen:
-			parens -= 1
+			parens--
 		case token.LBrace:
-			braces += 1
+			braces++
 		case token.RBrace:
-			braces -= 1
+			braces--
 		case token.LBrack:
-			brackets += 1
+			brackets++
 		case token.RBrack:
-			brackets -= 1
+			brackets--
 		case token.EOF:
 			break loop
 		}

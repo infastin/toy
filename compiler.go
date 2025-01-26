@@ -428,6 +428,11 @@ func (c *Compiler) Compile(node ast.Node) error {
 		c.enterScope()
 
 		for _, p := range node.Type.Params.List {
+			// maybe such parameter has been already defined
+			_, depth, exists := c.symbolTable.Resolve(p.Name, false)
+			if depth == 0 && exists {
+				return c.errorf(p, "'%s' redeclared in this block", p.Name)
+			}
 			s := c.symbolTable.Define(p.Name)
 			// function arguments is not assigned directly.
 			s.LocalAssigned = true
@@ -501,6 +506,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 			instructions:  scope.instructions,
 			numLocals:     numLocals,
 			numParameters: len(node.Type.Params.List),
+			numOptionals:  node.Type.Params.NumOptionals,
 			varArgs:       node.Type.Params.VarArgs,
 			sourceMap:     scope.sourceMap,
 			deferMap:      scope.deferMap,
@@ -899,7 +905,7 @@ func (c *Compiler) compileAssignDefine(
 			symbol, depth, exists = c.symbolTable.Resolve(ident, false)
 			if op == token.Define {
 				if depth == 0 && exists {
-					redecl += 1 // increment the number of variable redeclarations
+					redecl++ // increment the number of variable redeclarations
 				}
 				if isFunc {
 					symbol = c.symbolTable.Define(ident)

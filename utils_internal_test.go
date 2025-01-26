@@ -116,9 +116,10 @@ func expectEqualError(t testing.TB, expected, actual *Error, msg ...any) {
 
 func expectEqualCompiledFunction(t testing.TB, expected, actual *CompiledFunction, msg ...any) {
 	expectEqual(t, expected.Instructions(), actual.Instructions(), msg...)
-	expectEqual(t, expected.NumParameters(), actual.NumParameters(), msg...)
-	expectEqual(t, expected.VarArgs(), actual.VarArgs(), msg...)
 	expectEqual(t, expected.NumLocals(), actual.NumLocals(), msg...)
+	expectEqual(t, expected.NumParameters(), actual.NumParameters(), msg...)
+	expectEqual(t, expected.NumOptionals(), actual.NumOptionals(), msg...)
+	expectEqual(t, expected.VarArgs(), actual.VarArgs(), msg...)
 }
 
 func expectEqualBytecode(t testing.TB, expected, actual *Bytecode, msg ...any) {
@@ -139,11 +140,12 @@ func objectsArray(o ...Object) []Object {
 	return o
 }
 
-func compiledFunction(numLocals, numParams int, varArgs bool, insts ...[]byte) *CompiledFunction {
+func compiledFunction(numLocals, numParams, numOptionals int, varArgs bool, insts ...[]byte) *CompiledFunction {
 	return &CompiledFunction{
 		instructions:  concatInsts(insts...),
 		numLocals:     numLocals,
 		numParameters: numParams,
+		numOptionals:  numOptionals,
 		varArgs:       varArgs,
 	}
 }

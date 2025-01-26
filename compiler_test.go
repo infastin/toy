@@ -730,7 +730,7 @@ func TestCompiler_Compile(t *testing.T) {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(3, 3, true,
+				compiledFunction(3, 3, 0, true,
 					bytecode.MakeInstruction(bytecode.OpGetLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpGetLocal, 1),
 					bytecode.MakeInstruction(bytecode.OpBinaryOp, int(token.Add)),
@@ -752,7 +752,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpConstant, 1),
 				bytecode.MakeInstruction(bytecode.OpConstant, 2),
 				bytecode.MakeInstruction(bytecode.OpBinaryOp, int(token.Add)),
@@ -770,7 +770,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpConstant, 1),
 				bytecode.MakeInstruction(bytecode.OpConstant, 2),
 				bytecode.MakeInstruction(bytecode.OpBinaryOp, int(token.Add)),
@@ -789,7 +789,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpConstant, 1),
 				bytecode.MakeInstruction(bytecode.OpConstant, 2),
 				bytecode.MakeInstruction(bytecode.OpBinaryOp, int(token.Add)),
@@ -807,7 +807,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpGetBuiltin, 26),
 				bytecode.MakeInstruction(bytecode.OpConstant, 1),
 				bytecode.MakeInstruction(bytecode.OpConstant, 2),
@@ -826,7 +826,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpConstant, 1),
 				bytecode.MakeInstruction(bytecode.OpPop),
 				bytecode.MakeInstruction(bytecode.OpConstant, 2),
@@ -845,7 +845,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpConstant, 1),
 				bytecode.MakeInstruction(bytecode.OpPop),
 				bytecode.MakeInstruction(bytecode.OpConstant, 2),
@@ -863,7 +863,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpConstant, 1),
 				bytecode.MakeInstruction(bytecode.OpConstant, 2),
 				bytecode.MakeInstruction(bytecode.OpTuple, 2, 0),
@@ -887,7 +887,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpConstant, 1),
 				bytecode.MakeInstruction(bytecode.OpConstant, 2),
 				bytecode.MakeInstruction(bytecode.OpTuple, 2, 0),
@@ -907,7 +907,7 @@ func TestCompiler_Compile(t *testing.T) {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(0, 0, false,
+				compiledFunction(0, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpTrue),          // 0000
 					bytecode.MakeInstruction(bytecode.OpJumpFalsy, 11), // 0001
 					bytecode.MakeInstruction(bytecode.OpConstant, 1),   // 0004
@@ -930,7 +930,7 @@ func TestCompiler_Compile(t *testing.T) {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(0, 0, false,
+				compiledFunction(0, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpConstant, 1),   // 0000
 					bytecode.MakeInstruction(bytecode.OpPop),           // 0003
 					bytecode.MakeInstruction(bytecode.OpTrue),          // 0004
@@ -959,7 +959,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpReturn, 0),
 			),
 		),
@@ -973,7 +973,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpConstant, 1),
 				bytecode.MakeInstruction(bytecode.OpPop),
 				bytecode.MakeInstruction(bytecode.OpReturn, 0),
@@ -990,7 +990,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpConstant, 1),
 				bytecode.MakeInstruction(bytecode.OpReturn, 1),
 			),
@@ -1008,7 +1008,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpConstant, 1),
 				bytecode.MakeInstruction(bytecode.OpPop),
 				bytecode.MakeInstruction(bytecode.OpReturn, 0),
@@ -1029,7 +1029,7 @@ func TestCompiler_Compile(t *testing.T) {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(0, 0, false,
+				compiledFunction(0, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpConstant, 1),
 					bytecode.MakeInstruction(bytecode.OpReturn, 1),
 				),
@@ -1048,7 +1048,7 @@ func TestCompiler_Compile(t *testing.T) {
 		),
 		objectsArray(
 			Int(55),
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpGetGlobal, 0),
 				bytecode.MakeInstruction(bytecode.OpPop),
 				bytecode.MakeInstruction(bytecode.OpReturn, 0),
@@ -1063,7 +1063,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(1, 0, false,
+			compiledFunction(1, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpConstant, 1),
 				bytecode.MakeInstruction(bytecode.OpDefineLocal, 0),
 				bytecode.MakeInstruction(bytecode.OpGetLocal, 0),
@@ -1082,7 +1082,7 @@ func TestCompiler_Compile(t *testing.T) {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(2, 0, false,
+				compiledFunction(2, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpConstant, 1),
 					bytecode.MakeInstruction(bytecode.OpDefineLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpConstant, 2),
@@ -1111,7 +1111,7 @@ func TestCompiler_Compile(t *testing.T) {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(1, 1, false,
+				compiledFunction(1, 1, 0, false,
 					bytecode.MakeInstruction(bytecode.OpGetLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpReturn, 1),
 				),
@@ -1135,7 +1135,7 @@ func TestCompiler_Compile(t *testing.T) {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(1, 1, true,
+				compiledFunction(1, 1, 0, true,
 					bytecode.MakeInstruction(bytecode.OpGetLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpReturn, 1)),
 				Int(1),
@@ -1160,7 +1160,7 @@ func TestCompiler_Compile(t *testing.T) {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(3, 3, false,
+				compiledFunction(3, 3, 0, false,
 					bytecode.MakeInstruction(bytecode.OpGetLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpPop),
 					bytecode.MakeInstruction(bytecode.OpGetLocal, 1),
@@ -1184,7 +1184,7 @@ func TestCompiler_Compile(t *testing.T) {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(1, 0, false,
+				compiledFunction(1, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpConstant, 1),
 					bytecode.MakeInstruction(bytecode.OpDefineLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpConstant, 2),
@@ -1216,7 +1216,7 @@ func TestCompiler_Compile(t *testing.T) {
 			bytecode.MakeInstruction(bytecode.OpSuspend),
 		),
 		objectsArray(
-			compiledFunction(0, 0, false,
+			compiledFunction(0, 0, 0, false,
 				bytecode.MakeInstruction(bytecode.OpGetBuiltin, 6),
 				bytecode.MakeInstruction(bytecode.OpArray, 0, 0),
 				bytecode.MakeInstruction(bytecode.OpCall, 1, 0),
@@ -1234,13 +1234,13 @@ func TestCompiler_Compile(t *testing.T) {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(1, 1, false,
+				compiledFunction(1, 1, 0, false,
 					bytecode.MakeInstruction(bytecode.OpGetLocalPtr, 0),
 					bytecode.MakeInstruction(bytecode.OpClosure, 1, 1),
 					bytecode.MakeInstruction(bytecode.OpPop),
 					bytecode.MakeInstruction(bytecode.OpReturn, 0),
 				),
-				compiledFunction(1, 1, false,
+				compiledFunction(1, 1, 0, false,
 					bytecode.MakeInstruction(bytecode.OpGetFree, 0),
 					bytecode.MakeInstruction(bytecode.OpGetLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpBinaryOp, int(token.Add)),
@@ -1265,18 +1265,18 @@ fn(a) {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(1, 1, false,
+				compiledFunction(1, 1, 0, false,
 					bytecode.MakeInstruction(bytecode.OpGetLocalPtr, 0),
 					bytecode.MakeInstruction(bytecode.OpClosure, 1, 1),
 					bytecode.MakeInstruction(bytecode.OpReturn, 1),
 				),
-				compiledFunction(1, 1, false,
+				compiledFunction(1, 1, 0, false,
 					bytecode.MakeInstruction(bytecode.OpGetFreePtr, 0),
 					bytecode.MakeInstruction(bytecode.OpGetLocalPtr, 0),
 					bytecode.MakeInstruction(bytecode.OpClosure, 2, 2),
 					bytecode.MakeInstruction(bytecode.OpReturn, 1),
 				),
-				compiledFunction(1, 1, false,
+				compiledFunction(1, 1, 0, false,
 					bytecode.MakeInstruction(bytecode.OpGetFree, 0),
 					bytecode.MakeInstruction(bytecode.OpGetFree, 1),
 					bytecode.MakeInstruction(bytecode.OpBinaryOp, int(token.Add)),
@@ -1289,14 +1289,14 @@ fn(a) {
 	)
 
 	expectCompile(t, `
-g := 55;
+g := 55
 fn() {
-	a := 66;
+	a := 66
 	return fn() {
-		b := 77;
+		b := 77
 		return fn() {
-			c := 88;
-			return g + a + b + c;
+			c := 88
+			return g + a + b + c
 		}
 	}
 }`,
@@ -1310,7 +1310,7 @@ fn() {
 			),
 			objectsArray(
 				Int(55),
-				compiledFunction(1, 0, false,
+				compiledFunction(1, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpConstant, 2),
 					bytecode.MakeInstruction(bytecode.OpDefineLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpGetLocalPtr, 0),
@@ -1318,7 +1318,7 @@ fn() {
 					bytecode.MakeInstruction(bytecode.OpReturn, 1),
 				),
 				Int(66),
-				compiledFunction(1, 0, false,
+				compiledFunction(1, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpConstant, 4),
 					bytecode.MakeInstruction(bytecode.OpDefineLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpGetFreePtr, 0),
@@ -1327,7 +1327,7 @@ fn() {
 					bytecode.MakeInstruction(bytecode.OpReturn, 1),
 				),
 				Int(77),
-				compiledFunction(1, 0, false,
+				compiledFunction(1, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpConstant, 6),
 					bytecode.MakeInstruction(bytecode.OpDefineLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpGetGlobal, 0),
@@ -1428,7 +1428,7 @@ fn() {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(2, 0, false,
+				compiledFunction(2, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpConstant, 1),
 					bytecode.MakeInstruction(bytecode.OpDefineLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpConstant, 2),
@@ -1452,7 +1452,7 @@ fn() {
 				),
 				Int(10),
 				Int(0),
-				compiledFunction(0, 0, false,
+				compiledFunction(0, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpGetFree, 1),
 					bytecode.MakeInstruction(bytecode.OpSetFree, 0),
 					bytecode.MakeInstruction(bytecode.OpReturn, 0),
@@ -1531,7 +1531,7 @@ fn() {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(1, 0, false,
+				compiledFunction(1, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpConstant, 1),
 					bytecode.MakeInstruction(bytecode.OpDefineLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpGetLocal, 0),
@@ -1558,7 +1558,7 @@ fn(x) {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(2, 1, false,
+				compiledFunction(2, 1, 0, false,
 					bytecode.MakeInstruction(bytecode.OpGetLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpConstant, 1),
 					bytecode.MakeInstruction(bytecode.OpCompare, int(token.Greater)),
@@ -1597,7 +1597,7 @@ fn() {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(0, 0, false,
+				compiledFunction(0, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpTrue),
 					bytecode.MakeInstruction(bytecode.OpJumpFalsy, 11),
 					bytecode.MakeInstruction(bytecode.OpConstant, 1),
@@ -1630,7 +1630,7 @@ fn() {
 				bytecode.MakeInstruction(bytecode.OpPop),
 				bytecode.MakeInstruction(bytecode.OpSuspend)),
 			objectsArray(
-				compiledFunction(1, 0, false,
+				compiledFunction(1, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpConstant, 1),
 					bytecode.MakeInstruction(bytecode.OpDefineLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpGetLocal, 0),
@@ -1669,7 +1669,7 @@ fn() {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(0, 0, false,
+				compiledFunction(0, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpTrue),
 					bytecode.MakeInstruction(bytecode.OpJumpFalsy, 8),
 					bytecode.MakeInstruction(bytecode.OpReturn, 0),
@@ -1731,7 +1731,7 @@ fn() {
 				bytecode.MakeInstruction(bytecode.OpSuspend),
 			),
 			objectsArray(
-				compiledFunction(2, 0, false,
+				compiledFunction(2, 0, 0, false,
 					bytecode.MakeInstruction(bytecode.OpConstant, 1),
 					bytecode.MakeInstruction(bytecode.OpDefineLocal, 0),
 					bytecode.MakeInstruction(bytecode.OpGetLocal, 0),

@@ -81,10 +81,7 @@ func (t *SymbolTable) DefineBuiltin(index int, name string) *Symbol {
 }
 
 // Resolve resolves a symbol with a given name.
-func (t *SymbolTable) Resolve(
-	name string,
-	recur bool,
-) (*Symbol, int, bool) {
+func (t *SymbolTable) Resolve(name string, recur bool) (*Symbol, int, bool) {
 	symbol, ok := t.store[name]
 	if ok {
 		// symbol can be used if
@@ -107,9 +104,7 @@ func (t *SymbolTable) Resolve(
 
 	// if symbol is defined in parent table and if it's not global/builtin
 	// then it's free variable.
-	if !t.block && depth > 0 &&
-		symbol.Scope != ScopeGlobal &&
-		symbol.Scope != ScopeBuiltin {
+	if !t.block && symbol.Scope != ScopeGlobal && symbol.Scope != ScopeBuiltin {
 		return t.defineFree(symbol), depth, true
 	}
 

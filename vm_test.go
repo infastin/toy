@@ -3761,7 +3761,7 @@ func traceCompileRun(
 			err = fmt.Errorf("panic: %v", p)
 			// stack trace
 			var stackTrace []string
-			for i := 2; ; i += 1 {
+			for i := 2; ; i++ {
 				_, file, line, ok := runtime.Caller(i)
 				if !ok {
 					break

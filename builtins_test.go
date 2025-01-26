@@ -721,7 +721,7 @@ func Test_builtinMin(t *testing.T) {
 		{
 			name:    "not-comparable",
 			args:    []Object{String("hello"), Int(0)},
-			wantErr: errors.New(`operation 'int < string' has failed: invalid operator`),
+			wantErr: errors.New(`operation 'int < string' has failed: invalid operation`),
 		},
 	}
 	for _, tt := range tests {
@@ -770,7 +770,7 @@ func Test_builtinMax(t *testing.T) {
 		{
 			name:    "not-comparable",
 			args:    []Object{String("hello"), Int(0)},
-			wantErr: errors.New(`operation 'int > string' has failed: invalid operator`),
+			wantErr: errors.New(`operation 'int > string' has failed: invalid operation`),
 		},
 	}
 	for _, tt := range tests {

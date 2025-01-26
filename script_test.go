@@ -186,7 +186,7 @@ func (o Counter) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	case Counter:
 		return o == y, nil
 	}
-	return false, toy.ErrInvalidOperator
+	return false, toy.ErrInvalidOperation
 }
 
 func (o Counter) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Object, error) {
@@ -209,7 +209,7 @@ func (o Counter) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Obj
 			return o - Counter(rhs), nil
 		}
 	}
-	return nil, toy.ErrInvalidOperator
+	return nil, toy.ErrInvalidOperation
 }
 
 func (o Counter) Call(*toy.VM, ...toy.Object) (toy.Object, error) { return toy.Int(o), nil }
@@ -444,7 +444,7 @@ func (n CustomNumber) Compare(op token.Token, rhs toy.Object) (bool, error) {
 			return n >= CustomNumber(y), nil
 		}
 	}
-	return false, toy.ErrInvalidOperator
+	return false, toy.ErrInvalidOperation
 }
 
 func TestCompiled_CustomObject(t *testing.T) {

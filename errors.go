@@ -11,8 +11,8 @@ var (
 	// ErrStackOverflow is a stack overflow error.
 	ErrStackOverflow = errors.New("stack overflow")
 
-	// ErrInvalidOperator represents an error for invalid operator usage.
-	ErrInvalidOperator = errors.New("invalid operator")
+	// ErrInvalidOperation represents an error for invalid operator usage.
+	ErrInvalidOperation = errors.New("invalid operation")
 
 	// ErrNoSuchField is an error where a field with the given name does not exist.
 	ErrNoSuchField = errors.New("no such field")

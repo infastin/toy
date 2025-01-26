@@ -372,7 +372,7 @@ func Compare(op token.Token, x, y Object) (res bool, err error) {
 			return false, err
 		}
 	} else {
-		err = ErrInvalidOperator
+		err = ErrInvalidOperation
 	}
 	yc, ok := y.(Comparable)
 	if !ok {
@@ -412,7 +412,7 @@ func BinaryOp(op token.Token, x, y Object) (res Object, err error) {
 			return nil, err
 		}
 	} else {
-		err = ErrInvalidOperator
+		err = ErrInvalidOperation
 	}
 	yb, ok := y.(HasBinaryOp)
 	if !ok {
@@ -437,7 +437,7 @@ func UnaryOp(op token.Token, x Object) (Object, error) {
 	xu, ok := x.(HasUnaryOp)
 	if !ok {
 		return nil, fmt.Errorf("operation '%s%s' has failed: %w",
-			op.String(), TypeName(x), ErrInvalidOperator)
+			op.String(), TypeName(x), ErrInvalidOperation)
 	}
 	res, err := xu.UnaryOp(op)
 	if err != nil {
@@ -826,7 +826,7 @@ func (o Bool) Hash() uint64 {
 func (o Bool) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(Bool)
 	if !ok {
-		return false, ErrInvalidOperator
+		return false, ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -834,7 +834,7 @@ func (o Bool) Compare(op token.Token, rhs Object) (bool, error) {
 	case token.NotEqual:
 		return o != y, nil
 	}
-	return false, ErrInvalidOperator
+	return false, ErrInvalidOperation
 }
 
 func (o Bool) Convert(p any) error {
@@ -917,7 +917,7 @@ func (o Float) Compare(op token.Token, rhs Object) (bool, error) {
 			return o >= Float(y), nil
 		}
 	}
-	return false, ErrInvalidOperator
+	return false, ErrInvalidOperation
 }
 
 func (o Float) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
@@ -951,7 +951,7 @@ func (o Float) BinaryOp(op token.Token, other Object, right bool) (Object, error
 			return o / Float(y), nil
 		}
 	}
-	return nil, ErrInvalidOperator
+	return nil, ErrInvalidOperation
 }
 
 func (o Float) UnaryOp(op token.Token) (Object, error) {
@@ -961,7 +961,7 @@ func (o Float) UnaryOp(op token.Token) (Object, error) {
 	case token.Sub:
 		return -o, nil
 	}
-	return nil, ErrInvalidOperator
+	return nil, ErrInvalidOperation
 }
 
 // Int represents an integer value.
@@ -1036,7 +1036,7 @@ func (o Int) Compare(op token.Token, rhs Object) (bool, error) {
 			return o >= Int(y), nil
 		}
 	}
-	return false, ErrInvalidOperator
+	return false, ErrInvalidOperation
 }
 
 func (o Int) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
@@ -1097,7 +1097,7 @@ func (o Int) BinaryOp(op token.Token, other Object, right bool) (Object, error) 
 			return Char(o) - y, nil
 		}
 	}
-	return nil, ErrInvalidOperator
+	return nil, ErrInvalidOperation
 }
 
 func (o Int) UnaryOp(op token.Token) (Object, error) {
@@ -1109,7 +1109,7 @@ func (o Int) UnaryOp(op token.Token) (Object, error) {
 	case token.Xor:
 		return ^o, nil
 	}
-	return nil, ErrInvalidOperator
+	return nil, ErrInvalidOperation
 }
 
 // String represents a string value.
@@ -1152,7 +1152,7 @@ func (o String) Convert(p any) error {
 func (o String) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(String)
 	if !ok {
-		return false, ErrInvalidOperator
+		return false, ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -1168,7 +1168,7 @@ func (o String) Compare(op token.Token, rhs Object) (bool, error) {
 	case token.GreaterEq:
 		return o >= y, nil
 	}
-	return false, ErrInvalidOperator
+	return false, ErrInvalidOperation
 }
 
 func (o String) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
@@ -1192,7 +1192,7 @@ func (o String) BinaryOp(op token.Token, other Object, right bool) (Object, erro
 			return String(strings.Repeat(string(o), int(y))), nil
 		}
 	}
-	return nil, ErrInvalidOperator
+	return nil, ErrInvalidOperation
 }
 
 func (o String) Contains(value Object) (bool, error) {
@@ -1281,7 +1281,7 @@ func (o Bytes) Convert(p any) error {
 func (o Bytes) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(Bytes)
 	if !ok {
-		return false, ErrInvalidOperator
+		return false, ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -1297,7 +1297,7 @@ func (o Bytes) Compare(op token.Token, rhs Object) (bool, error) {
 	case token.GreaterEq:
 		return bytes.Compare(o, y) >= 0, nil
 	}
-	return false, ErrInvalidOperator
+	return false, ErrInvalidOperation
 }
 
 func (o Bytes) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
@@ -1316,7 +1316,7 @@ func (o Bytes) BinaryOp(op token.Token, other Object, right bool) (Object, error
 			return Bytes(bytes.Repeat(o, int(y))), nil
 		}
 	}
-	return nil, ErrInvalidOperator
+	return nil, ErrInvalidOperation
 }
 
 func (o Bytes) Contains(value Object) (bool, error) {
@@ -1420,7 +1420,7 @@ func (o Char) Compare(op token.Token, rhs Object) (bool, error) {
 			return Int(o) >= y, nil
 		}
 	}
-	return false, ErrInvalidOperator
+	return false, ErrInvalidOperation
 }
 
 func (o Char) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
@@ -1443,7 +1443,7 @@ func (o Char) BinaryOp(op token.Token, other Object, right bool) (Object, error)
 			return o - Char(y), nil
 		}
 	}
-	return nil, ErrInvalidOperator
+	return nil, ErrInvalidOperation
 }
 
 // Array represents a array of objects.
@@ -1541,7 +1541,7 @@ func (o *Array) Clear() error {
 func (o *Array) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(*Array)
 	if !ok {
-		return false, ErrInvalidOperator
+		return false, ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -1569,7 +1569,7 @@ func (o *Array) Compare(op token.Token, rhs Object) (bool, error) {
 		}
 		return false, nil
 	}
-	return false, ErrInvalidOperator
+	return false, ErrInvalidOperation
 }
 
 func (o *Array) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
@@ -1605,7 +1605,7 @@ func (o *Array) BinaryOp(op token.Token, other Object, right bool) (Object, erro
 			}, nil
 		}
 	}
-	return nil, ErrInvalidOperator
+	return nil, ErrInvalidOperation
 }
 
 func (o *Array) IndexGet(index Object) (res Object, found bool, err error) {
@@ -1791,7 +1791,7 @@ func (o *Map) Len() int        { return int(o.ht.len) }
 func (o *Map) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(*Map)
 	if !ok {
-		return false, ErrInvalidOperator
+		return false, ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -1807,19 +1807,19 @@ func (o *Map) Compare(op token.Token, rhs Object) (bool, error) {
 		}
 		return !eq, nil
 	}
-	return false, ErrInvalidOperator
+	return false, ErrInvalidOperation
 }
 
 func (o *Map) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
 	y, ok := other.(*Map)
 	if !ok {
-		return nil, ErrInvalidOperator
+		return nil, ErrInvalidOperation
 	}
 	switch op {
 	case token.Or:
 		return o.Union(y), nil
 	}
-	return nil, ErrInvalidOperator
+	return nil, ErrInvalidOperation
 }
 
 func (o *Map) IndexGet(index Object) (res Object, found bool, err error) { return o.ht.lookup(index) }
@@ -1890,7 +1890,7 @@ func (o Tuple) Items() []Object            { return o }
 func (o Tuple) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(Tuple)
 	if !ok {
-		return false, ErrInvalidOperator
+		return false, ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -1916,7 +1916,7 @@ func (o Tuple) Compare(op token.Token, rhs Object) (bool, error) {
 			}
 		}
 	}
-	return false, ErrInvalidOperator
+	return false, ErrInvalidOperation
 }
 
 func (o Tuple) BinaryOp(op token.Token, other Object, right bool) (Object, error) {
@@ -1945,7 +1945,7 @@ func (o Tuple) BinaryOp(op token.Token, other Object, right bool) (Object, error
 			}
 		}
 	}
-	return nil, ErrInvalidOperator
+	return nil, ErrInvalidOperation
 }
 
 func (o Tuple) Contains(value Object) (bool, error) {
@@ -2086,7 +2086,7 @@ func (o *Error) Hash() uint64 { return hash.String(o.String()) }
 func (o *Error) Compare(op token.Token, rhs Object) (bool, error) {
 	y, ok := rhs.(*Error)
 	if !ok {
-		return false, ErrInvalidOperator
+		return false, ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -2094,7 +2094,7 @@ func (o *Error) Compare(op token.Token, rhs Object) (bool, error) {
 	case token.NotEqual:
 		return o != y, nil
 	}
-	return false, ErrInvalidOperator
+	return false, ErrInvalidOperation
 }
 
 func (o *Error) FieldGet(name string) (res Object, err error) {

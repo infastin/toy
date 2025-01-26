@@ -1061,8 +1061,7 @@ func (p *Parser) parseSimpleStmt(mode int) ast.Stmt {
 		}
 		p.error(colon, "illegal label declaration")
 		return &ast.BadStmt{From: x[0].Pos(), To: colon + 1}
-	case token.Define,
-		token.AddAssign, token.SubAssign, token.MulAssign, token.QuoAssign,
+	case token.AddAssign, token.SubAssign, token.MulAssign, token.QuoAssign,
 		token.RemAssign, token.AndAssign, token.OrAssign, token.XorAssign, token.AndNotAssign,
 		token.ShlAssign, token.ShrAssign, token.NullishAssign:
 		// define or assign statement

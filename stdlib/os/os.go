@@ -199,7 +199,7 @@ func (m FileMode) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Ob
 			}
 		}
 	}
-	return nil, toy.ErrInvalidOperator
+	return nil, toy.ErrInvalidOperation
 }
 
 func (m FileMode) UnaryOp(op token.Token) (toy.Object, error) {
@@ -207,7 +207,7 @@ func (m FileMode) UnaryOp(op token.Token) (toy.Object, error) {
 	case token.Xor:
 		return ^m, nil
 	}
-	return nil, toy.ErrInvalidOperator
+	return nil, toy.ErrInvalidOperation
 }
 
 func readFileFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {

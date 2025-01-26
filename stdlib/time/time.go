@@ -111,7 +111,7 @@ func (t Time) Hash() uint64      { return hash.Int64(time.Time(t).UnixNano()) }
 func (t Time) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(Time)
 	if !ok {
-		return false, toy.ErrInvalidOperator
+		return false, toy.ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -127,7 +127,7 @@ func (t Time) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	case token.GreaterEq:
 		return time.Time(t).Compare(time.Time(y)) >= 0, nil
 	}
-	return false, toy.ErrInvalidOperator
+	return false, toy.ErrInvalidOperation
 }
 
 func (t Time) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Object, error) {
@@ -147,7 +147,7 @@ func (t Time) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Object
 			}
 		}
 	}
-	return nil, toy.ErrInvalidOperator
+	return nil, toy.ErrInvalidOperation
 }
 
 func (t Time) Convert(p any) error {
@@ -354,7 +354,7 @@ func (d Duration) Clone() toy.Object { return d }
 func (d Duration) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(Duration)
 	if !ok {
-		return false, toy.ErrInvalidOperator
+		return false, toy.ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -370,7 +370,7 @@ func (d Duration) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	case token.GreaterEq:
 		return d >= y, nil
 	}
-	return false, toy.ErrInvalidOperator
+	return false, toy.ErrInvalidOperation
 }
 
 func (d Duration) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Object, error) {
@@ -408,7 +408,7 @@ func (d Duration) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Ob
 			return d * Duration(y), nil
 		}
 	}
-	return nil, toy.ErrInvalidOperator
+	return nil, toy.ErrInvalidOperation
 }
 
 func (d Duration) Convert(p any) error {

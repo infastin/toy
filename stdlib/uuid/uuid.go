@@ -82,7 +82,7 @@ func (u UUID) Hash() uint64         { return hash.Bytes(u[:]) }
 func (u UUID) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(UUID)
 	if !ok {
-		return false, toy.ErrInvalidOperator
+		return false, toy.ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -90,7 +90,7 @@ func (u UUID) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	case token.NotEqual:
 		return u == y, nil
 	}
-	return false, toy.ErrInvalidOperator
+	return false, toy.ErrInvalidOperation
 }
 
 func (u UUID) Convert(p any) error {

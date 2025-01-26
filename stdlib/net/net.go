@@ -112,7 +112,7 @@ func (ip IP) Hash() uint64         { return hash.Bytes(ip[:]) }
 func (ip IP) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(IP)
 	if !ok {
-		return false, toy.ErrInvalidOperator
+		return false, toy.ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -120,7 +120,7 @@ func (ip IP) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	case token.NotEqual:
 		return !net.IP(ip).Equal(net.IP(y)), nil
 	}
-	return false, toy.ErrInvalidOperator
+	return false, toy.ErrInvalidOperation
 }
 
 func (ip IP) FieldGet(name string) (toy.Object, error) {
@@ -424,7 +424,7 @@ func (m IPMask) Hash() uint64         { return hash.Bytes(m[:]) }
 func (m IPMask) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(IPMask)
 	if !ok {
-		return false, toy.ErrInvalidOperator
+		return false, toy.ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -432,7 +432,7 @@ func (m IPMask) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	case token.NotEqual:
 		return !bytes.Equal(m, y), nil
 	}
-	return false, toy.ErrInvalidOperator
+	return false, toy.ErrInvalidOperation
 }
 
 func (m IPMask) FieldGet(name string) (toy.Object, error) {
@@ -596,7 +596,7 @@ func (n *IPNet) Clone() toy.Object    { return &IPNet{IP: n.IP, Mask: n.Mask} }
 func (n *IPNet) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(*IPNet)
 	if !ok {
-		return false, toy.ErrInvalidOperator
+		return false, toy.ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -604,7 +604,7 @@ func (n *IPNet) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	case token.NotEqual:
 		return !net.IP(n.IP).Equal(net.IP(y.IP)) || !bytes.Equal(n.Mask, y.Mask), nil
 	}
-	return false, toy.ErrInvalidOperator
+	return false, toy.ErrInvalidOperation
 }
 
 func (n *IPNet) FieldGet(name string) (toy.Object, error) {
@@ -699,7 +699,7 @@ func (m MAC) Hash() uint64         { return hash.Bytes(m[:]) }
 func (m MAC) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(MAC)
 	if !ok {
-		return false, toy.ErrInvalidOperator
+		return false, toy.ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -707,7 +707,7 @@ func (m MAC) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	case token.NotEqual:
 		return !bytes.Equal(m, y), nil
 	}
-	return false, toy.ErrInvalidOperator
+	return false, toy.ErrInvalidOperation
 }
 
 func (m MAC) Convert(p any) error {
@@ -967,7 +967,7 @@ func (f InterfaceFlags) BinaryOp(op token.Token, other toy.Object, right bool) (
 			}
 		}
 	}
-	return nil, toy.ErrInvalidOperator
+	return nil, toy.ErrInvalidOperation
 }
 
 func (f InterfaceFlags) UnaryOp(op token.Token) (toy.Object, error) {
@@ -975,7 +975,7 @@ func (f InterfaceFlags) UnaryOp(op token.Token) (toy.Object, error) {
 	case token.Xor:
 		return ^f, nil
 	}
-	return nil, toy.ErrInvalidOperator
+	return nil, toy.ErrInvalidOperation
 }
 
 func lookupInterfaceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {

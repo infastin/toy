@@ -516,7 +516,7 @@ func FieldGet(x Object, name string) (Object, error) {
 	}
 	xi, ok := x.(IndexAccessible)
 	if !ok {
-		return nil, fmt.Errorf("'%s' is not field accesible", TypeName(x))
+		return nil, fmt.Errorf("'%s' is not field accessible", TypeName(x))
 	}
 	res, found, err := xi.IndexGet(String(name))
 	if err != nil {
@@ -578,14 +578,21 @@ func Slice(x Object, low, high int) (Object, error) {
 		return nil, fmt.Errorf("'%s' is not sliceable", TypeName(x))
 	}
 	n := xs.Len()
-	if low > high {
-		return nil, fmt.Errorf("invalid slice indices: %d > %d", low, high)
+	if low < 0 || high < 0 {
+		neg := high
+		if low < 0 {
+			neg = low
+		}
+		return nil, fmt.Errorf("negative slice index: %d", neg)
 	}
-	if low < 0 || low > n {
+	if low > n {
 		return nil, fmt.Errorf("slice bounds out of range [%d:%d]", low, n)
 	}
-	if high < 0 || high > n {
+	if high > n {
 		return nil, fmt.Errorf("slice bounds out of range [%d:%d] with len %d", low, high, n)
+	}
+	if low > high {
+		return nil, fmt.Errorf("invalid slice indices: %d > %d", low, high)
 	}
 	return xs.Slice(low, high), nil
 }
@@ -1626,7 +1633,10 @@ func (o *Array) IndexSet(index, value Object) (err error) {
 		}
 	}
 	n := len(o.elems)
-	if intIdx < 0 || int64(intIdx) >= int64(n) {
+	if intIdx < 0 {
+		return fmt.Errorf("negative index: %d", intIdx)
+	}
+	if int64(intIdx) >= int64(n) {
 		return fmt.Errorf("index %d out of range [:%d]", intIdx, n)
 	}
 	o.elems[intIdx] = value

@@ -434,7 +434,7 @@ func Test_builtinSplice(t *testing.T) {
 		{
 			name:    "negative-index",
 			args:    []Object{new(Array), Int(-1)},
-			wantErr: errors.New("splice bounds out of range [-1:0]"),
+			wantErr: errors.New("negative splice index: -1"),
 		},
 		{
 			name: "non-int-stop",
@@ -448,7 +448,7 @@ func Test_builtinSplice(t *testing.T) {
 		{
 			name:    "negative-count",
 			args:    []Object{makeArray(0, 1, 2), Int(0), Int(-1)},
-			wantErr: errors.New("invalid splice indices: 0 > -1"),
+			wantErr: errors.New("negative splice index: -1"),
 		},
 		{
 			name:   "append",
@@ -554,6 +554,11 @@ func Test_builtinInsert(t *testing.T) {
 				Want: "array or map",
 				Got:  "int",
 			},
+		},
+		{
+			name:    "negative-index",
+			args:    []Object{makeArray(0, 1, 2), Int(-1), Int(-1)},
+			wantErr: errors.New("negative insert index: -1"),
 		},
 		{
 			name:   "array-prepend",

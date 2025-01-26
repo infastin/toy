@@ -387,16 +387,24 @@ func (v *VM) run() {
 				}
 			}
 
-			if lowIdx > highIdx {
-				v.err = fmt.Errorf("invalid slice indices: %d > %d", lowIdx, highIdx)
+			if lowIdx < 0 || highIdx < 0 {
+				negIdx := highIdx
+				if lowIdx < 0 {
+					negIdx = lowIdx
+				}
+				v.err = fmt.Errorf("negative slice index: %d", negIdx)
 				return
 			}
-			if lowIdx < 0 || lowIdx > n {
+			if lowIdx > n {
 				v.err = fmt.Errorf("slice bounds out of range [%d:%d]", lowIdx, n)
 				return
 			}
-			if highIdx < 0 || highIdx > n {
+			if highIdx > n {
 				v.err = fmt.Errorf("slice bounds out of range [%d:%d] with len %d", lowIdx, highIdx, n)
+				return
+			}
+			if lowIdx > highIdx {
+				v.err = fmt.Errorf("invalid slice indices: %d > %d", lowIdx, highIdx)
 				return
 			}
 

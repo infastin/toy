@@ -405,7 +405,7 @@ func Unpack(ptr any, o Object) error {
 		i, ok := o.(IndexAccessible)
 		if !ok {
 			return &InvalidValueTypeError{
-				Want: "index-accesible",
+				Want: "index-accessible",
 				Got:  TypeName(o),
 			}
 		}
@@ -423,7 +423,7 @@ func Unpack(ptr any, o Object) error {
 		f, ok := o.(FieldAccessible)
 		if !ok {
 			return &InvalidValueTypeError{
-				Want: "field-accesible",
+				Want: "field-accessible",
 				Got:  TypeName(o),
 			}
 		}

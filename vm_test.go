@@ -110,6 +110,7 @@ func TestArray(t *testing.T) {
 
 	// array index set
 	expectRunError(t, `a1 := [1, 2, 3]; a1[3] = 5`, nil, "out of range")
+	expectRunError(t, `a1 := [1, 2, 3]; a1[-1] = 5`, nil, "negative index")
 
 	// index operator
 	arr := ARR{1, 2, 3, 4, 5, 6}
@@ -130,8 +131,8 @@ func TestArray(t *testing.T) {
 	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, arrLen), nil, toy.Nil)
 
 	// splat operator
-	expectRun(t, `[...[1, 2], 3]`, nil, ARR{1, 2, 3})
-	expectRun(t, `[1, 2, 3, ...[4, 5], 6, ...[7, 8]]`, nil, ARR{1, 2, 3, 4, 5, 6, 7, 8})
+	expectRun(t, `out = [...[1, 2], 3]`, nil, ARR{1, 2, 3})
+	expectRun(t, `out = [1, 2, 3, ...[4, 5], 6, ...[7, 8]]`, nil, ARR{1, 2, 3, 4, 5, 6, 7, 8})
 
 	// slice operator
 	for low := 0; low < arrLen; low++ {
@@ -153,21 +154,34 @@ func TestArray(t *testing.T) {
 
 	expectRun(t, fmt.Sprintf("out = %s[:]", arrStr),
 		nil, arr)
-	expectRun(t, fmt.Sprintf("out = %s[%d:]", arrStr, -1),
-		nil, arr)
-	expectRun(t, fmt.Sprintf("out = %s[:%d]", arrStr, arrLen+1),
+	expectRun(t, fmt.Sprintf("out = %s[:%d]", arrStr, arrLen),
 		nil, arr)
 	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", arrStr, 2, 2),
 		nil, ARR{})
 
+	// add
+	expectRun(t, `a := [1, 2, 3]; b := [4, 5, 6]; out = a + b`, nil, ARR{1, 2, 3, 4, 5, 6})
+	expectRun(t, `a := [1, 2, 3]; b := [4, 5, 6]; out = b + a`, nil, ARR{4, 5, 6, 1, 2, 3})
+
+	// repeat
+	expectRun(t, `a := [1, 2, 3]; out = a * 2`, nil, ARR{1, 2, 3, 1, 2, 3})
+	expectRun(t, `a := [1, 2, 3]; out = 2 * a`, nil, ARR{1, 2, 3, 1, 2, 3})
+	expectRun(t, `a := [1, 2, 3]; out = a * 1`, nil, ARR{1, 2, 3})
+	expectRun(t, `a := [1, 2, 3]; out = a * 0`, nil, ARR{})
+	expectRun(t, `a := [1, 2, 3]; out = a * -1`, nil, ARR{})
+
 	expectRunError(t, fmt.Sprintf("%s[:%d]", arrStr, -1),
-		nil, "slice bounds out of range")
+		nil, "negative slice index")
 	expectRunError(t, fmt.Sprintf("%s[%d:]", arrStr, arrLen+1),
 		nil, "slice bounds out of range")
 	expectRunError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 0, -1),
-		nil, "invalid slice indices")
+		nil, "negative slice index")
 	expectRunError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 2, 1),
 		nil, "invalid slice indices")
+	expectRunError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 0, arrLen+1),
+		nil, "slice bounds out of range")
+	expectRunError(t, fmt.Sprintf("%s[%d:%d]", arrStr, arrLen+1, arrLen+2),
+		nil, "slice bounds out of range")
 }
 
 func TestAssignment(t *testing.T) {
@@ -212,6 +226,8 @@ fn() {
 	expectRun(t, `a := 2; a *= 1 + 3;; out = a`, nil, 8)
 	expectRun(t, `a := 10; a /= 2;; out = a`, nil, 5)
 	expectRun(t, `a := 10; a /= 5 - 3;; out = a`, nil, 5)
+	expectRun(t, `a := nil; a ??= 5; out = a`, nil, 5)
+	expectRun(t, `a := 1; a ??= 5; out = a`, nil, 1)
 
 	// compound assignment operator does not define new variable
 	expectRunError(t, `a += 4`, nil, "unresolved reference")
@@ -226,9 +242,9 @@ f1 := fn() {
 		a += 2 // it's a statement, not an expression
 		return a
 	};
-	return f2();
+	return f2()
 };
-out = f1();
+out = f1()
 `, nil, 3)
 	expectRun(t, `f1 := fn() { f2 := fn() { a := 1; a += 4 - 2; return a }; return f2(); }; out = f1()`,
 		nil, 3)
@@ -244,6 +260,10 @@ out = f1();
 		nil, 5)
 	expectRun(t, `f1 := fn() { f2 := fn() { a := 10; a /= 5 - 3; return a }; return f2(); }; out = f1()`,
 		nil, 5)
+	expectRun(t, `f1 := fn() { f2 := fn() { a := nil; a ??= 5; return a }; return f2(); }; out = f1()`,
+		nil, 5)
+	expectRun(t, `f1 := fn() { f2 := fn() { a := 1; a ??= 5; return a }; return f2(); }; out = f1()`,
+		nil, 1)
 
 	expectRun(t, `a := 1; f1 := fn() { f2 := fn() { a += 2; return a }; return f2(); }; out = f1()`,
 		nil, 3)
@@ -414,17 +434,27 @@ out = fn() {
 	// selectors
 	expectRun(t, `a:=[1,2,3]; a[1] = 5; out = a[1]`, nil, 5)
 	expectRun(t, `a:=[1,2,3]; a[1] += 5; out = a[1]`, nil, 7)
+	expectRun(t, `a:=[1,nil,3]; a[1] ??= 5; out = a[1]`, nil, 5)
+	expectRun(t, `a:={}; a.b = 5; out = a.b`, nil, 5)
+	expectRun(t, `a:={}; a["b"] = 5; out = a.b`, nil, 5)
+	expectRun(t, `a:={}; a["b"] = 5; out = a["b"]`, nil, 5)
+	expectRun(t, `a:={}; a.b = 5; out = a["b"]`, nil, 5)
+	expectRun(t, `a:={b:1,c:2}; a["b"] = 5; out = a.b`, nil, 5)
 	expectRun(t, `a:={b:1,c:2}; a.b = 5; out = a.b`, nil, 5)
 	expectRun(t, `a:={b:1,c:2}; a.b += 5; out = a.b`, nil, 6)
 	expectRun(t, `a:={b:1,c:2}; a.b += a.c; out = a.b`, nil, 3)
 	expectRun(t, `a:={b:1,c:2}; a.b += a.c; out = a.c`, nil, 2)
+	expectRun(t, `a:={b:nil,c:2}; a.b ??= 5; out = a.b`, nil, 5)
+	expectRun(t, `a:={b:1,c:2}; a.b ??= 5; out = a.b`, nil, 1)
+	expectRun(t, `a:={b:nil,c:2}; a.b ??= a.c; out = a.c`, nil, 2)
+	expectRun(t, `a:={b:1,c:2}; a.b ??= a.c; out = a.c`, nil, 2)
 	expectRun(t, `
 a := {
 	b: [1, 2, 3],
 	c: {
 		d: 8,
 		e: "foo",
-		f: [9, 8]
+		f: [9, 8],
 	}
 }
 a.c.f[1] += 2
@@ -444,16 +474,38 @@ a.c.h = "bar"
 out = a.c.h
 `, nil, "bar")
 
+	expectRunError(t, `a:={}; a.b += 10`, nil, "no such field")
+	expectRunError(t, `a:={}; a.b ??= 10`, nil, "no such field")
 	expectRunError(t, `
 a := {
 	b: [1, 2, 3],
 	c: {
 		d: 8,
 		e: "foo",
-		f: [9, 8]
+		f: [9, 8],
 	}
 }
-a.x.e = "bar"`, nil, "not index-assignable")
+a.x.e = "bar"`, nil, "no such field")
+	expectRunError(t, `
+a := {
+	b: [1, 2, 3],
+	c: {
+		d: 8,
+		e: "foo",
+		f: [9, 8],
+	}
+}
+a["x"].e = "bar"`, nil, "not field assignable")
+	expectRunError(t, `
+a := {
+	b: [1, 2, 3],
+	c: {
+		d: 8,
+		e: "foo",
+		f: [9, 8],
+	}
+}
+a["x"]["e"] = "bar"`, nil, "not index assignable")
 }
 
 func TestBitwise(t *testing.T) {
@@ -526,10 +578,9 @@ func TestBoolean(t *testing.T) {
 fn() {
 	if (10 > 1) {
 		if (10 > 1) {
-			return true + false;
+			return true + false
 		}
-
-		return 1;
+		return 1
 	}
 }()
 `, nil, "invalid operation")
@@ -539,18 +590,23 @@ fn() {
 	expectRunError(t, `!(true + false)`, nil, "invalid operation")
 }
 
-func TestUndefined(t *testing.T) {
-	expectRun(t, `out = undefined`, nil, toy.Nil)
-	expectRun(t, `out = undefined.a`, nil, toy.Nil)
-	expectRun(t, `out = undefined[1]`, nil, toy.Nil)
-	expectRun(t, `out = undefined.a.b`, nil, toy.Nil)
-	expectRun(t, `out = undefined[1][2]`, nil, toy.Nil)
-	expectRun(t, `out = undefined ? 1 : 2`, nil, 2)
-	expectRun(t, `out = undefined == undefined`, nil, true)
-	expectRun(t, `out = undefined == 1`, nil, false)
-	expectRun(t, `out = 1 == undefined`, nil, false)
-	expectRun(t, `out = undefined == float([])`, nil, true)
-	expectRun(t, `out = float([]) == undefined`, nil, true)
+func TestNil(t *testing.T) {
+	expectRun(t, `out = nil`, nil, toy.Nil)
+	expectRun(t, `out = nil ? 1 : 2`, nil, 2)
+	expectRun(t, `out = nil ?? 2`, nil, 2)
+	expectRun(t, `out = nil == nil`, nil, true)
+	expectRun(t, `out = nil == 1`, nil, false)
+	expectRun(t, `out = 1 == nil`, nil, false)
+	expectRun(t, `out = nil == [][-1]`, nil, true)
+	expectRun(t, `out = [][-1] == nil`, nil, true)
+
+	expectRunError(t, `nil.a`, nil, "not field accessible")
+	expectRunError(t, `nil[1]`, nil, "not index accessible")
+	expectRunError(t, `nil.a.b`, nil, "not field accessible")
+	expectRunError(t, `nil[1][2]`, nil, "not index accessible")
+
+	expectRunError(t, `nil.a = 1`, nil, "not field assignable")
+	expectRunError(t, `nil[1] = 2`, nil, "not index assignable")
 }
 
 func TestBuiltinFunction(t *testing.T) {
@@ -2132,7 +2188,7 @@ func (o StringArray) Clone() toy.Object    { return StringArray(slices.Clone(o))
 func (o StringArray) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	y, ok := rhs.(StringArray)
 	if !ok {
-		return false, toy.ErrInvalidOperator
+		return false, toy.ErrInvalidOperation
 	}
 	switch op {
 	case token.Equal:
@@ -2156,19 +2212,19 @@ func (o StringArray) Compare(op token.Token, rhs toy.Object) (bool, error) {
 		}
 		return false, nil
 	}
-	return false, toy.ErrInvalidOperator
+	return false, toy.ErrInvalidOperation
 }
 
 func (o StringArray) BinaryOp(op token.Token, rhs toy.Object) (toy.Object, error) {
 	y, ok := rhs.(StringArray)
 	if !ok {
-		return nil, toy.ErrInvalidOperator
+		return nil, toy.ErrInvalidOperation
 	}
 	switch op {
 	case token.Add:
 		return append(o, y...), nil
 	}
-	return nil, toy.ErrInvalidOperator
+	return nil, toy.ErrInvalidOperation
 }
 
 func (o StringArray) IndexGet(index toy.Object) (toy.Object, bool, error) {
@@ -3554,14 +3610,14 @@ func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 		opts = Opts()
 	}
 
-	symbols := opts.symbols
 	modules := opts.modules
 
-	expectedObj := toObject(expected)
-
+	symbols := opts.symbols
 	if symbols == nil {
 		symbols = make(map[string]toy.Object)
 	}
+
+	expectedObj := toObject(expected)
 	symbols[testOut] = objectZeroCopy(expectedObj)
 
 	// first pass: run the code normally
@@ -3592,7 +3648,7 @@ func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 		}
 
 		modules.AddSourceModule("__code__",
-			[]byte(fmt.Sprintf("out := undefined; %s; export out", input)))
+			[]byte(fmt.Sprintf("out := nil; %s; export out", input)))
 
 		res, trace, err := traceCompileRun(file, symbols, modules)
 		expectNoError(t, err, "\n"+strings.Join(trace, "\n"))
@@ -3701,9 +3757,8 @@ func traceCompileRun(
 	var v *toy.VM
 
 	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("panic: %v", e)
-
+		if p := recover(); p != nil {
+			err = fmt.Errorf("panic: %v", p)
 			// stack trace
 			var stackTrace []string
 			for i := 2; ; i += 1 {
@@ -3714,7 +3769,6 @@ func traceCompileRun(
 				stackTrace = append(stackTrace,
 					fmt.Sprintf("  %s:%d", file, line))
 			}
-
 			trace = append(trace,
 				fmt.Sprintf("[Error Trace]\n\n  %s\n",
 					strings.Join(stackTrace, "\n  ")))
@@ -3726,7 +3780,6 @@ func traceCompileRun(
 	symTable := toy.NewSymbolTable()
 	for name, value := range symbols {
 		sym := symTable.Define(name)
-
 		// should not store pointer to 'value' variable
 		// which is re-used in each iteration.
 		valueCopy := value
@@ -3743,7 +3796,7 @@ func traceCompileRun(
 		fmt.Sprintf("\n[Compiler Trace]\n\n%s",
 			strings.Join(tr.Out, "")))
 	if err != nil {
-		return
+		return res, trace, err
 	}
 
 	bytecode := c.Bytecode()
@@ -3763,9 +3816,8 @@ func traceCompileRun(
 			sym, depth, ok := symTable.Resolve(name, false)
 			if !ok || depth != 0 {
 				err = fmt.Errorf("symbol not found: %s", name)
-				return
+				return res, trace, err
 			}
-
 			res[name] = globals[sym.Index]
 		}
 		trace = append(trace, fmt.Sprintf("\n[Globals]\n\n%s",
@@ -3784,7 +3836,7 @@ func formatGlobals(globals []toy.Object) (formatted []string) {
 			return
 		}
 		formatted = append(formatted, fmt.Sprintf("[% 3d] %s (%s|%p)",
-			idx, global.String(), reflect.TypeOf(global).Elem().Name(), global))
+			idx, global.String(), reflect.TypeOf(global).Name(), global))
 	}
 	return
 }
@@ -3792,7 +3844,6 @@ func formatGlobals(globals []toy.Object) (formatted []string) {
 func parse(t *testing.T, input string) *ast.File {
 	testFileSet := token.NewFileSet()
 	testFile := testFileSet.AddFile("test", -1, len(input))
-
 	p := parser.NewParser(testFile, []byte(input), nil)
 	file, err := p.ParseFile()
 	expectNoError(t, err)

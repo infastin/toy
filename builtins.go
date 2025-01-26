@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
+	"unicode"
 
 	"github.com/infastin/toy/token"
 )
@@ -155,14 +157,21 @@ func builtinDelete(_ *VM, args ...Object) (Object, error) {
 			return nil, err
 		}
 		n := len(x.elems)
-		if start > stop {
-			return nil, fmt.Errorf("invalid delete indices: %d > %d", start, stop)
+		if start < 0 || stop < 0 {
+			neg := stop
+			if start < 0 {
+				neg = start
+			}
+			return nil, fmt.Errorf("negative delete index: %d", neg)
 		}
-		if start < 0 || start > n {
+		if start > n {
 			return nil, fmt.Errorf("delete bounds out of range [%d:%d]", start, n)
 		}
-		if stop < 0 || stop > n {
+		if stop > n {
 			return nil, fmt.Errorf("delete bounds out of range [%d:%d] with len %d", start, stop, n)
+		}
+		if start > stop {
+			return nil, fmt.Errorf("invalid delete indices: %d > %d", start, stop)
 		}
 		if start == stop {
 			return NewArray(nil), nil
@@ -216,14 +225,21 @@ func builtinSplice(_ *VM, args ...Object) (Object, error) {
 	if err := arr.checkMutable("splice"); err != nil {
 		return nil, err
 	}
-	if start > stop {
-		return nil, fmt.Errorf("invalid splice indices: %d > %d", start, stop)
+	if start < 0 || stop < 0 {
+		neg := stop
+		if start < 0 {
+			neg = start
+		}
+		return nil, fmt.Errorf("negative splice index: %d", neg)
 	}
-	if start < 0 || start > n {
+	if start > n {
 		return nil, fmt.Errorf("splice bounds out of range [%d:%d]", start, n)
 	}
-	if stop < 0 || stop > n {
+	if stop > n {
 		return nil, fmt.Errorf("splice bounds out of range [%d:%d] with len %d", start, stop, n)
+	}
+	if start > stop {
+		return nil, fmt.Errorf("invalid splice indices: %d > %d", start, stop)
 	}
 	if start == stop {
 		arr.elems = slices.Insert(arr.elems, start, rest...)
@@ -258,7 +274,10 @@ func builtinInsert(_ *VM, args ...Object) (Object, error) {
 			return nil, err
 		}
 		n := len(x.elems)
-		if index < 0 || index > n {
+		if index < 0 {
+			return nil, fmt.Errorf("negative insert index: %d", index)
+		}
+		if index > n {
 			return nil, fmt.Errorf("insert index %d out of range [:%d]", index, n)
 		}
 		x.elems = slices.Insert(x.elems, index, rest...)
@@ -433,7 +452,16 @@ func builtinSatisfies(_ *VM, args ...Object) (Object, error) {
 				Got:  TypeName(iface),
 			}
 		}
-		switch name {
+
+		trait := strings.TrimSpace(string(name))
+		trait = strings.Map(func(r rune) rune {
+			if r == '-' {
+				return ' '
+			}
+			return unicode.ToLower(r)
+		}, trait)
+
+		switch trait {
 		case "hashable":
 			_, ok = x.(Hashable)
 		case "freezable":
@@ -444,13 +472,13 @@ func builtinSatisfies(_ *VM, args ...Object) (Object, error) {
 			_, ok = x.(HasBinaryOp)
 		case "unary-op":
 			_, ok = x.(HasUnaryOp)
-		case "index-accessible":
+		case "index accessible":
 			_, ok = x.(IndexAccessible)
-		case "index-assignable":
+		case "index assignable":
 			_, ok = x.(IndexAssignable)
-		case "field-accessible":
+		case "field accessible":
 			_, ok = x.(FieldAccessible)
-		case "field-assignable":
+		case "field assignable":
 			_, ok = x.(FieldAssignable)
 		case "sized":
 			_, ok = x.(Sized)
@@ -468,7 +496,7 @@ func builtinSatisfies(_ *VM, args ...Object) (Object, error) {
 			_, ok = x.(Iterable)
 		case "sequence":
 			_, ok = x.(Sequence)
-		case "indexable-sequence":
+		case "indexable sequence":
 			_, ok = x.(IndexableSequence)
 		case "mapping":
 			_, ok = x.(Mapping)

@@ -1578,7 +1578,7 @@ func (o *Array) BinaryOp(op token.Token, other Object, right bool) (Object, erro
 		switch y := other.(type) {
 		case *Array:
 			return &Array{
-				elems:     append(o.elems, y.elems...),
+				elems:     slices.Concat(o.elems, y.elems),
 				immutable: o.immutable,
 				itercount: 0,
 			}, nil
@@ -1587,16 +1587,8 @@ func (o *Array) BinaryOp(op token.Token, other Object, right bool) (Object, erro
 		switch y := other.(type) {
 		case Int:
 			var newElems []Object
-			switch {
-			case y == 1:
-				newElems = o.elems
-			case y > 1:
-				newElems = slices.Grow(o.elems, len(o.elems)*int(y-1))
-				for i := len(o.elems); i < cap(newElems); i += len(o.elems) {
-					for _, elem := range o.elems {
-						newElems = append(newElems, elem.Clone())
-					}
-				}
+			if y >= 1 {
+				newElems = slices.Repeat(o.elems, int(y))
 			}
 			return &Array{
 				elems:     newElems,
@@ -1924,25 +1916,15 @@ func (o Tuple) BinaryOp(op token.Token, other Object, right bool) (Object, error
 	case token.Add:
 		switch y := other.(type) {
 		case Tuple:
-			return append(o, y...), nil
+			return slices.Concat(o, y), nil
 		}
 	case token.Mul:
 		switch y := other.(type) {
 		case Int:
-			switch {
-			case y == 1:
-				return o, nil
-			case y > 1:
-				newTuple := slices.Grow(o, len(o)*int(y-1))
-				for i := len(o); i < cap(newTuple); i += len(o) {
-					for _, elem := range o {
-						newTuple = append(newTuple, elem.Clone())
-					}
-				}
-				return newTuple, nil
-			default:
-				return Tuple{}, nil
+			if y >= 1 {
+				return slices.Repeat(o, int(y)), nil
 			}
+			return Tuple{}, nil
 		}
 	}
 	return nil, ErrInvalidOperation

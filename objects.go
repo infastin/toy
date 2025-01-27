@@ -749,6 +749,17 @@ func (rootTypeImpl) IsFalsy() bool    { return false }
 func (rootTypeImpl) Clone() Object    { return rootTypeImpl{} }
 func (rootTypeImpl) Name() string     { return "type" }
 
+func (rootTypeImpl) Call(v *VM, args ...Object) (Object, error) {
+	if len(args) != 1 {
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
+	}
+	return Type(args[0]), nil
+}
+
 // typeImpl represents a default Type implementation.
 type typeImpl[T Object] struct {
 	name string

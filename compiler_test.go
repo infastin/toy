@@ -631,7 +631,7 @@ func TestCompiler_Compile(t *testing.T) {
 
 	expectCompile(t, `freeze([1, 2, 3])`, makeBytecode(
 		concatInsts(
-			bytecode.MakeInstruction(bytecode.OpGetBuiltin, 3),
+			bytecode.MakeInstruction(bytecode.OpGetBuiltin, 2),
 			bytecode.MakeInstruction(bytecode.OpConstant, 0),
 			bytecode.MakeInstruction(bytecode.OpConstant, 1),
 			bytecode.MakeInstruction(bytecode.OpConstant, 2),
@@ -649,7 +649,7 @@ func TestCompiler_Compile(t *testing.T) {
 
 	expectCompile(t, `a := freeze([1, 2, 3])`, makeBytecode(
 		concatInsts(
-			bytecode.MakeInstruction(bytecode.OpGetBuiltin, 3),
+			bytecode.MakeInstruction(bytecode.OpGetBuiltin, 2),
 			bytecode.MakeInstruction(bytecode.OpConstant, 0),
 			bytecode.MakeInstruction(bytecode.OpConstant, 1),
 			bytecode.MakeInstruction(bytecode.OpConstant, 2),
@@ -1200,7 +1200,7 @@ func TestCompiler_Compile(t *testing.T) {
 
 	expectCompile(t, `len([]);`, makeBytecode(
 		concatInsts(
-			bytecode.MakeInstruction(bytecode.OpGetBuiltin, 6),
+			bytecode.MakeInstruction(bytecode.OpGetBuiltin, 5),
 			bytecode.MakeInstruction(bytecode.OpArray, 0, 0),
 			bytecode.MakeInstruction(bytecode.OpCall, 1, 0),
 			bytecode.MakeInstruction(bytecode.OpPop),
@@ -1217,7 +1217,7 @@ func TestCompiler_Compile(t *testing.T) {
 		),
 		objectsArray(
 			compiledFunction(0, 0, 0, false,
-				bytecode.MakeInstruction(bytecode.OpGetBuiltin, 6),
+				bytecode.MakeInstruction(bytecode.OpGetBuiltin, 5),
 				bytecode.MakeInstruction(bytecode.OpArray, 0, 0),
 				bytecode.MakeInstruction(bytecode.OpCall, 1, 0),
 				bytecode.MakeInstruction(bytecode.OpReturn, 1),

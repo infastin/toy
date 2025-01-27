@@ -20,6 +20,7 @@ var Module = &toy.BuiltinModule{
 		"clean":        toy.NewBuiltinFunction("path.clean", fndef.ASRS("path", filepath.Clean)),
 		"split":        toy.NewBuiltinFunction("path.split", fndef.ASRSS("path", filepath.Split)),
 		"splitList":    toy.NewBuiltinFunction("path.splitList", fndef.ASRSs("path", filepath.SplitList)),
+		"match":        toy.NewBuiltinFunction("path.match", fndef.ASSRBE("pattern", "name", filepath.Match)),
 		"glob":         toy.NewBuiltinFunction("path.glob", fndef.ASRSsE("pattern", filepath.Glob)),
 		"expand":       toy.NewBuiltinFunction("path.expand", expandFn),
 		"exists":       toy.NewBuiltinFunction("path.exists", existsFn),

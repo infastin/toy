@@ -11,7 +11,6 @@ import (
 )
 
 var Universe = []*Variable{
-	NewVariable("type", NewBuiltinFunction("type", builtinType)),
 	NewVariable("typename", NewBuiltinFunction("typename", builtinTypeName)),
 	NewVariable("clone", NewBuiltinFunction("clone", builtinClone)),
 	NewVariable("freeze", NewBuiltinFunction("freeze", builtinFreeze)),
@@ -32,6 +31,7 @@ var Universe = []*Variable{
 	NewVariable("min", NewBuiltinFunction("min", builtinMin)),
 	NewVariable("max", NewBuiltinFunction("max", builtinMax)),
 
+	NewVariable("type", rootTypeImpl{}),
 	NewVariable("bool", BoolType),
 	NewVariable("float", FloatType),
 	NewVariable("int", IntType),
@@ -44,17 +44,6 @@ var Universe = []*Variable{
 	NewVariable("error", ErrorType),
 	NewVariable("range", RangeType),
 	NewVariable("function", FunctionType),
-}
-
-func builtinType(_ *VM, args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, &WrongNumArgumentsError{
-			WantMin: 1,
-			WantMax: 1,
-			Got:     len(args),
-		}
-	}
-	return Type(args[0]), nil
 }
 
 func builtinTypeName(_ *VM, args ...Object) (Object, error) {

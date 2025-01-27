@@ -69,6 +69,20 @@ func ASSRB(n1, n2 string, fn func(string, string) bool) toy.CallableFunc {
 	}
 }
 
+func ASSRBE(n1, n2 string, fn func(string, string) (bool, error)) toy.CallableFunc {
+	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+		var s1, s2 string
+		if err := toy.UnpackArgs(args, n1, &s1, n2, &s2); err != nil {
+			return nil, err
+		}
+		r, err := fn(s1, s2)
+		if err != nil {
+			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		}
+		return toy.Tuple{toy.Bool(r), toy.Nil}, nil
+	}
+}
+
 func ASSRSB(n1, n2 string, fn func(string, string) (string, bool)) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s1, s2 string

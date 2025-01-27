@@ -22,6 +22,16 @@ func ASRS(name string, fn func(string) string) toy.CallableFunc {
 	}
 }
 
+func ASRB(name string, fn func(string) bool) toy.CallableFunc {
+	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+		var s string
+		if err := toy.UnpackArgs(args, name, &s); err != nil {
+			return nil, err
+		}
+		return toy.Bool(fn(s)), nil
+	}
+}
+
 func ASRSS(name string, fn func(string) (string, string)) toy.CallableFunc {
 	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		var s string
@@ -101,6 +111,20 @@ func ASSRS(n1, n2 string, fn func(string, string) string) toy.CallableFunc {
 			return nil, err
 		}
 		return toy.String(fn(s1, s2)), nil
+	}
+}
+
+func ASSRSE(n1, n2 string, fn func(string, string) (string, error)) toy.CallableFunc {
+	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+		var s1, s2 string
+		if err := toy.UnpackArgs(args, n1, &s1, n2, &s2); err != nil {
+			return nil, err
+		}
+		r, err := fn(s1, s2)
+		if err != nil {
+			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		}
+		return toy.Tuple{toy.String(r), toy.Nil}, nil
 	}
 }
 

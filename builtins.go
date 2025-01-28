@@ -364,22 +364,27 @@ func builtinFormat(_ *VM, args ...Object) (Object, error) {
 }
 
 func builtinFail(v *VM, args ...Object) (Object, error) {
-	var (
-		format string
-		rest   []Object
-	)
-	if err := UnpackArgs(args, "format", &format, "...", &rest); err != nil {
-		return nil, err
+	if len(args) != 1 {
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 1,
+			Got:     len(args),
+		}
 	}
-	if len(rest) == 0 {
-		v.err = errors.New(format)
-		return nil, nil
+	var msg string
+	switch x := args[0].(type) {
+	case String:
+		msg = string(x)
+	case *Error:
+		msg = x.GoString()
+	default:
+		var s String
+		if err := Convert(&s, args[0]); err != nil {
+			return nil, err
+		}
+		msg = string(s)
 	}
-	s, err := Format(string(format), rest...)
-	if err != nil {
-		return nil, err
-	}
-	v.err = errors.New(s)
+	v.err = errors.New(msg)
 	return nil, nil
 }
 

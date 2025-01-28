@@ -2063,18 +2063,8 @@ func NewErrorf(format string, args ...any) *Error {
 }
 
 func (o *Error) Type() ObjectType { return ErrorType }
-
-func (o *Error) String() string {
-	var b strings.Builder
-	b.WriteString(o.message)
-	if o.cause != nil {
-		b.WriteString(": ")
-		b.WriteString(o.cause.String())
-	}
-	return fmt.Sprintf("error(%q)", b.String())
-}
-
-func (o *Error) IsFalsy() bool { return true }
+func (o *Error) String() string   { return fmt.Sprintf("error(%q)", o.GoString()) }
+func (o *Error) IsFalsy() bool    { return true }
 
 func (o *Error) Clone() Object {
 	var cause *Error
@@ -2098,6 +2088,15 @@ func (o *Error) Compare(op token.Token, rhs Object) (bool, error) {
 		return o != y, nil
 	}
 	return false, ErrInvalidOperation
+}
+
+func (o *Error) Convert(p any) error {
+	ps, ok := p.(*String)
+	if !ok {
+		return ErrNotConvertible
+	}
+	*ps = String(o.GoString())
+	return nil
 }
 
 func (o *Error) FieldGet(name string) (res Object, err error) {
@@ -2131,6 +2130,16 @@ func (o *Error) Contains(value Object) (bool, error) {
 
 func (o *Error) Message() string { return o.message }
 func (o *Error) Cause() *Error   { return o.cause }
+
+func (o *Error) GoString() string {
+	var b strings.Builder
+	b.WriteString(o.message)
+	if o.cause != nil {
+		b.WriteString(": ")
+		b.WriteString(o.cause.GoString())
+	}
+	return b.String()
+}
 
 // objectPtr represents a free variable.
 type objectPtr struct {

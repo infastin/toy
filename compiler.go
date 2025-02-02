@@ -1123,7 +1123,7 @@ func (c *Compiler) compileForInStmt(stmt *ast.ForInStmt, label string) error {
 	//     }
 	//     ... body ...
 	//   }
-	//   :it.close() // some iterators might implement CloseableIterator
+	//   :it.close()
 	//
 	// ":it" is a local variable but it will not conflict with other user variables
 	// because character ":" is not allowed in the variable names.

@@ -174,6 +174,9 @@ type Callable interface {
 	// Call should take an arbitrary number of arguments and return a return
 	// value and/or an error, which the VM will consider as a runtime error.
 	// If multiple values are to be returned, Call should return Tuple.
+	//
+	// Client code should not call this method.
+	// Instead, use the standalone Call function.
 	Call(r *Runtime, args ...Value) (Value, error)
 }
 

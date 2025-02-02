@@ -81,7 +81,7 @@ func (r *Runtime) Run() error {
 	_, err := r.run()
 	atomic.StoreInt64(r.aborting, 0)
 	if err != nil {
-		rErr := r.unwind(err).(*runtimeError)
+		rErr := r.unwindStack(err).(*runtimeError)
 		var b strings.Builder
 		fmt.Fprintf(&b, "runtime error: %s\n", rErr.Error())
 		b.WriteString("\nstacktrace:")
@@ -230,7 +230,7 @@ func (r *Runtime) run() (_ Value, err error) {
 			numElements := read2(r.curInsts, r.ip-1)
 			splat := int(r.curInsts[r.ip])
 
-			elements := r.unpackSplat(numElements, splat)
+			elements := r.takeListElements(numElements, splat)
 			r.sp -= numElements
 
 			r.stack[r.sp] = NewArray(elements)
@@ -256,7 +256,7 @@ func (r *Runtime) run() (_ Value, err error) {
 			numElements := read2(r.curInsts, r.ip-1)
 			splat := int(r.curInsts[r.ip])
 
-			elements := r.unpackSplat(numElements, splat)
+			elements := r.takeListElements(numElements, splat)
 			r.sp -= numElements
 
 			r.stack[r.sp] = Tuple(elements)
@@ -362,7 +362,7 @@ func (r *Runtime) run() (_ Value, err error) {
 				return nil, fmt.Errorf("not callable: %s", TypeName(value))
 			}
 
-			args := r.unpackSplat(numArgs, splat)
+			args := r.takeListElements(numArgs, splat)
 			r.sp -= numArgs + 1
 
 			if callee, ok := callable.(*CompiledFunction); ok {
@@ -427,7 +427,7 @@ func (r *Runtime) run() (_ Value, err error) {
 				return nil, fmt.Errorf("not callable: %s", TypeName(value))
 			}
 
-			args := r.unpackSplat(numArgs, splat)
+			args := r.takeListElements(numArgs, splat)
 			r.sp -= numArgs + 1
 
 			r.curFrame.deferred = append(r.curFrame.deferred, &deferredCall{
@@ -446,7 +446,7 @@ func (r *Runtime) run() (_ Value, err error) {
 				return nil, fmt.Errorf("not callable: %s", TypeName(value))
 			}
 
-			args := r.unpackSplat(numArgs, splat)
+			args := r.takeListElements(numArgs, splat)
 			r.sp -= numArgs + 1
 
 			var status Value
@@ -640,6 +640,7 @@ func (r *Runtime) run() (_ Value, err error) {
 	return Nil, nil
 }
 
+// safeCall calls callable with the provided arguments and properly recovers from panics.
 func (r *Runtime) safeCall(callable Callable, args []Value) (_ Value, err error) {
 	defer func() {
 		if p := recover(); p != nil {
@@ -659,6 +660,8 @@ func (r *Runtime) safeCall(callable Callable, args []Value) (_ Value, err error)
 	return ret, err
 }
 
+// callCompiled calls a compiled function with the provided arguments
+// and pauses the execution of the current runtime if pause = true.
 func (r *Runtime) callCompiled(fn *CompiledFunction, args []Value, pause bool) (Value, error) {
 	if r.framesIndex >= len(r.frames) {
 		return nil, ErrStackOverflow
@@ -688,7 +691,7 @@ func (r *Runtime) callCompiled(fn *CompiledFunction, args []Value, pause bool) (
 
 		res, err := r.run()
 		if err != nil {
-			err = r.unwind(err)
+			err = r.unwindStack(err)
 		}
 
 		// restore call stack
@@ -705,7 +708,10 @@ func (r *Runtime) callCompiled(fn *CompiledFunction, args []Value, pause bool) (
 	return nil, nil
 }
 
-func (r *Runtime) unpackSplat(numElems, splat int) []Value {
+// takeListElements takes numElems elements from the stack
+// and unpacks all splatSequence if splat = 1.
+// NOTE: it doesn't pop them from the stack.
+func (r *Runtime) takeListElements(numElems, splat int) []Value {
 	elems := make([]Value, 0, numElems)
 	if splat == 1 {
 		for i := r.sp - numElems; i < r.sp; i++ {
@@ -722,7 +728,8 @@ func (r *Runtime) unpackSplat(numElems, splat int) []Value {
 	return elems
 }
 
-func (r *Runtime) unwind(reason error) error {
+// unwindStack unwindes the call stack invoking all deferred calls along the way.
+func (r *Runtime) unwindStack(reason error) error {
 	var rErr *runtimeError
 	if !errors.As(reason, &rErr) {
 		rErr = &runtimeError{
@@ -749,8 +756,7 @@ func (r *Runtime) unwind(reason error) error {
 				} else {
 					rErr.Errors = append(rErr.Errors, err)
 				}
-				// run remaining deferred calls
-				continue
+				continue // run remaining deferred calls
 			}
 		}
 
@@ -766,6 +772,7 @@ func (r *Runtime) unwind(reason error) error {
 	return rErr
 }
 
+// runDefer invokes all deferred calls for the current frame.
 func (r *Runtime) runDefer() (err error) {
 	for len(r.curFrame.deferred) > 0 {
 		// pop a deferred call

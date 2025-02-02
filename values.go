@@ -1746,8 +1746,22 @@ var RangeType = NewType[*Range]("range", func(_ *Runtime, args ...Value) (Value,
 })
 
 func (v *Range) Type() ValueType { return RangeType }
-func (v *Range) String() string  { return "<range>" }
-func (v *Range) IsFalsy() bool   { return false }
+
+func (v *Range) String() string {
+	var b strings.Builder
+	b.WriteString("range(")
+	b.WriteString(strconv.Itoa(v.start))
+	b.WriteString(", ")
+	b.WriteString(strconv.Itoa(v.stop))
+	if v.step != 1 {
+		b.WriteString(", ")
+		b.WriteString(strconv.Itoa(v.step))
+	}
+	b.WriteByte(')')
+	return b.String()
+}
+
+func (v *Range) IsFalsy() bool { return v.Len() == 0 }
 
 func (v *Range) Clone() Value {
 	return &Range{

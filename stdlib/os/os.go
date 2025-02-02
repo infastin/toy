@@ -386,7 +386,7 @@ type FileInfo struct {
 var FileInfoType = toy.NewType[*FileInfo]("os.FileInfo", nil)
 
 func (f *FileInfo) Type() toy.ValueType { return FileInfoType }
-func (f *FileInfo) String() string      { return fmt.Sprintf("os.FileInfo(%q)", f.info.Name()) }
+func (f *FileInfo) String() string      { return fmt.Sprintf("<os.FileInfo %q>", f.info.Name()) }
 func (f *FileInfo) IsFalsy() bool       { return false }
 func (f *FileInfo) Clone() toy.Value    { return &FileInfo{info: f.info} }
 
@@ -476,7 +476,7 @@ type DirEntry struct {
 var DirEntryType = toy.NewType[*DirEntry]("os.DirEntry", nil)
 
 func (e *DirEntry) Type() toy.ValueType { return DirEntryType }
-func (e *DirEntry) String() string      { return fmt.Sprintf("os.DirEntry(%q)", e.entry.Name()) }
+func (e *DirEntry) String() string      { return fmt.Sprintf("<os.DirEntry %q>", e.entry.Name()) }
 func (e *DirEntry) IsFalsy() bool       { return false }
 func (e *DirEntry) Clone() toy.Value    { return &DirEntry{entry: e.entry} }
 
@@ -538,7 +538,7 @@ type File os.File
 var FileType = toy.NewType[*File]("os.File", nil)
 
 func (f *File) Type() toy.ValueType { return FileType }
-func (f *File) String() string      { return fmt.Sprintf("os.File(%q)", (*os.File)(f).Name()) }
+func (f *File) String() string      { return fmt.Sprintf("<os.File %q>", (*os.File)(f).Name()) }
 func (f *File) IsFalsy() bool       { return false }
 
 func (f *File) Clone() toy.Value {

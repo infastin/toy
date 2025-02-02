@@ -729,7 +729,7 @@ type Addr struct {
 var AddrType = toy.NewType[*Addr]("net.Addr", nil)
 
 func (a *Addr) Type() toy.ValueType { return AddrType }
-func (a *Addr) String() string      { return fmt.Sprintf("net.Addr(%q, %q)", a.a.Network(), a.a.String()) }
+func (a *Addr) String() string      { return fmt.Sprintf("<net.Addr %q %q>", a.a.Network(), a.a.String()) }
 func (a *Addr) IsFalsy() bool       { return false }
 func (a *Addr) Clone() toy.Value    { return &Addr{a: a.a} }
 
@@ -791,6 +791,16 @@ func (a *IPAddr) Property(key toy.Value) (value toy.Value, found bool, err error
 	return toy.Nil, false, nil
 }
 
+func (a *IPAddr) Convert(p any) error {
+	switch p := p.(type) {
+	case *toy.String:
+		*p = toy.String((*net.IPAddr)(a).String())
+	default:
+		return toy.ErrNotConvertible
+	}
+	return nil
+}
+
 func resolveIPAddrFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var network, address string
 	if err := toy.UnpackArgs(args, "network", &network, "address", &address); err != nil {
@@ -810,7 +820,7 @@ var InterfaceType = toy.NewType[*Interface]("net.Interface", nil)
 func (i *Interface) Type() toy.ValueType { return InterfaceType }
 
 func (i *Interface) String() string {
-	return fmt.Sprintf("net.Interface(%q)", (*net.Interface)(i).Name)
+	return fmt.Sprintf("<net.Interface %q>", (*net.Interface)(i).Name)
 }
 
 func (i *Interface) IsFalsy() bool { return false }

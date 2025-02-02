@@ -33,7 +33,7 @@ type User user.User
 var UserType = toy.NewType[*User]("user.User", nil)
 
 func (u *User) Type() toy.ValueType { return UserType }
-func (u *User) String() string      { return fmt.Sprintf("user.User(%q)", u.Name) }
+func (u *User) String() string      { return fmt.Sprintf("<user.User %q>", u.Name) }
 func (u *User) IsFalsy() bool       { return false }
 
 func (u *User) Clone() toy.Value {
@@ -70,7 +70,7 @@ type Group user.Group
 var GroupType = toy.NewType[*User]("user.Group", nil)
 
 func (g *Group) Type() toy.ValueType { return GroupType }
-func (g *Group) String() string      { return fmt.Sprintf("user.Group(%q)", g.Name) }
+func (g *Group) String() string      { return fmt.Sprintf("<user.Group %q>", g.Name) }
 func (g *Group) IsFalsy() bool       { return false }
 
 func (g *Group) Clone() toy.Value {

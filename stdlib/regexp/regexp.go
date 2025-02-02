@@ -46,9 +46,13 @@ var RegexpType = toy.NewType[*Regexp]("regexp.Regexp", func(_ *toy.Runtime, args
 })
 
 func (r *Regexp) Type() toy.ValueType { return RegexpType }
-func (r *Regexp) String() string      { return fmt.Sprintf("/%s/", (*regexp.Regexp)(r).String()) }
-func (r *Regexp) IsFalsy() bool       { return false }
-func (r *Regexp) Clone() toy.Value    { return r }
+
+func (r *Regexp) String() string {
+	return fmt.Sprintf("regexp.Regexp(%q)", (*regexp.Regexp)(r).String())
+}
+
+func (r *Regexp) IsFalsy() bool    { return false }
+func (r *Regexp) Clone() toy.Value { return r }
 
 func (r *Regexp) Convert(p any) error {
 	switch p := p.(type) {

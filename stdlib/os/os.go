@@ -523,8 +523,9 @@ var dirEntryMethods = map[string]*toy.BuiltinFunction{
 
 func dirEntryInfoMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(*DirEntry)
-	if len(args) != 1 {
-		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
+	args = args[1:]
+	if len(args) != 0 {
+		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	info, err := recv.entry.Info()
 	if err != nil {
@@ -630,8 +631,9 @@ func fileReadMd(_ *toy.Runtime, args ...toy.Value) (_ toy.Value, err error) {
 
 func fileCloseMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(*File)
-	if len(args) != 1 {
-		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
+	args = args[1:]
+	if len(args) != 0 {
+		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	if err := (*os.File)(recv).Close(); err != nil {
 		return nil, err
@@ -641,8 +643,9 @@ func fileCloseMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 
 func fileStatMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(*File)
-	if len(args) != 1 {
-		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
+	args = args[1:]
+	if len(args) != 0 {
+		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	info, err := (*os.File)(recv).Stat()
 	if err != nil {
@@ -653,8 +656,9 @@ func fileStatMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 
 func fileSyncMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(*File)
-	if len(args) != 1 {
-		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
+	args = args[1:]
+	if len(args) != 0 {
+		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	if err := (*os.File)(recv).Sync(); err != nil {
 		return nil, err
@@ -706,8 +710,9 @@ func fileChmodMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 
 func fileChdirMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(*File)
-	if len(args) != 1 {
-		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
+	args = args[1:]
+	if len(args) != 0 {
+		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	if err := (*os.File)(recv).Chdir(); err != nil {
 		return nil, err

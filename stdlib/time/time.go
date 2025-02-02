@@ -246,7 +246,7 @@ func timeRoundMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		recv = args[0].(Time)
 		dur  Duration
 	)
-	if err := toy.UnpackArgs(args, "dur", &dur); err != nil {
+	if err := toy.UnpackArgs(args[1:], "dur", &dur); err != nil {
 		return nil, err
 	}
 	return Time(time.Time(recv).Round(time.Duration(dur))), nil
@@ -257,7 +257,7 @@ func timeTruncateMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		recv = args[0].(Time)
 		dur  Duration
 	)
-	if err := toy.UnpackArgs(args, "dur", &dur); err != nil {
+	if err := toy.UnpackArgs(args[1:], "dur", &dur); err != nil {
 		return nil, err
 	}
 	return Time(time.Time(recv).Truncate(time.Duration(dur))), nil
@@ -439,7 +439,7 @@ func durationRoundMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		recv = args[0].(Duration)
 		m    Duration
 	)
-	if err := toy.UnpackArgs(args, "m", &m); err != nil {
+	if err := toy.UnpackArgs(args[1:], "m", &m); err != nil {
 		return nil, err
 	}
 	return Duration(time.Duration(recv).Round(time.Duration(m))), nil
@@ -450,7 +450,7 @@ func durationTruncateMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		recv = args[0].(Duration)
 		m    Duration
 	)
-	if err := toy.UnpackArgs(args, "m", &m); err != nil {
+	if err := toy.UnpackArgs(args[1:], "m", &m); err != nil {
 		return nil, err
 	}
 	return Duration(time.Duration(recv).Truncate(time.Duration(m))), nil

@@ -575,7 +575,7 @@ func Call(r *Runtime, fn Value, args ...Value) (Value, error) {
 	if !ok {
 		return nil, fmt.Errorf("'%s' is not callable", TypeName(fn))
 	}
-	ret, err := callable.Call(r, args...)
+	ret, err := r.safeCall(callable, args)
 	if err != nil {
 		return nil, fmt.Errorf("error during call to '%s': %w",
 			TypeName(callable), err)

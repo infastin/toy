@@ -98,7 +98,7 @@ func (r *Runtime) Run() error {
 	return nil
 }
 
-func (r *Runtime) run() (Value, error) {
+func (r *Runtime) run() (_ Value, err error) {
 	for atomic.LoadInt64(r.aborting) == 0 {
 		r.ip++
 		switch r.curInsts[r.ip] {
@@ -124,7 +124,6 @@ func (r *Runtime) run() (Value, error) {
 					res = right
 				}
 			} else {
-				var err error
 				res, err = BinaryOp(tok, left, right)
 				if err != nil {
 					r.sp -= 2
@@ -373,7 +372,7 @@ func (r *Runtime) run() (Value, error) {
 						TypeName(callable), err)
 				}
 			} else {
-				ret, err := callable.Call(r, args...)
+				ret, err := r.safeCall(callable, args)
 				if err != nil {
 					return nil, fmt.Errorf("error during call to '%s': %w",
 						TypeName(callable), err)
@@ -451,7 +450,7 @@ func (r *Runtime) run() (Value, error) {
 			r.sp -= numArgs + 1
 
 			var status Value
-			ret, err := callable.Call(r, args...)
+			ret, err := r.safeCall(callable, args)
 			if err != nil {
 				status = newExceptionTable(err)
 			} else {
@@ -641,7 +640,26 @@ func (r *Runtime) run() (Value, error) {
 	return Nil, nil
 }
 
-func (r *Runtime) call(fn *CompiledFunction, args []Value, pause bool) (Value, error) {
+func (r *Runtime) safeCall(callable Callable, args []Value) (_ Value, err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			switch e := p.(type) {
+			case string:
+				err = errors.New(e)
+			case error:
+				err = e
+			case Value:
+				err = &exception{errVal: e}
+			default:
+				err = fmt.Errorf("unknown panic: %v", e)
+			}
+		}
+	}()
+	ret, err := callable.Call(r, args...)
+	return ret, err
+}
+
+func (r *Runtime) callCompiled(fn *CompiledFunction, args []Value, pause bool) (Value, error) {
 	if r.framesIndex >= len(r.frames) {
 		return nil, ErrStackOverflow
 	}
@@ -754,7 +772,7 @@ func (r *Runtime) runDefer() (err error) {
 		call := r.curFrame.deferred[len(r.curFrame.deferred)-1]
 		r.curFrame.deferred = r.curFrame.deferred[:len(r.curFrame.deferred)-1]
 		r.curFrame.curDefer = call
-		if _, err = call.fn.Call(r, call.args...); err != nil {
+		if _, err = r.safeCall(call.fn, call.args); err != nil {
 			return err
 		}
 	}

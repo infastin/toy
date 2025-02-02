@@ -154,7 +154,7 @@ func (f *CompiledFunction) call(r *Runtime, args []Value, pause bool) (Value, er
 		}
 	}
 
-	return r.call(f, args, pause)
+	return r.callCompiled(f, args, pause)
 }
 
 func (f *CompiledFunction) WithReceiver(recv Value) *CompiledFunction {

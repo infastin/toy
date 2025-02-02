@@ -297,7 +297,7 @@ func (r *Runtime) run() (_ Value, err error) {
 
 			s, ok := left.(Sliceable)
 			if !ok {
-				return nil, fmt.Errorf("not sliceable: %s", TypeName(left))
+				return nil, fmt.Errorf("'%s' is not sliceable", TypeName(left))
 			}
 			n := s.Len()
 
@@ -325,30 +325,19 @@ func (r *Runtime) run() (_ Value, err error) {
 				}
 			}
 
-			if lowIdx < 0 || highIdx < 0 {
-				negIdx := highIdx
-				if lowIdx < 0 {
-					negIdx = lowIdx
-				}
-				return nil, fmt.Errorf("negative slice index: %d", negIdx)
-			}
-			if lowIdx > n {
-				return nil, fmt.Errorf("slice bounds out of range [%d:%d]", lowIdx, n)
-			}
-			if highIdx > n {
-				return nil, fmt.Errorf("slice bounds out of range [%d:%d] with len %d", lowIdx, highIdx, n)
-			}
-			if lowIdx > highIdx {
-				return nil, fmt.Errorf("invalid slice indices: %d > %d", lowIdx, highIdx)
+			res, err := Slice(s, lowIdx, highIdx)
+			if err != nil {
+				return nil, err
 			}
 
-			r.stack[r.sp] = s.Slice(lowIdx, highIdx)
+			r.stack[r.sp] = res
 			r.sp++
 		case bytecode.OpSplat:
 			value := r.stack[r.sp-1]
 			seq, ok := value.(Sequence)
 			if !ok {
-				return nil, fmt.Errorf("splat operator can only be used with sequence, got '%s' instead", TypeName(seq))
+				return nil, fmt.Errorf("splat operator can only be used with sequence, got '%s' instead",
+					TypeName(seq))
 			}
 			r.stack[r.sp-1] = &splatSequence{s: seq}
 		case bytecode.OpCall:

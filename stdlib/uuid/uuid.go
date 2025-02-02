@@ -15,11 +15,9 @@ import (
 var Module = &toy.BuiltinModule{
 	Name: "uuid",
 	Members: map[string]toy.Value{
-		"UUID":      UUIDType,
-		"uuid4":     toy.NewBuiltinFunction("uuid.uuid4", v4Fn),
-		"uuid7":     toy.NewBuiltinFunction("uuid.uuid7", v7Fn),
-		"parse":     toy.NewBuiltinFunction("uuid.parse", parseFn),
-		"fromBytes": toy.NewBuiltinFunction("uuid.fromBytes", fromBytesFn),
+		"UUID":  UUIDType,
+		"uuid4": toy.NewBuiltinFunction("uuid.uuid4", v4Fn),
+		"uuid7": toy.NewBuiltinFunction("uuid.uuid7", v7Fn),
 	},
 }
 
@@ -161,30 +159,6 @@ func v7Fn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	u, err := uuid.NewV7()
-	if err != nil {
-		return nil, err
-	}
-	return UUID(u), nil
-}
-
-func parseFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	var s string
-	if err := toy.UnpackArgs(args, "s", &s); err != nil {
-		return nil, err
-	}
-	u, err := uuid.Parse(s)
-	if err != nil {
-		return nil, err
-	}
-	return UUID(u), nil
-}
-
-func fromBytesFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	var data toy.Bytes
-	if err := toy.UnpackArgs(args, "data", &data); err != nil {
-		return nil, err
-	}
-	u, err := uuid.FromBytes(data)
 	if err != nil {
 		return nil, err
 	}

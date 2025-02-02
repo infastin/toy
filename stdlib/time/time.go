@@ -15,15 +15,13 @@ var Module = &toy.BuiltinModule{
 		"Time":     TimeType,
 		"Duration": DurationType,
 
-		"parse":         toy.NewBuiltinFunction("time.parse", parseFn),
-		"now":           toy.NewBuiltinFunction("time.now", nowFn),
-		"date":          toy.NewBuiltinFunction("time.date", dateFn),
-		"parseDuration": toy.NewBuiltinFunction("time.parseDuration", parseDurationFn),
-		"since":         toy.NewBuiltinFunction("time.since", sinceFn),
-		"until":         toy.NewBuiltinFunction("time.until", untilFn),
-		"unix":          toy.NewBuiltinFunction("time.unix", unixFn),
-		"unixMicro":     toy.NewBuiltinFunction("time.unixMicro", unixMicroFn),
-		"unixMilli":     toy.NewBuiltinFunction("time.unixMilli", unixMilliFn),
+		"now":       toy.NewBuiltinFunction("time.now", nowFn),
+		"date":      toy.NewBuiltinFunction("time.date", dateFn),
+		"since":     toy.NewBuiltinFunction("time.since", sinceFn),
+		"until":     toy.NewBuiltinFunction("time.until", untilFn),
+		"unix":      toy.NewBuiltinFunction("time.unix", unixFn),
+		"unixMicro": toy.NewBuiltinFunction("time.unixMicro", unixMicroFn),
+		"unixMilli": toy.NewBuiltinFunction("time.unixMilli", unixMilliFn),
 
 		"nsec": Duration(time.Nanosecond),
 		"usec": Duration(time.Microsecond),
@@ -55,46 +53,47 @@ var Module = &toy.BuiltinModule{
 type Time time.Time
 
 var TimeType = toy.NewType[Time]("time.Time", func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	if len(args) < 1 && len(args) > 3 {
+	switch len(args) {
+	case 1:
+		if _, isStr := args[0].(toy.String); !isStr {
+			var t Time
+			if err := toy.Convert(&t, args[0]); err == nil {
+				return t, nil
+			}
+		}
+		fallthrough
+	case 3:
+		var (
+			x        string
+			layout   = time.RFC3339Nano
+			location = "UTC"
+		)
+		if err := toy.UnpackArgs(args, "x", &x, "layout?", &layout, "location?", &location); err != nil {
+			return nil, err
+		}
+		if location == "UTC" {
+			t, err := time.Parse(layout, x)
+			if err != nil {
+				return nil, err
+			}
+			return Time(t), nil
+		}
+		loc, err := time.LoadLocation(location)
+		if err != nil {
+			return nil, err
+		}
+		t, err := time.ParseInLocation(layout, x, loc)
+		if err != nil {
+			return nil, err
+		}
+		return Time(t), nil
+	default:
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 1,
 			WantMax: 3,
 			Got:     len(args),
 		}
 	}
-	if len(args) == 1 {
-		_, isStr := args[0].(toy.String)
-		if !isStr {
-			var t Time
-			if err := toy.Convert(&t, args[0]); err == nil {
-				return t, nil
-			}
-		}
-	}
-	var (
-		x        string
-		layout   = time.RFC3339Nano
-		location = "UTC"
-	)
-	if err := toy.UnpackArgs(args, "x", &x, "layout?", &layout, "location?", &location); err != nil {
-		return nil, err
-	}
-	if location == "UTC" {
-		t, err := time.Parse(layout, x)
-		if err != nil {
-			return nil, err
-		}
-		return Time(t), nil
-	}
-	loc, err := time.LoadLocation(location)
-	if err != nil {
-		return nil, err
-	}
-	t, err := time.ParseInLocation(layout, x, loc)
-	if err != nil {
-		return nil, err
-	}
-	return Time(t), nil
 })
 
 func (t Time) Type() toy.ValueType { return TimeType }
@@ -262,33 +261,6 @@ func timeTruncateMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		return nil, err
 	}
 	return Time(time.Time(recv).Truncate(time.Duration(dur))), nil
-}
-
-func parseFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	var (
-		x        string
-		layout   = time.RFC3339Nano
-		location = "UTC"
-	)
-	if err := toy.UnpackArgs(args, "x", &x, "layout?", &layout, "location?", &location); err != nil {
-		return nil, err
-	}
-	if location == "UTC" {
-		t, err := time.Parse(layout, x)
-		if err != nil {
-			return nil, err
-		}
-		return Time(t), nil
-	}
-	loc, err := time.LoadLocation(location)
-	if err != nil {
-		return nil, err
-	}
-	t, err := time.ParseInLocation(layout, x, loc)
-	if err != nil {
-		return nil, err
-	}
-	return Time(t), nil
 }
 
 func nowFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
@@ -482,18 +454,6 @@ func durationTruncateMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		return nil, err
 	}
 	return Duration(time.Duration(recv).Truncate(time.Duration(m))), nil
-}
-
-func parseDurationFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	var x string
-	if err := toy.UnpackArgs(args, "x", &x); err != nil {
-		return nil, err
-	}
-	d, err := time.ParseDuration(x)
-	if err != nil {
-		return nil, err
-	}
-	return Duration(d), nil
 }
 
 func sinceFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {

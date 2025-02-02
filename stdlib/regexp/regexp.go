@@ -13,7 +13,6 @@ var Module = &toy.BuiltinModule{
 		"Regexp": RegexpType,
 		"Match":  RegexpMatchType,
 
-		"compile": toy.NewBuiltinFunction("regexp.compile", compileFn),
 		"match":   toy.NewBuiltinFunction("regexp.match", matchFn),
 		"find":    toy.NewBuiltinFunction("regexp.find", findFn),
 		"replace": toy.NewBuiltinFunction("regexp.replace", replaceFn),
@@ -50,6 +49,16 @@ func (r *Regexp) Type() toy.ValueType { return RegexpType }
 func (r *Regexp) String() string      { return fmt.Sprintf("/%s/", (*regexp.Regexp)(r).String()) }
 func (r *Regexp) IsFalsy() bool       { return false }
 func (r *Regexp) Clone() toy.Value    { return r }
+
+func (r *Regexp) Convert(p any) error {
+	switch p := p.(type) {
+	case *toy.String:
+		*p = toy.String((*regexp.Regexp)(r).String())
+	default:
+		return toy.ErrNotConvertible
+	}
+	return nil
+}
 
 func (r *Regexp) Property(key toy.Value) (value toy.Value, found bool, err error) {
 	keyStr, ok := key.(toy.String)
@@ -137,18 +146,6 @@ func (m RegexpMatch) Property(key toy.Value) (value toy.Value, found bool, err e
 		return toy.Int(m.end), true, nil
 	}
 	return toy.Nil, false, nil
-}
-
-func compileFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	var expr string
-	if err := toy.UnpackArgs(args, "expr", &expr); err != nil {
-		return nil, err
-	}
-	r, err := regexp.Compile(expr)
-	if err != nil {
-		return nil, err
-	}
-	return (*Regexp)(r), nil
 }
 
 func matchFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {

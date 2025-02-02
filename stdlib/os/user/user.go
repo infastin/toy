@@ -13,6 +13,9 @@ import (
 var Module = &toy.BuiltinModule{
 	Name: "user",
 	Members: map[string]toy.Value{
+		"User":  UserType,
+		"Group": GroupType,
+
 		"current":       toy.NewBuiltinFunction("user.current", currentFn),
 		"lookup":        toy.NewBuiltinFunction("user.lookup", lookupFn),
 		"lookupID":      toy.NewBuiltinFunction("user.lookupID", lookupIDFn),

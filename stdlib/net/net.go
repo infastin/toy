@@ -20,93 +20,90 @@ import (
 var Module = &toy.BuiltinModule{
 	Name: "net",
 	Members: map[string]toy.Value{
-		"IP":       IPType,
-		"parseIP":  toy.NewBuiltinFunction("parseIP", parseIPFn),
-		"ipv4":     toy.NewBuiltinFunction("ipv4", ipv4Fn),
-		"lookupIP": toy.NewBuiltinFunction("lookupIP", lookupIPFn),
-
-		"IPMask":   IPMaskType,
-		"cidrMask": toy.NewBuiltinFunction("cidrMask", cidrMaskFn),
-		"ipv4Mask": toy.NewBuiltinFunction("ipv4Mask", ipv4MaskFn),
-
-		"IPNet":     IPNetType,
-		"parseCIDR": toy.NewBuiltinFunction("parseCIDR", parseCIDRFn),
-
-		"MAC":      MACType,
-		"parseMAC": toy.NewBuiltinFunction("parseMAC", parseMACFn),
-
+		"IP":             IPType,
+		"IPMask":         IPMaskType,
+		"IPNet":          IPNetType,
+		"MAC":            MACType,
 		"Addr":           AddrType,
-		"interfaceAddrs": toy.NewBuiltinFunction("interfaceAddrs", interfaceAddrsFn),
+		"IPAddr":         IPAddrType,
+		"Interface":      InterfaceType,
+		"InterfaceFlags": InterfaceFlagsType,
 
-		"IPAddr":        IPAddrType,
-		"resolveIPAddr": toy.NewBuiltinFunction("resolveIPAddr", resolveIPAddrFn),
-
-		"Interface":       InterfaceType,
-		"InterfaceFlags":  InterfaceFlagsType,
+		"lookupIP":        toy.NewBuiltinFunction("lookupIP", lookupIPFn),
+		"parseCIDR":       toy.NewBuiltinFunction("parseCIDR", parseCIDRFn),
+		"interfaceAddrs":  toy.NewBuiltinFunction("interfaceAddrs", interfaceAddrsFn),
+		"resolveIPAddr":   toy.NewBuiltinFunction("resolveIPAddr", resolveIPAddrFn),
 		"lookupInterface": toy.NewBuiltinFunction("lookupInterface", lookupInterfaceFn),
 		"interfaces":      toy.NewBuiltinFunction("interfaces", interfacesFn),
-
-		"joinHostPort":  toy.NewBuiltinFunction("joinHostPort", fndef.ASSRS("host", "port", net.JoinHostPort)),
-		"splitHostPort": toy.NewBuiltinFunction("splitHostPort", fndef.ASRSSE("hostport", net.SplitHostPort)),
-		"lookupAddr":    toy.NewBuiltinFunction("lookupAddr", fndef.ASRSsE("addr", net.LookupAddr)),
-		"lookupHost":    toy.NewBuiltinFunction("lookupHost", fndef.ASRSsE("host", net.LookupHost)),
+		"joinHostPort":    toy.NewBuiltinFunction("joinHostPort", fndef.ASSRS("host", "port", net.JoinHostPort)),
+		"splitHostPort":   toy.NewBuiltinFunction("splitHostPort", fndef.ASRSSE("hostport", net.SplitHostPort)),
+		"lookupAddr":      toy.NewBuiltinFunction("lookupAddr", fndef.ASRSsE("addr", net.LookupAddr)),
+		"lookupHost":      toy.NewBuiltinFunction("lookupHost", fndef.ASRSsE("host", net.LookupHost)),
 	},
 }
 
 type IP net.IP
 
 var IPType = toy.NewType[IP]("net.IP", func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	if len(args) != 1 {
-		return nil, &toy.WrongNumArgumentsError{
-			WantMin: 1,
-			WantMax: 1,
-			Got:     len(args),
-		}
-	}
-	switch x := args[0].(type) {
-	case toy.String:
-		ip := net.ParseIP(string(x))
-		if ip == nil {
-			return nil, errors.New("invalid ip")
-		}
-		return IP(ip), nil
-	case toy.Bytes:
-		if len(x) != 4 && len(x) != 16 {
-			return nil, &toy.InvalidArgumentTypeError{
-				Name: "value",
-				Want: "bytes[4] or bytes[16]",
-				Got:  fmt.Sprintf("bytes[%d]", len(x)),
+	switch len(args) {
+	case 1:
+		switch x := args[0].(type) {
+		case toy.String:
+			ip := net.ParseIP(string(x))
+			if ip == nil {
+				return nil, errors.New("invalid ip")
 			}
-		}
-		return IP(x), nil
-	case toy.Sequence:
-		if x.Len() != 4 && x.Len() != 16 {
-			return nil, &toy.InvalidArgumentTypeError{
-				Name: "value",
-				Want: "sequence[int, 4] or sequence[int, 16]",
-				Got:  fmt.Sprintf("sequence[object, %d]", x.Len()),
-			}
-		}
-		ip := make(IP, x.Len())
-		for i, v := range xiter.Enum(x.Elements()) {
-			b, ok := v.(toy.Int)
-			if !ok {
+			return IP(ip), nil
+		case toy.Bytes:
+			if len(x) != 4 && len(x) != 16 {
 				return nil, &toy.InvalidArgumentTypeError{
 					Name: "value",
-					Sel:  fmt.Sprintf("[%d]", i),
-					Want: "int",
-					Got:  toy.TypeName(v),
+					Want: "bytes[4] or bytes[16]",
+					Got:  fmt.Sprintf("bytes[%d]", len(x)),
 				}
 			}
-			ip[i] = byte(b)
+			return IP(x), nil
+		case toy.Sequence:
+			if x.Len() != 4 && x.Len() != 16 {
+				return nil, &toy.InvalidArgumentTypeError{
+					Name: "value",
+					Want: "sequence[int, 4] or sequence[int, 16]",
+					Got:  fmt.Sprintf("sequence[object, %d]", x.Len()),
+				}
+			}
+			ip := make(IP, x.Len())
+			for i, v := range xiter.Enum(x.Elements()) {
+				b, ok := v.(toy.Int)
+				if !ok {
+					return nil, &toy.InvalidArgumentTypeError{
+						Name: "value",
+						Sel:  fmt.Sprintf("[%d]", i),
+						Want: "int",
+						Got:  toy.TypeName(v),
+					}
+				}
+				ip[i] = byte(b)
+			}
+			return ip, nil
+		default:
+			var ip IP
+			if err := toy.Convert(&ip, x); err != nil {
+				return nil, err
+			}
+			return ip, nil
 		}
-		return ip, nil
-	default:
-		var ip IP
-		if err := toy.Convert(&ip, x); err != nil {
+	case 4:
+		var a, b, c, d byte
+		if err := toy.UnpackArgs(args, "a", &a, "b", &b, "c", &c, "d", &d); err != nil {
 			return nil, err
 		}
-		return ip, nil
+		return IP(net.IPv4(a, b, c, d)), nil
+	default:
+		return nil, &toy.WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 4,
+			Got:     len(args),
+		}
 	}
 })
 
@@ -180,7 +177,7 @@ func (ip IP) Items() []toy.Value {
 	return elems
 }
 
-func (ip IP) Iterate() iter.Seq[toy.Value] {
+func (ip IP) Elements() iter.Seq[toy.Value] {
 	return func(yield func(toy.Value) bool) {
 		for _, b := range ip {
 			if !yield(toy.Int(b)) {
@@ -305,26 +302,6 @@ func ipDefaultMaskMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	return IP(net.IP(recv).DefaultMask()), nil
 }
 
-func parseIPFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	var s string
-	if err := toy.UnpackArgs(args, "s", &s); err != nil {
-		return nil, err
-	}
-	ip := net.ParseIP(s)
-	if ip == nil {
-		return nil, errors.New("invalid ip")
-	}
-	return IP(ip), nil
-}
-
-func ipv4Fn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	var a, b, c, d byte
-	if err := toy.UnpackArgs(args, "a", &a, "b", &b, "c", &c, "d", &d); err != nil {
-		return nil, err
-	}
-	return IP(net.IPv4(a, b, c, d)), nil
-}
-
 func lookupIPFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var host string
 	if err := toy.UnpackArgs(args, "host", &host); err != nil {
@@ -344,14 +321,8 @@ func lookupIPFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 type IPMask net.IPMask
 
 var IPMaskType = toy.NewType[IPMask]("net.IPMask", func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	if len(args) < 1 && len(args) > 2 {
-		return nil, &toy.WrongNumArgumentsError{
-			WantMin: 1,
-			WantMax: 2,
-			Got:     len(args),
-		}
-	}
-	if len(args) == 1 {
+	switch len(args) {
+	case 1:
 		switch x := args[0].(type) {
 		case toy.String:
 			if len(x) != 8 && len(x) != 32 {
@@ -404,16 +375,29 @@ var IPMaskType = toy.NewType[IPMask]("net.IPMask", func(_ *toy.Runtime, args ...
 			}
 			return m, nil
 		}
+	case 2:
+		var ones, bits int
+		if err := toy.UnpackArgs(args, "ones", &ones, "bits", &bits); err != nil {
+			return nil, err
+		}
+		mask := net.CIDRMask(ones, bits)
+		if mask == nil {
+			return nil, errors.New("invalid number of ones and bits")
+		}
+		return IPMask(mask), nil
+	case 4:
+		var a, b, c, d byte
+		if err := toy.UnpackArgs(args, "a", &a, "b", &b, "c", &c, "d", &d); err != nil {
+			return nil, err
+		}
+		return IPMask(net.IPv4Mask(a, b, c, d)), nil
+	default:
+		return nil, &toy.WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 4,
+			Got:     len(args),
+		}
 	}
-	var ones, bits int
-	if err := toy.UnpackArgs(args, "ones", &ones, "bits", &bits); err != nil {
-		return nil, err
-	}
-	mask := net.CIDRMask(ones, bits)
-	if mask == nil {
-		return nil, errors.New("invalid number of ones and bits")
-	}
-	return IPMask(mask), nil
 })
 
 func (m IPMask) Type() toy.ValueType { return IPMaskType }
@@ -486,7 +470,7 @@ func (m IPMask) Items() []toy.Value {
 	return elems
 }
 
-func (m IPMask) Iterate() iter.Seq[toy.Value] {
+func (m IPMask) Elements() iter.Seq[toy.Value] {
 	return func(yield func(toy.Value) bool) {
 		for _, b := range m {
 			if !yield(toy.Int(b)) {
@@ -510,26 +494,6 @@ func ipMaskSizeMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	return toy.Tuple{toy.Int(ones), toy.Int(bits)}, nil
 }
 
-func cidrMaskFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	var ones, bits int
-	if err := toy.UnpackArgs(args, "ones", &ones, "bits", &bits); err != nil {
-		return nil, err
-	}
-	mask := net.CIDRMask(ones, bits)
-	if mask == nil {
-		return nil, errors.New("invalid number of ones and bits")
-	}
-	return IPMask(mask), nil
-}
-
-func ipv4MaskFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	var a, b, c, d byte
-	if err := toy.UnpackArgs(args, "a", &a, "b", &b, "c", &c, "d", &d); err != nil {
-		return nil, err
-	}
-	return IPMask(net.IPv4Mask(a, b, c, d)), nil
-}
-
 func parseCIDRFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
@@ -545,14 +509,8 @@ func parseCIDRFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 type IPNet net.IPNet
 
 var IPNetType = toy.NewType[*IPNet]("net.IPNet", func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	if len(args) < 1 && len(args) > 2 {
-		return nil, &toy.WrongNumArgumentsError{
-			WantMin: 1,
-			WantMax: 2,
-			Got:     len(args),
-		}
-	}
-	if len(args) == 1 {
+	switch len(args) {
+	case 1:
 		switch x := args[0].(type) {
 		case toy.String:
 			_, ipNet, err := net.ParseCIDR(string(x))
@@ -567,15 +525,22 @@ var IPNetType = toy.NewType[*IPNet]("net.IPNet", func(_ *toy.Runtime, args ...to
 			}
 			return n, nil
 		}
+	case 2:
+		var (
+			ip   IP
+			mask IPMask
+		)
+		if err := toy.UnpackArgs(args, "ip", &ip, "mask", &mask); err != nil {
+			return nil, err
+		}
+		return &IPNet{IP: net.IP(ip), Mask: net.IPMask(mask)}, nil
+	default:
+		return nil, &toy.WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 2,
+			Got:     len(args),
+		}
 	}
-	var (
-		ip   IP
-		mask IPMask
-	)
-	if err := toy.UnpackArgs(args, "ip", &ip, "mask", &mask); err != nil {
-		return nil, err
-	}
-	return &IPNet{IP: net.IP(ip), Mask: net.IPMask(mask)}, nil
 })
 
 func (n *IPNet) Type() toy.ValueType { return IPNetType }
@@ -747,7 +712,7 @@ func (m MAC) Items() []toy.Value {
 	return elems
 }
 
-func (m MAC) Iterate() iter.Seq[toy.Value] {
+func (m MAC) Elements() iter.Seq[toy.Value] {
 	return func(yield func(toy.Value) bool) {
 		for _, b := range m {
 			if !yield(toy.Int(b)) {
@@ -755,18 +720,6 @@ func (m MAC) Iterate() iter.Seq[toy.Value] {
 			}
 		}
 	}
-}
-
-func parseMACFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
-	var s string
-	if err := toy.UnpackArgs(args, "s", &s); err != nil {
-		return nil, err
-	}
-	mac, err := net.ParseMAC(s)
-	if err != nil {
-		return nil, err
-	}
-	return MAC(mac), nil
 }
 
 type Addr struct {

@@ -12,7 +12,7 @@ import (
 
 var Module = &toy.BuiltinModule{
 	Name: "path",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"abs":          toy.NewBuiltinFunction("path.abs", fndef.ASRSE("path", filepath.Abs)),
 		"localize":     toy.NewBuiltinFunction("path.localize", fndef.ASRSE("path", filepath.Localize)),
 		"base":         toy.NewBuiltinFunction("path.base", fndef.ASRS("path", filepath.Base)),
@@ -44,7 +44,7 @@ var Module = &toy.BuiltinModule{
 	},
 }
 
-func joinFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func joinFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var elems []string
 	for i, arg := range args {
 		str, ok := arg.(toy.String)
@@ -60,7 +60,7 @@ func joinFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(filepath.Join(elems...)), nil
 }
 
-func expandFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func expandFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "path", &s); err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func expandFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(filepath.Join(usr.HomeDir, s[1:])), nil
 }
 
-func existsFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func existsFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func existsFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 }
 
 func makeIsFn(typ os.FileMode) toy.CallableFunc {
-	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	return func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		var name string
 		if err := toy.UnpackArgs(args, "name", &name); err != nil {
 			return nil, err

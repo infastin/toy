@@ -58,11 +58,11 @@ func mainAction(ctx *cli.Context) error {
 	}
 	if ctx.Bool("trace") {
 		if err := PrintTrace(inputData, inputFile); err != nil {
-			return fmt.Errorf("failed to compile: %w", err)
+			return err
 		}
 	} else {
 		if err := CompileAndRun(inputData, inputFile); err != nil {
-			return fmt.Errorf("failed to compile and run: %w", err)
+			return err
 		}
 	}
 	return nil

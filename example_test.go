@@ -8,7 +8,7 @@ import (
 )
 
 func Example() {
-	// Tengo script code
+	// Toy script code
 	src := `
 each := fn(seq, f) {
 	for x in seq {

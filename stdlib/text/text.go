@@ -8,6 +8,7 @@ import (
 
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/internal/fndef"
+	"github.com/infastin/toy/internal/xiter"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -15,7 +16,7 @@ import (
 
 var Module = &toy.BuiltinModule{
 	Name: "text",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"Builder": BuilderType,
 
 		"contains":     toy.NewBuiltinFunction("text.contains", containsFn),
@@ -55,7 +56,7 @@ var Module = &toy.BuiltinModule{
 	},
 }
 
-func containsFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func containsFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		s      string
 		subset toy.StringOrChar
@@ -66,7 +67,7 @@ func containsFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(strings.Contains(string(s), string(subset))), nil
 }
 
-func toTitleFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func toTitleFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
@@ -75,7 +76,7 @@ func toTitleFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(caser.String(s)), nil
 }
 
-func joinFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func joinFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		elems toy.Sequence
 		sep   string
@@ -84,17 +85,22 @@ func joinFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 	var strs []string
-	for i, elem := range toy.Entries(elems) {
+	for i, elem := range xiter.Enum(elems.Elements()) {
 		s, ok := elem.(toy.String)
 		if !ok {
-			return nil, fmt.Errorf("%s[%d]: want string, got %s", toy.TypeName(elems), i, toy.TypeName(elem))
+			return nil, &toy.InvalidArgumentTypeError{
+				Name: toy.TypeName(elems),
+				Sel:  fmt.Sprintf("[%d]", i),
+				Want: "string",
+				Got:  toy.TypeName(elem),
+			}
 		}
 		strs = append(strs, string(s))
 	}
 	return toy.String(strings.Join(strs, sep)), nil
 }
 
-func splitFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func splitFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		s, sep string
 		n      *int
@@ -103,15 +109,15 @@ func splitFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 	var (
-		elems []toy.Object
+		elems []toy.Value
 		parts []string
 	)
 	if n != nil {
 		parts = strings.SplitN(s, sep, *n)
-		elems = make([]toy.Object, 0, len(parts))
+		elems = make([]toy.Value, 0, len(parts))
 	} else {
 		parts = strings.Split(s, sep)
-		elems = make([]toy.Object, 0, len(parts))
+		elems = make([]toy.Value, 0, len(parts))
 	}
 	for _, part := range parts {
 		elems = append(elems, toy.String(part))
@@ -119,7 +125,7 @@ func splitFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func splitAfterFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func splitAfterFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		s, sep string
 		n      *int
@@ -128,15 +134,15 @@ func splitAfterFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 	var (
-		elems []toy.Object
+		elems []toy.Value
 		parts []string
 	)
 	if n != nil {
 		parts = strings.SplitAfterN(s, sep, *n)
-		elems = make([]toy.Object, 0, len(parts))
+		elems = make([]toy.Value, 0, len(parts))
 	} else {
 		parts = strings.SplitAfterN(s, sep, *n)
-		elems = make([]toy.Object, 0, len(parts))
+		elems = make([]toy.Value, 0, len(parts))
 	}
 	for _, part := range parts {
 		elems = append(elems, toy.String(part))
@@ -144,7 +150,7 @@ func splitAfterFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.NewArray(elems), nil
 }
 
-func replaceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func replaceFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		s, old, new string
 		n           *int
@@ -159,7 +165,7 @@ func replaceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 }
 
-func cutFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func cutFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var s, sep string
 	if err := toy.UnpackArgs(args, "s", &s, "sep", &sep); err != nil {
 		return nil, err
@@ -168,7 +174,7 @@ func cutFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.String(before), toy.String(after), toy.Bool(found)}, nil
 }
 
-func indexFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func indexFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		s      string
 		subset toy.StringOrChar
@@ -183,7 +189,7 @@ func indexFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func indexAnyFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func indexAnyFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var s, chars string
 	if err := toy.UnpackArgs(args, "s", &s, "chars", &chars); err != nil {
 		return nil, err
@@ -195,7 +201,7 @@ func indexAnyFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func lastIndexFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lastIndexFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		s      string
 		subset toy.StringOrChar
@@ -210,7 +216,7 @@ func lastIndexFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func lastIndexAnyFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lastIndexAnyFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var s, chars string
 	if err := toy.UnpackArgs(args, "s", &s, "chars", &chars); err != nil {
 		return nil, err
@@ -222,7 +228,7 @@ func lastIndexAnyFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Int(utf8.RuneCountInString(string(s)) - utf8.RuneCountInString(string(s)[idx:])), nil
 }
 
-func parseInt(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseInt(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		s    string
 		base = 10
@@ -232,37 +238,37 @@ func parseInt(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	i, err := strconv.ParseInt(s, base, 64)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{toy.Int(i), toy.Nil}, nil
+	return toy.Int(i), nil
 }
 
-func parseFloat(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseFloat(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
 	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{toy.Float(f), toy.Nil}, nil
+	return toy.Float(f), nil
 }
 
 type Builder strings.Builder
 
-var BuilderType = toy.NewType[*Builder]("text.Builder", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+var BuilderType = toy.NewType[*Builder]("text.Builder", func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	return new(Builder), nil
 })
 
-func (b *Builder) Type() toy.ObjectType { return BuilderType }
-func (b *Builder) String() string       { return "<text.Builder>" }
-func (b *Builder) IsFalsy() bool        { return (*strings.Builder)(b).Len() == 0 }
+func (b *Builder) Type() toy.ValueType { return BuilderType }
+func (b *Builder) String() string      { return "<text.Builder>" }
+func (b *Builder) IsFalsy() bool       { return (*strings.Builder)(b).Len() == 0 }
 
-func (b *Builder) Clone() toy.Object {
+func (b *Builder) Clone() toy.Value {
 	c := new(strings.Builder)
 	c.WriteString(b.String())
 	return (*Builder)(c)
@@ -280,12 +286,19 @@ func (b *Builder) Convert(p any) error {
 	return nil
 }
 
-func (b *Builder) FieldGet(name string) (toy.Object, error) {
-	method, ok := builderMethods[name]
+func (b *Builder) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
 	if !ok {
-		return nil, toy.ErrNoSuchField
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
 	}
-	return method.WithReceiver(b), nil
+	method, ok := builderMethods[string(keyStr)]
+	if !ok {
+		return toy.Nil, false, nil
+	}
+	return method.WithReceiver(b), true, nil
 }
 
 var builderMethods = map[string]*toy.BuiltinFunction{
@@ -293,7 +306,7 @@ var builderMethods = map[string]*toy.BuiltinFunction{
 	"reset": toy.NewBuiltinFunction("text.reset", builderResetMd),
 }
 
-func builderWriteMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func builderWriteMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(*Builder)
 	args = args[1:]
 	if len(args) != 1 {
@@ -320,7 +333,7 @@ func builderWriteMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Nil, nil
 }
 
-func builderResetMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func builderResetMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(*Builder)
 	args = args[1:]
 	if len(args) != 0 {

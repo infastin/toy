@@ -213,28 +213,6 @@ func (s *LabeledStmt) String() string {
 	return s.Label.String() + ": " + s.Stmt.String()
 }
 
-// ExportStmt represents an export statement.
-type ExportStmt struct {
-	ExportPos token.Pos
-	Result    Expr
-}
-
-func (s *ExportStmt) stmtNode() {}
-
-// Pos returns the position of first character belonging to the node.
-func (s *ExportStmt) Pos() token.Pos {
-	return s.ExportPos
-}
-
-// End returns the position of first character immediately after the node.
-func (s *ExportStmt) End() token.Pos {
-	return s.Result.End()
-}
-
-func (s *ExportStmt) String() string {
-	return "export " + s.Result.String()
-}
-
 // ExprStmt represents an expression statement.
 type ExprStmt struct {
 	Expr Expr
@@ -414,11 +392,10 @@ func (s *ReturnStmt) Pos() token.Pos {
 
 // End returns the position of first character immediately after the node.
 func (s *ReturnStmt) End() token.Pos {
-	end := s.ReturnPos + 6
-	for _, r := range s.Results {
-		end = r.End()
+	if len(s.Results) != 0 {
+		return s.Results[len(s.Results)-1].End()
 	}
-	return end
+	return s.ReturnPos + 6
 }
 
 func (s *ReturnStmt) String() string {
@@ -456,4 +433,40 @@ func (s *DeferStmt) End() token.Pos {
 
 func (s *DeferStmt) String() string {
 	return "defer " + s.CallExpr.String()
+}
+
+// ThrowStmt represents a throw statement.
+type ThrowStmt struct {
+	ThrowPos token.Pos
+	Errors   []Expr
+}
+
+func (s *ThrowStmt) stmtNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (s *ThrowStmt) Pos() token.Pos {
+	return s.ThrowPos
+}
+
+// End returns the position of first character immediately after the node.
+func (s *ThrowStmt) End() token.Pos {
+	if len(s.Errors) != 0 {
+		return s.Errors[len(s.Errors)-1].End()
+	}
+	return s.ThrowPos + 5
+}
+
+func (s *ThrowStmt) String() string {
+	var b strings.Builder
+	b.WriteString("throw")
+	if len(s.Errors) != 0 {
+		b.WriteByte(' ')
+		for i, e := range s.Errors {
+			if i != 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(e.String())
+		}
+	}
+	return b.String()
 }

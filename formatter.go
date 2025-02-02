@@ -643,7 +643,7 @@ type pp struct {
 	buf fmtbuf
 
 	// arg holds the current item.
-	arg Object
+	arg Value
 
 	// fmt is used to format basic items such as integers or strings.
 	fmt formatter
@@ -905,7 +905,7 @@ func (p *pp) fmtBytes(v []byte, verb rune, typeString string) {
 	}
 }
 
-func (p *pp) printArg(arg Object, verb rune) {
+func (p *pp) printArg(arg Value, verb rune) {
 	p.arg = arg
 
 	if arg == nil {
@@ -937,20 +937,19 @@ func (p *pp) printArg(arg Object, verb rune) {
 	case Bytes:
 		p.fmtBytes(f, verb, "[]byte")
 	default:
-		p.fmtString(f.String(), verb)
+		p.fmtString(AsString(f), verb)
 	}
 }
 
 // intFromArg gets the argNumth element of a. On return, isInt reports whether
 // the argument has integer type.
-func intFromArg(a []Object, argNum int) (num int, isInt bool, newArgNum int) {
+func intFromArg(a []Value, argNum int) (num int, isInt bool, newArgNum int) {
 	newArgNum = argNum
 	if argNum < len(a) {
-		var numInt Int
-		if err := Convert(&numInt, a[argNum]); err == nil {
+		var err error
+		if num, err = AsInt[int](a[argNum]); err == nil {
 			isInt = true
 		}
-		num = int(numInt)
 		newArgNum = argNum + 1
 		if tooLarge(num) {
 			num = 0
@@ -1020,7 +1019,7 @@ func (p *pp) missingArg(verb rune) {
 	_, _ = p.WriteString(missingString)
 }
 
-func (p *pp) doFormat(format string, a []Object) (err error) {
+func (p *pp) doFormat(format string, a []Value) (err error) {
 	end := len(format)
 	argNum := 0         // we process one argument per non-trivial format
 	afterIndex := false // previous item in format was an index like [3].
@@ -1201,8 +1200,8 @@ formatLoop:
 	return nil
 }
 
-// Format is like fmt.Sprintf but using Objects.
-func Format(format string, a ...Object) (string, error) {
+// Format is like fmt.Sprintf but using Value.
+func Format(format string, a ...Value) (string, error) {
 	p := newPrinter()
 	err := p.doFormat(format, a)
 	s := string(p.buf)

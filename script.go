@@ -29,7 +29,7 @@ func NewScript(input []byte) *Script {
 }
 
 // Add adds a new variable or updates an existing variable to the script.
-func (s *Script) Add(name string, value Object) {
+func (s *Script) Add(name string, value Value) {
 	s.variables[name] = &Variable{name, value}
 }
 
@@ -140,7 +140,7 @@ func (s *Script) RunContext(ctx context.Context) (compiled *Compiled, err error)
 	return compiled, nil
 }
 
-func (s *Script) prepCompile() (symbolTable *SymbolTable, globals []Object) {
+func (s *Script) prepCompile() (symbolTable *SymbolTable, globals []Value) {
 	var names []string
 	for name := range s.variables {
 		names = append(names, name)
@@ -151,13 +151,12 @@ func (s *Script) prepCompile() (symbolTable *SymbolTable, globals []Object) {
 		symbolTable.DefineBuiltin(i, v.name)
 	}
 
-	globals = make([]Object, GlobalsSize)
+	globals = make([]Value, GlobalsSize)
 
 	for idx, name := range names {
 		symbol := symbolTable.Define(name)
 		if symbol.Index != idx {
-			panic(fmt.Errorf("wrong symbol index: %d != %d",
-				idx, symbol.Index))
+			panic(fmt.Errorf("wrong symbol index: %d != %d", idx, symbol.Index))
 		}
 		globals[symbol.Index] = s.variables[name].Value()
 	}
@@ -170,7 +169,7 @@ func (s *Script) prepCompile() (symbolTable *SymbolTable, globals []Object) {
 type Compiled struct {
 	globalIndexes map[string]int // global symbol name to index
 	bytecode      *Bytecode
-	globals       []Object
+	globals       []Value
 	lock          sync.RWMutex
 }
 
@@ -179,8 +178,8 @@ func (c *Compiled) Run() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	v := NewVM(c.bytecode, c.globals)
-	return v.Run()
+	r := NewRuntime(c.bytecode, c.globals)
+	return r.Run()
 }
 
 // RunContext is like Run but includes a context.
@@ -188,7 +187,7 @@ func (c *Compiled) RunContext(ctx context.Context) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	v := NewVM(c.bytecode, c.globals)
+	r := NewRuntime(c.bytecode, c.globals)
 	ch := make(chan error, 1)
 	go func() {
 		defer func() {
@@ -203,17 +202,18 @@ func (c *Compiled) RunContext(ctx context.Context) (err error) {
 				}
 			}
 		}()
-		ch <- v.Run()
+		ch <- r.Run()
 	}()
 
 	select {
 	case <-ctx.Done():
-		v.Abort()
+		r.Abort()
 		<-ch
 		err = ctx.Err()
 	case err = <-ch:
 	}
-	return
+
+	return err
 }
 
 // Bytecode returns a compiled bytecode.
@@ -230,7 +230,7 @@ func (c *Compiled) Clone() *Compiled {
 	clone := &Compiled{
 		globalIndexes: c.globalIndexes,
 		bytecode:      c.bytecode,
-		globals:       make([]Object, len(c.globals)),
+		globals:       make([]Value, len(c.globals)),
 	}
 
 	// copy global objects
@@ -267,7 +267,7 @@ func (c *Compiled) Get(name string) *Variable {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	value := Object(Nil)
+	value := Value(Nil)
 	if idx, ok := c.globalIndexes[name]; ok {
 		value = c.globals[idx]
 		if value == nil {
@@ -303,7 +303,7 @@ func (c *Compiled) GetAll() []*Variable {
 
 // Set replaces the value of a global variable identified by the name. An error
 // will be returned if the name was not defined during compilation.
-func (c *Compiled) Set(name string, value Object) error {
+func (c *Compiled) Set(name string, value Value) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 

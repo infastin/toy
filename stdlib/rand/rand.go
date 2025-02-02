@@ -12,7 +12,7 @@ import (
 
 var Module = &toy.BuiltinModule{
 	Name: "rand",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"int":          toy.NewBuiltinFunction("rand.int", intFn),
 		"float":        toy.NewBuiltinFunction("rand.float", floatFn),
 		"text":         toy.NewBuiltinFunction("rand.text", textFn),
@@ -22,7 +22,7 @@ var Module = &toy.BuiltinModule{
 	},
 }
 
-func intFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func intFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	maxNum := int64(math.MaxInt64)
 	if err := toy.UnpackArgs(args, "n?", &maxNum); err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func intFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Int(x.Int64()), nil
 }
 
-func floatFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func floatFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
@@ -81,7 +81,7 @@ func randStr(count int, alphabet []rune) (string, error) {
 	return b.String(), nil
 }
 
-func textFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func textFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		alphabet string
 		n        int
@@ -96,7 +96,7 @@ func textFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(str), nil
 }
 
-func alphaFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func alphaFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var n int
 	if err := toy.UnpackArgs(args, "n", &n); err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func alphaFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(str), nil
 }
 
-func alphanumericFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func alphanumericFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var n int
 	if err := toy.UnpackArgs(args, "n", &n); err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func alphanumericFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(str), nil
 }
 
-func asciiFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func asciiFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var n int
 	if err := toy.UnpackArgs(args, "n", &n); err != nil {
 		return nil, err

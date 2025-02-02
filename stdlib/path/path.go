@@ -11,7 +11,7 @@ import (
 
 var Module = &toy.BuiltinModule{
 	Name: "path",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"separator":     toy.Char(os.PathSeparator),
 		"listSeparator": toy.Char(os.PathListSeparator),
 
@@ -24,7 +24,7 @@ var Module = &toy.BuiltinModule{
 	},
 }
 
-func joinFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func joinFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var elems []string
 	for i, arg := range args {
 		str, ok := arg.(toy.String)

@@ -3,10 +3,9 @@ package toy
 import (
 	"fmt"
 	"iter"
-	"math/big"
 )
 
-// hashtable is used to represent Toy map entries.
+// hashtable is used to represent Table values.
 // It is a hash table whose key/value entries form a doubly-linked list
 // in the order the entries were inserted.
 //
@@ -43,7 +42,7 @@ type bucket struct {
 
 type entry struct {
 	hash       uint64 // nonzero => in use
-	key, value Object
+	key, value Value
 	next       *entry  // insertion order doubly-linked list; may be nil
 	prevLink   **entry // address of link to this entry (perhaps &head)
 }
@@ -64,7 +63,7 @@ func (ht *hashtable) init(size int) {
 	ht.tailLink = &ht.head
 }
 
-func (ht *hashtable) insert(k, v Object) error {
+func (ht *hashtable) insert(k, v Value) error {
 	if err := ht.checkMutable("insert into"); err != nil {
 		return err
 	}
@@ -161,7 +160,7 @@ func (ht *hashtable) grow() {
 	ht.bucket0[0] = bucket{} // clear out unused initial bucket
 }
 
-func (ht *hashtable) lookup(k Object) (v Object, found bool, err error) {
+func (ht *hashtable) lookup(k Value) (v Value, found bool, err error) {
 	h, err := Hash(k)
 	if err != nil {
 		return nil, false, err // unhashable
@@ -189,66 +188,16 @@ func (ht *hashtable) lookup(k Object) (v Object, found bool, err error) {
 	return Nil, false, nil // not found
 }
 
-// count returns the number of distinct elements of iter that are elements of ht.
-func (ht *hashtable) count(iter Iterator) (int, error) {
-	if ht.table == nil {
-		return 0, nil // empty
-	}
-	var (
-		k     Object
-		count = 0
-	)
-	// Use a bitset per table entry to record seen elements of ht.
-	// Elements are identified by their bucket number and index within the bucket.
-	// Each bitset gets one word initially, but may grow.
-	storage := make([]big.Word, len(ht.table))
-	bitsets := make([]big.Int, len(ht.table))
-	for i := range bitsets {
-		bitsets[i].SetBits(storage[i : i+1 : i+1])
-	}
-	for iter.Next(&k, nil) && count != int(ht.len) {
-		h, err := Hash(k)
-		if err != nil {
-			return 0, err // unhashable
-		}
-		if h == 0 {
-			h = 1 // zero is reserved
-		}
-		// Inspect each bucket in the bucket list.
-		bucketId := h & (uint64(len(ht.table) - 1))
-		i := 0
-		for p := &ht.table[bucketId]; p != nil; p = p.next {
-			for j := range p.entries {
-				e := &p.entries[j]
-				if e.hash != h {
-					continue
-				}
-				if eq, err := Equal(k, e.key); err != nil {
-					return 0, err
-				} else if eq {
-					bitIndex := i<<3 + j
-					if bitsets[bucketId].Bit(bitIndex) == 0 {
-						bitsets[bucketId].SetBit(&bitsets[bucketId], bitIndex, 1)
-						count++
-					}
-				}
-			}
-			i++
-		}
-	}
-	return count, nil
-}
-
-func (ht *hashtable) keys() []Object {
-	keys := make([]Object, 0, ht.len)
+func (ht *hashtable) keys() []Value {
+	keys := make([]Value, 0, ht.len)
 	for e := ht.head; e != nil; e = e.next {
 		keys = append(keys, e.key)
 	}
 	return keys
 }
 
-func (ht *hashtable) values() []Object {
-	values := make([]Object, 0, ht.len)
+func (ht *hashtable) values() []Value {
+	values := make([]Value, 0, ht.len)
 	for e := ht.head; e != nil; e = e.next {
 		values = append(values, e.value)
 	}
@@ -263,7 +212,7 @@ func (ht *hashtable) items() []Tuple {
 	return items
 }
 
-func (ht *hashtable) delete(k Object) (v Object, err error) {
+func (ht *hashtable) delete(k Value) (v Value, err error) {
 	if err := ht.checkMutable("delete from"); err != nil {
 		return nil, err
 	}
@@ -311,10 +260,10 @@ func (ht *hashtable) delete(k Object) (v Object, err error) {
 // verb+" immutable hash table" should describe the operation.
 func (ht *hashtable) checkMutable(verb string) error {
 	if ht.immutable {
-		return fmt.Errorf("cannot %s immutable hash table", verb)
+		return fmt.Errorf("cannot %s immutable table", verb)
 	}
 	if ht.itercount > 0 {
-		return fmt.Errorf("cannot %s hash table during iteration", verb)
+		return fmt.Errorf("cannot %s table during iteration", verb)
 	}
 	return nil
 }
@@ -406,7 +355,7 @@ func (ht *hashtable) dump() {
 	}
 }
 
-func (ht *hashtable) contains(key Object) (bool, error) {
+func (ht *hashtable) contains(key Value) (bool, error) {
 	h, err := Hash(key)
 	if err != nil {
 		return false, err // unhashable
@@ -434,48 +383,8 @@ func (ht *hashtable) contains(key Object) (bool, error) {
 	return false, nil // not found
 }
 
-func (ht *hashtable) iterate() *htIterator {
-	if !ht.immutable {
-		ht.itercount++
-	}
-	return &htIterator{ht: ht, e: ht.head}
-}
-
-type htIterator struct {
-	ht *hashtable
-	e  *entry
-}
-
-var htIteratorType = NewType[*htIterator]("hashable-iterator", nil)
-
-func (it *htIterator) Type() ObjectType { return htIteratorType }
-func (it *htIterator) String() string   { return "<hashtable-iterator>" }
-func (it *htIterator) IsFalsy() bool    { return true }
-func (it *htIterator) Clone() Object    { return &htIterator{ht: it.ht, e: it.e} }
-
-func (it *htIterator) Next(key, value *Object) bool {
-	if it.e != nil {
-		if key != nil {
-			*key = it.e.key
-		}
-		if value != nil {
-			*value = it.e.value
-		}
-		it.e = it.e.next
-		return true
-	}
-	return false
-}
-
-func (it *htIterator) Close() {
-	if !it.ht.immutable {
-		it.ht.itercount--
-	}
-}
-
-// elements is a go1.23 iterator over the values of the hash table.
-func (ht *hashtable) elements() iter.Seq[Object] {
-	return func(yield func(Object) bool) {
+func (ht *hashtable) elements() iter.Seq[Value] {
+	return func(yield func(Value) bool) {
 		if !ht.immutable {
 			ht.itercount++
 			defer func() { ht.itercount-- }()
@@ -485,9 +394,8 @@ func (ht *hashtable) elements() iter.Seq[Object] {
 	}
 }
 
-// entries is a go1.23 iterator over the entries of the hash table.
-func (ht *hashtable) entries() iter.Seq2[Object, Object] {
-	return func(yield func(Object, Object) bool) {
+func (ht *hashtable) entries() iter.Seq2[Value, Value] {
+	return func(yield func(Value, Value) bool) {
 		if !ht.immutable {
 			ht.itercount++
 			defer func() { ht.itercount-- }()

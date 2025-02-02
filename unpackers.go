@@ -11,16 +11,16 @@ type StringOrBytes []byte
 func (s StringOrBytes) String() string { return unsafe.String(unsafe.SliceData(s), len(s)) }
 func (s StringOrBytes) Bytes() []byte  { return s }
 
-func (s *StringOrBytes) Unpack(o Object) error {
-	switch o := o.(type) {
+func (s *StringOrBytes) Unpack(v Value) error {
+	switch x := v.(type) {
 	case String:
-		*s = StringOrBytes(o)
+		*s = StringOrBytes(x)
 	case Bytes:
-		*s = StringOrBytes(o)
+		*s = StringOrBytes(x)
 	default:
 		return &InvalidValueTypeError{
 			Want: "string or bytes",
-			Got:  TypeName(o),
+			Got:  TypeName(x),
 		}
 	}
 	return nil
@@ -30,16 +30,16 @@ func (s *StringOrBytes) Unpack(o Object) error {
 // functions to accept Int and Float as an argument.
 type IntOrFloat float64
 
-func (i *IntOrFloat) Unpack(o Object) error {
-	switch o := o.(type) {
+func (i *IntOrFloat) Unpack(v Value) error {
+	switch x := v.(type) {
 	case Int:
-		*i = IntOrFloat(o)
+		*i = IntOrFloat(x)
 	case Float:
-		*i = IntOrFloat(o)
+		*i = IntOrFloat(x)
 	default:
 		return &InvalidValueTypeError{
 			Want: "int or float",
-			Got:  TypeName(o),
+			Got:  TypeName(x),
 		}
 	}
 	return nil
@@ -49,16 +49,16 @@ func (i *IntOrFloat) Unpack(o Object) error {
 // functions to accept String and Char as an argument.
 type StringOrChar string
 
-func (s *StringOrChar) Unpack(o Object) error {
-	switch o := o.(type) {
+func (s *StringOrChar) Unpack(v Value) error {
+	switch x := v.(type) {
 	case String:
-		*s = StringOrChar(o)
+		*s = StringOrChar(x)
 	case Char:
-		*s = StringOrChar(o)
+		*s = StringOrChar(x)
 	default:
 		return &InvalidValueTypeError{
 			Want: "string or char",
-			Got:  TypeName(o),
+			Got:  TypeName(x),
 		}
 	}
 	return nil

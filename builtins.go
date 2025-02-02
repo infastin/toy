@@ -27,7 +27,6 @@ var Universe = []*Variable{
 	NewVariable("contains", NewBuiltinFunction("contains", builtinContains)),
 
 	NewVariable("format", NewBuiltinFunction("format", builtinFormat)),
-	NewVariable("fail", NewBuiltinFunction("fail", builtinFail)),
 	NewVariable("min", NewBuiltinFunction("min", builtinMin)),
 	NewVariable("max", NewBuiltinFunction("max", builtinMax)),
 
@@ -39,14 +38,13 @@ var Universe = []*Variable{
 	NewVariable("bytes", BytesType),
 	NewVariable("char", CharType),
 	NewVariable("array", ArrayType),
-	NewVariable("map", MapType),
+	NewVariable("table", TableType),
 	NewVariable("tuple", TupleType),
-	NewVariable("error", ErrorType),
 	NewVariable("range", RangeType),
 	NewVariable("function", FunctionType),
 }
 
-func builtinTypeName(_ *VM, args ...Object) (Object, error) {
+func builtinTypeName(_ *Runtime, args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -57,7 +55,7 @@ func builtinTypeName(_ *VM, args ...Object) (Object, error) {
 	return String(TypeName(args[0])), nil
 }
 
-func builtinClone(_ *VM, args ...Object) (Object, error) {
+func builtinClone(_ *Runtime, args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -68,7 +66,7 @@ func builtinClone(_ *VM, args ...Object) (Object, error) {
 	return args[0].Clone(), nil
 }
 
-func builtinFreeze(_ *VM, args ...Object) (Object, error) {
+func builtinFreeze(_ *Runtime, args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -79,7 +77,7 @@ func builtinFreeze(_ *VM, args ...Object) (Object, error) {
 	return Freeze(args[0]), nil
 }
 
-func builtinLen(_ *VM, args ...Object) (Object, error) {
+func builtinLen(_ *Runtime, args ...Value) (Value, error) {
 	var value Sized
 	if err := UnpackArgs(args, "value", &value); err != nil {
 		return nil, err
@@ -87,10 +85,10 @@ func builtinLen(_ *VM, args ...Object) (Object, error) {
 	return Int(value.Len()), nil
 }
 
-func builtinAppend(_ *VM, args ...Object) (Object, error) {
+func builtinAppend(_ *Runtime, args ...Value) (Value, error) {
 	var (
 		arr  *Array
-		rest []Object
+		rest []Value
 	)
 	if err := UnpackArgs(args, "arr", &arr, "...", &rest); err != nil {
 		return nil, err
@@ -102,7 +100,7 @@ func builtinAppend(_ *VM, args ...Object) (Object, error) {
 	}, nil
 }
 
-func builtinCopy(_ *VM, args ...Object) (Object, error) {
+func builtinCopy(_ *Runtime, args ...Value) (Value, error) {
 	var dst, src *Array
 	if err := UnpackArgs(args, "dst", &dst, "src", &src); err != nil {
 		return nil, err
@@ -114,7 +112,7 @@ func builtinCopy(_ *VM, args ...Object) (Object, error) {
 	return Int(n), nil
 }
 
-func builtinDelete(_ *VM, args ...Object) (Object, error) {
+func builtinDelete(_ *Runtime, args ...Value) (Value, error) {
 	if len(args) < 2 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 2,
@@ -168,7 +166,7 @@ func builtinDelete(_ *VM, args ...Object) (Object, error) {
 		deleted := slices.Clone(x.elems[start:stop])
 		x.elems = slices.Delete(x.elems, start, stop)
 		return NewArray(deleted), nil
-	case *Map:
+	case *Table:
 		if len(args) > 2 {
 			return nil, &WrongNumArgumentsError{
 				WantMin: 2,
@@ -178,24 +176,24 @@ func builtinDelete(_ *VM, args ...Object) (Object, error) {
 		}
 		value, err := x.Delete(args[1])
 		if err != nil {
-			return nil, fmt.Errorf("failed to delete '%s' from map: %w", TypeName(args[1]), err)
+			return nil, fmt.Errorf("failed to delete '%s' from table: %w", TypeName(args[1]), err)
 		}
 		return value, nil
 	default:
 		return nil, &InvalidArgumentTypeError{
 			Name: "collection",
-			Want: "array or map",
+			Want: "array or table",
 			Got:  TypeName(x),
 		}
 	}
 }
 
-func builtinSplice(_ *VM, args ...Object) (Object, error) {
+func builtinSplice(_ *Runtime, args ...Value) (Value, error) {
 	var (
 		arr         *Array
 		start, stop int
 		stopPtr     *int
-		rest        []Object
+		rest        []Value
 	)
 	if err := UnpackArgs(args,
 		"arr", &arr,
@@ -243,7 +241,7 @@ func builtinSplice(_ *VM, args ...Object) (Object, error) {
 	return NewArray(deleted), nil
 }
 
-func builtinInsert(_ *VM, args ...Object) (Object, error) {
+func builtinInsert(_ *Runtime, args ...Value) (Value, error) {
 	if len(args) < 2 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 2,
@@ -254,7 +252,7 @@ func builtinInsert(_ *VM, args ...Object) (Object, error) {
 	case *Array:
 		var (
 			index int
-			rest  []Object
+			rest  []Value
 		)
 		if err := UnpackArgs(args[1:], "index", &index, "...", &rest); err != nil {
 			return nil, err
@@ -271,7 +269,7 @@ func builtinInsert(_ *VM, args ...Object) (Object, error) {
 		}
 		x.elems = slices.Insert(x.elems, index, rest...)
 		return Nil, nil
-	case *Map:
+	case *Table:
 		if len(args) != 3 {
 			return nil, &WrongNumArgumentsError{
 				WantMin: 2,
@@ -279,24 +277,24 @@ func builtinInsert(_ *VM, args ...Object) (Object, error) {
 				Got:     len(args),
 			}
 		}
-		var index, value Object
+		var index, value Value
 		if err := UnpackArgs(args[1:], "index", &index, "value", &value); err != nil {
 			return nil, err
 		}
-		if err := x.IndexSet(index, value); err != nil {
-			return nil, fmt.Errorf("failed to insert '%s' into map: %w", TypeName(index), err)
+		if err := x.SetProperty(index, value); err != nil {
+			return nil, fmt.Errorf("failed to insert '%s' into table: %w", TypeName(index), err)
 		}
 		return Nil, nil
 	default:
 		return nil, &InvalidArgumentTypeError{
 			Name: "collection",
-			Want: "array or map",
+			Want: "array or table",
 			Got:  TypeName(x),
 		}
 	}
 }
 
-func builtinClear(_ *VM, args ...Object) (Object, error) {
+func builtinClear(_ *Runtime, args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -309,24 +307,24 @@ func builtinClear(_ *VM, args ...Object) (Object, error) {
 		if err := x.Clear(); err != nil {
 			return nil, err
 		}
-	case *Map:
+	case *Table:
 		if err := x.Clear(); err != nil {
 			return nil, err
 		}
 	default:
 		return nil, &InvalidArgumentTypeError{
 			Name: "collection",
-			Want: "array or map",
+			Want: "array or table",
 			Got:  TypeName(x),
 		}
 	}
 	return Nil, nil
 }
 
-func builtinContains(vm *VM, args ...Object) (Object, error) {
+func builtinContains(_ *Runtime, args ...Value) (Value, error) {
 	var (
 		container Container
-		value     Object
+		value     Value
 	)
 	if err := UnpackArgs(args, "container", &container, "value", &value); err != nil {
 		return nil, err
@@ -345,10 +343,10 @@ func builtinContains(vm *VM, args ...Object) (Object, error) {
 	return Bool(contains), nil
 }
 
-func builtinFormat(_ *VM, args ...Object) (Object, error) {
+func builtinFormat(_ *Runtime, args ...Value) (Value, error) {
 	var (
 		format string
-		rest   []Object
+		rest   []Value
 	)
 	if err := UnpackArgs(args, "format", &format, "...", &rest); err != nil {
 		return nil, err
@@ -363,32 +361,7 @@ func builtinFormat(_ *VM, args ...Object) (Object, error) {
 	return String(s), nil
 }
 
-func builtinFail(v *VM, args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, &WrongNumArgumentsError{
-			WantMin: 1,
-			WantMax: 1,
-			Got:     len(args),
-		}
-	}
-	var msg string
-	switch x := args[0].(type) {
-	case String:
-		msg = string(x)
-	case *Error:
-		msg = x.GoString()
-	default:
-		var s String
-		if err := Convert(&s, args[0]); err != nil {
-			return nil, err
-		}
-		msg = string(s)
-	}
-	v.err = errors.New(msg)
-	return nil, nil
-}
-
-func builtinMin(_ *VM, args ...Object) (Object, error) {
+func builtinMin(_ *Runtime, args ...Value) (Value, error) {
 	if len(args) < 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -408,7 +381,7 @@ func builtinMin(_ *VM, args ...Object) (Object, error) {
 	return min, nil
 }
 
-func builtinMax(_ *VM, args ...Object) (Object, error) {
+func builtinMax(_ *Runtime, args ...Value) (Value, error) {
 	if len(args) < 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,
@@ -428,7 +401,7 @@ func builtinMax(_ *VM, args ...Object) (Object, error) {
 	return max, nil
 }
 
-func builtinSatisfies(_ *VM, args ...Object) (Object, error) {
+func builtinSatisfies(_ *Runtime, args ...Value) (Value, error) {
 	if len(args) < 2 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 2,
@@ -466,18 +439,16 @@ func builtinSatisfies(_ *VM, args ...Object) (Object, error) {
 			_, ok = x.(HasBinaryOp)
 		case "unary-op":
 			_, ok = x.(HasUnaryOp)
+		case "property accessible":
+			_, ok = x.(PropertyAccessible)
+		case "property assignable":
+			_, ok = x.(PropertyAssignable)
+		case "sized":
+			_, ok = x.(Sized)
 		case "index accessible":
 			_, ok = x.(IndexAccessible)
 		case "index assignable":
 			_, ok = x.(IndexAssignable)
-		case "field accessible":
-			_, ok = x.(FieldAccessible)
-		case "field assignable":
-			_, ok = x.(FieldAssignable)
-		case "sized":
-			_, ok = x.(Sized)
-		case "indexable":
-			_, ok = x.(Indexable)
 		case "sliceable":
 			_, ok = x.(Sliceable)
 		case "convertible":
@@ -490,8 +461,8 @@ func builtinSatisfies(_ *VM, args ...Object) (Object, error) {
 			_, ok = x.(Iterable)
 		case "sequence":
 			_, ok = x.(Sequence)
-		case "indexable sequence":
-			_, ok = x.(IndexableSequence)
+		case "kv iterable":
+			_, ok = x.(KVIterable)
 		case "mapping":
 			_, ok = x.(Mapping)
 		default:
@@ -504,7 +475,7 @@ func builtinSatisfies(_ *VM, args ...Object) (Object, error) {
 	return True, nil
 }
 
-func builtinImmutable(_ *VM, args ...Object) (Object, error) {
+func builtinImmutable(_ *Runtime, args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, &WrongNumArgumentsError{
 			WantMin: 1,

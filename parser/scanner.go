@@ -107,8 +107,8 @@ func (s *Scanner) Scan() (
 			// keywords are longer than one letter – avoid lookup otherwise
 			tok = token.Lookup(literal)
 			switch tok {
-			case token.Ident, token.Break, token.Continue, token.Return,
-				token.Export, token.True, token.False, token.Nil:
+			case token.Ident, token.True, token.False, token.Nil,
+				token.Break, token.Continue, token.Return, token.Throw:
 				insertSemi = true
 			}
 		} else {
@@ -784,27 +784,6 @@ func (s *Scanner) switch3(
 	if s.ch == ch2 {
 		s.next()
 		return tok2
-	}
-	return tok0
-}
-
-func (s *Scanner) switch4(
-	tok0 token.Token,
-	ch1 rune, tok1 token.Token,
-	ch2 rune, tok2 token.Token,
-	ch3 rune, tok3 token.Token,
-) token.Token {
-	if s.ch == ch1 {
-		s.next()
-		return tok1
-	}
-	if s.ch == ch2 {
-		s.next()
-		return tok2
-	}
-	if s.ch == ch3 {
-		s.next()
-		return tok3
 	}
 	return tok0
 }

@@ -14,27 +14,13 @@ var (
 	// ErrInvalidOperation represents an error for invalid operator usage.
 	ErrInvalidOperation = errors.New("invalid operation")
 
-	// ErrNoSuchField is an error where a field with the given name does not exist.
-	ErrNoSuchField = errors.New("no such field")
-
-	// ErrNotConvertable is an error where an Object of some type
+	// ErrNotConvertable is an error where an Value of some type
 	// cannot be converted to another type.
 	ErrNotConvertible = errors.New("not convertible")
 
 	// ErrDivisionByZero represents a division by zero error.
 	ErrDivisionByZero = errors.New("division by zero")
 )
-
-// InvalidValueTypeError represents an invalid index type error.
-type InvalidIndexTypeError struct {
-	Want string
-	Got  string
-}
-
-func (e *InvalidIndexTypeError) Error() string {
-	return fmt.Sprintf("invalid index type: want '%s', got '%s'",
-		e.Want, e.Got)
-}
 
 // InvalidKeyTypeError represents an invalid key type error.
 type InvalidKeyTypeError struct {
@@ -49,11 +35,16 @@ func (e *InvalidKeyTypeError) Error() string {
 
 // InvalidValueTypeError represents an invalid value type error.
 type InvalidValueTypeError struct {
+	Sel  string
 	Want string
 	Got  string
 }
 
 func (e *InvalidValueTypeError) Error() string {
+	if e.Sel != "" {
+		return fmt.Sprintf("invalid value type for '%s': want '%s', got '%s'",
+			e.Sel, e.Want, e.Got)
+	}
 	return fmt.Sprintf("invalid value type: want '%s', got '%s'",
 		e.Want, e.Got)
 }
@@ -61,13 +52,14 @@ func (e *InvalidValueTypeError) Error() string {
 // InvalidArgumentTypeError represents an invalid argument value type error.
 type InvalidArgumentTypeError struct {
 	Name string
+	Sel  string
 	Want string
 	Got  string
 }
 
 func (e *InvalidArgumentTypeError) Error() string {
-	return fmt.Sprintf("invalid type for argument '%s': want '%s', got '%s'",
-		e.Name, e.Want, e.Got)
+	return fmt.Sprintf("invalid type for argument '%s%s': want '%s', got '%s'",
+		e.Name, e.Sel, e.Want, e.Got)
 }
 
 // WrongNumArgumentsError represents a wrong number of arguments error.
@@ -111,34 +103,4 @@ type UnexpectedArgumentError struct {
 
 func (e *UnexpectedArgumentError) Error() string {
 	return fmt.Sprintf("unexpected argument '%s'", e.Name)
-}
-
-// InvalidEntryValueTypeError represents an invalid entry value type error.
-type InvalidEntryValueTypeError struct {
-	Name string
-	Want string
-	Got  string
-}
-
-func (e *InvalidEntryValueTypeError) Error() string {
-	return fmt.Sprintf("invalid type for entry value with key '%s': want '%s', got '%s'",
-		e.Name, e.Want, e.Got)
-}
-
-// MissingEntryError represents a missing entry error.
-type MissingEntryError struct {
-	Name string
-}
-
-func (e *MissingEntryError) Error() string {
-	return fmt.Sprintf("missing entry for '%s'", e.Name)
-}
-
-// UnexpectedEntryError represents an unexpected entry error.
-type UnexpectedEntryError struct {
-	Name string
-}
-
-func (e *UnexpectedEntryError) Error() string {
-	return fmt.Sprintf("unexpected entry with key '%s'", e.Name)
 }

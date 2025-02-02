@@ -21,7 +21,7 @@ var stmtStart = map[token.Token]bool{
 	token.If:       true,
 	token.Return:   true,
 	token.Defer:    true,
-	token.Export:   true,
+	token.Throw:    true,
 }
 
 // Error represents a parser error.
@@ -32,9 +32,9 @@ type Error struct {
 
 func (e Error) Error() string {
 	if e.Pos.Filename != "" || e.Pos.IsValid() {
-		return fmt.Sprintf("Parse Error: %s\n\tat %s", e.Msg, e.Pos)
+		return fmt.Sprintf("parse error: %s\n└─ at %s", e.Msg, e.Pos)
 	}
-	return fmt.Sprintf("Parse Error: %s", e.Msg)
+	return fmt.Sprintf("parse error: %s", e.Msg)
 }
 
 // ErrorList is a collection of parser errors.
@@ -158,7 +158,7 @@ func (p *Parser) ParseFile() (file *ast.File, err error) {
 
 func (p *Parser) parseExpr() ast.Expr {
 	if p.trace {
-		defer untracep(tracep(p, "Expression"))
+		defer untracep(tracep(p, "Expr"))
 	}
 	expr := p.parseBinaryExpr(token.LowestPrec + 1)
 	// ternary conditional expression
@@ -170,7 +170,7 @@ func (p *Parser) parseExpr() ast.Expr {
 
 func (p *Parser) parseBinaryExpr(prec1 int) ast.Expr {
 	if p.trace {
-		defer untracep(tracep(p, "BinaryExpression"))
+		defer untracep(tracep(p, "BinaryExpr"))
 	}
 	x := p.parseUnaryExpr()
 	for {
@@ -205,7 +205,7 @@ func (p *Parser) parseCondExpr(cond ast.Expr) ast.Expr {
 
 func (p *Parser) parseUnaryExpr() ast.Expr {
 	if p.trace {
-		defer untracep(tracep(p, "UnaryExpression"))
+		defer untracep(tracep(p, "UnaryExpr"))
 	}
 	switch p.token {
 	case token.Add, token.Sub, token.Not, token.Xor:
@@ -223,7 +223,7 @@ func (p *Parser) parseUnaryExpr() ast.Expr {
 
 func (p *Parser) parsePrimaryExpr() ast.Expr {
 	if p.trace {
-		defer untracep(tracep(p, "PrimaryExpression"))
+		defer untracep(tracep(p, "PrimaryExpr"))
 	}
 	x := p.parseOperand()
 loop:
@@ -437,8 +437,6 @@ func (p *Parser) parseOperand() ast.Expr {
 		x := &ast.NilLit{TokenPos: p.pos}
 		p.next()
 		return x
-	case token.Import:
-		return p.parseImportExpr()
 	case token.LParen:
 		lparen := p.pos
 		p.next()
@@ -453,10 +451,14 @@ func (p *Parser) parseOperand() ast.Expr {
 		}
 	case token.LBrack: // array literal
 		return p.parseArrayLit()
-	case token.LBrace: // map literal
-		return p.parseMapLit()
-	case token.Func: // function literal
+	case token.LBrace: // table literal
+		return p.parseTableLit()
+	case token.Func:
 		return p.parseFuncLit()
+	case token.Import:
+		return p.parseImportExpr()
+	case token.Try:
+		return p.parseTryExpr()
 	default:
 		p.errorExpected(p.pos, "operand")
 	}
@@ -466,6 +468,9 @@ func (p *Parser) parseOperand() ast.Expr {
 }
 
 func (p *Parser) parseImportExpr() ast.Expr {
+	if p.trace {
+		defer untracep(tracep(p, "ImportExpr"))
+	}
 	pos := p.expect(token.Import)
 	lparen := p.expect(token.LParen)
 	if p.token != token.DoubleQuote {
@@ -483,7 +488,25 @@ func (p *Parser) parseImportExpr() ast.Expr {
 	}
 }
 
+func (p *Parser) parseTryExpr() ast.Expr {
+	if p.trace {
+		defer untracep(tracep(p, "TryExpr"))
+	}
+	pos := p.expect(token.Try)
+	call := p.parseCallExpr("try")
+	if call == nil {
+		return &ast.BadExpr{From: pos, To: pos + 3} // len("try")
+	}
+	return &ast.TryExpr{
+		TryPos:   pos,
+		CallExpr: call,
+	}
+}
+
 func (p *Parser) parseCharLit() ast.Expr {
+	if p.trace {
+		defer untracep(tracep(p, "CharLit"))
+	}
 	if n := len(p.tokenLit); n >= 3 {
 		code, _, _, err := strconv.UnquoteChar(p.tokenLit[1:n-1], '\'')
 		if err == nil {
@@ -723,9 +746,9 @@ func (p *Parser) parseStmt() (stmt ast.Stmt) {
 		token.Func, token.Ident, token.Int, token.Float, token.Char,
 		token.DoubleQuote, token.Backtick, token.DoubleSingleQuote,
 		token.True, token.False, token.Nil,
-		token.Import, token.LParen, token.LBrace,
-		token.LBrack, token.Add, token.Sub, token.Mul, token.And, token.Xor,
-		token.Not:
+		token.LParen, token.LBrace, token.LBrack,
+		token.Add, token.Sub, token.Mul, token.And, token.Xor, token.Not,
+		token.Try, token.Import:
 		s := p.parseSimpleStmt(labelOk)
 		// because of the required look-ahead, labeled statements are
 		// parsed by parseSimpleStmt - don't expect a semicolon after
@@ -738,8 +761,8 @@ func (p *Parser) parseStmt() (stmt ast.Stmt) {
 		return p.parseReturnStmt()
 	case token.Defer:
 		return p.parseDeferStmt()
-	case token.Export:
-		return p.parseExportStmt()
+	case token.Throw:
+		return p.parseThrowStmt()
 	case token.If:
 		return p.parseIfStmt()
 	case token.For:
@@ -984,16 +1007,23 @@ func (p *Parser) parseDeferStmt() ast.Stmt {
 	return &ast.DeferStmt{DeferPos: pos, CallExpr: call}
 }
 
-func (p *Parser) parseExportStmt() ast.Stmt {
+func (p *Parser) parseThrowStmt() ast.Stmt {
 	if p.trace {
-		defer untracep(tracep(p, "ExportStmt"))
+		defer untracep(tracep(p, "ThrowStmt"))
 	}
-	pos := p.expect(token.Export)
-	x := p.parseExpr()
+
+	pos := p.expect(token.Throw)
+
+	var errors []ast.Expr
+	if p.token != token.Semicolon && p.token != token.RBrace {
+		errors = p.parseExprList()
+	}
+
 	p.expectSemi()
-	return &ast.ExportStmt{
-		ExportPos: pos,
-		Result:    x,
+
+	return &ast.ThrowStmt{
+		ThrowPos: pos,
+		Errors:   errors,
 	}
 }
 
@@ -1095,7 +1125,7 @@ func (p *Parser) parseSimpleStmt(mode int) ast.Stmt {
 
 func (p *Parser) parseExprList() (list []ast.Expr) {
 	if p.trace {
-		defer untracep(tracep(p, "ExpressionList"))
+		defer untracep(tracep(p, "ExprList"))
 	}
 	list = append(list, p.parseExpr())
 	for p.token == token.Comma {
@@ -1105,9 +1135,9 @@ func (p *Parser) parseExprList() (list []ast.Expr) {
 	return list
 }
 
-func (p *Parser) parseMapElementLit() *ast.MapElementLit {
+func (p *Parser) parsetTableElementLit() *ast.TableElementLit {
 	if p.trace {
-		defer untracep(tracep(p, "MapElementLit"))
+		defer untracep(tracep(p, "TableElementLit"))
 	}
 	var key ast.Expr
 	switch p.token {
@@ -1122,35 +1152,35 @@ func (p *Parser) parseMapElementLit() *ast.MapElementLit {
 		p.next()
 		expr := p.parseExpr()
 		rbrack := p.expect(token.RBrack)
-		key = &ast.MapKeyExpr{
+		key = &ast.TableKeyExpr{
 			LBrack: lbrack,
 			Expr:   expr,
 			RBrack: rbrack,
 		}
 	default:
-		p.errorExpected(p.pos, "map key")
+		p.errorExpected(p.pos, "table key")
 	}
 	colonPos := p.expect(token.Colon)
 	valueExpr := p.parseExpr()
-	return &ast.MapElementLit{
+	return &ast.TableElementLit{
 		Key:      key,
 		ColonPos: colonPos,
 		Value:    valueExpr,
 	}
 }
 
-func (p *Parser) parseMapLit() *ast.MapLit {
+func (p *Parser) parseTableLit() *ast.TableLit {
 	if p.trace {
-		defer untracep(tracep(p, "MapLit"))
+		defer untracep(tracep(p, "TableLit"))
 	}
 
 	lbrace := p.expect(token.LBrace)
 	p.exprLevel++
 
-	var elements []*ast.MapElementLit
+	var elements []*ast.TableElementLit
 	for p.token != token.RBrace && p.token != token.EOF {
-		elements = append(elements, p.parseMapElementLit())
-		if !p.expectComma("map element") {
+		elements = append(elements, p.parsetTableElementLit())
+		if !p.expectComma("table element") {
 			break
 		}
 	}
@@ -1158,7 +1188,7 @@ func (p *Parser) parseMapLit() *ast.MapLit {
 	p.exprLevel--
 	rbrace := p.expect(token.RBrace)
 
-	return &ast.MapLit{
+	return &ast.TableLit{
 		LBrace:   lbrace,
 		RBrace:   rbrace,
 		Elements: elements,

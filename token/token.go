@@ -90,7 +90,8 @@ const (
 	If
 	Return
 	Defer
-	Export
+	Try
+	Throw
 	True
 	False
 	In
@@ -176,7 +177,8 @@ var tokens = [...]string{
 	If:       "if",
 	Return:   "return",
 	Defer:    "defer",
-	Export:   "export",
+	Try:      "try",
+	Throw:    "throw",
 	True:     "true",
 	False:    "false",
 	In:       "in",
@@ -205,7 +207,7 @@ func (tok Token) Precedence() int {
 		return 1
 	case LAnd:
 		return 2
-	case Equal, NotEqual, Less, LessEq, Greater, GreaterEq, Nullish:
+	case Equal, NotEqual, Less, LessEq, Greater, GreaterEq:
 		return 3
 	case Add, Sub, Or, Xor:
 		return 4

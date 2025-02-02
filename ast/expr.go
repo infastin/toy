@@ -349,6 +349,28 @@ func (e *ImportExpr) String() string {
 	return `import("` + e.ModuleName + `")`
 }
 
+// TryExpr represents a try expression.
+type TryExpr struct {
+	TryPos   token.Pos
+	CallExpr *CallExpr
+}
+
+func (e *TryExpr) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *TryExpr) Pos() token.Pos {
+	return e.TryPos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *TryExpr) End() token.Pos {
+	return e.CallExpr.End()
+}
+
+func (e *TryExpr) String() string {
+	return "try " + e.CallExpr.String()
+}
+
 // IndexExpr represents an index expression.
 type IndexExpr struct {
 	Expr   Expr
@@ -400,72 +422,72 @@ func (e *IntLit) String() string {
 	return e.Literal
 }
 
-// MapKeyExpr represents a map key expression.
-type MapKeyExpr struct {
+// TableKeyExpr represents a table key expression.
+type TableKeyExpr struct {
 	LBrack token.Pos
 	Expr   Expr
 	RBrack token.Pos
 }
 
-func (e *MapKeyExpr) exprNode() {}
+func (e *TableKeyExpr) exprNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (e *MapKeyExpr) Pos() token.Pos {
+func (e *TableKeyExpr) Pos() token.Pos {
 	return e.LBrack
 }
 
 // End returns the position of first character immediately after the node.
-func (e *MapKeyExpr) End() token.Pos {
+func (e *TableKeyExpr) End() token.Pos {
 	return e.RBrack + 1
 }
 
-func (e *MapKeyExpr) String() string {
+func (e *TableKeyExpr) String() string {
 	return "[" + e.Expr.String() + "]"
 }
 
-// MapElementLit represents a map element.
-type MapElementLit struct {
+// TableElementLit represents a table element.
+type TableElementLit struct {
 	Key      Expr
 	ColonPos token.Pos
 	Value    Expr
 }
 
-func (e *MapElementLit) exprNode() {}
+func (e *TableElementLit) exprNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (e *MapElementLit) Pos() token.Pos {
+func (e *TableElementLit) Pos() token.Pos {
 	return e.Key.Pos()
 }
 
 // End returns the position of first character immediately after the node.
-func (e *MapElementLit) End() token.Pos {
+func (e *TableElementLit) End() token.Pos {
 	return e.Value.End()
 }
 
-func (e *MapElementLit) String() string {
+func (e *TableElementLit) String() string {
 	return e.Key.String() + ": " + e.Value.String()
 }
 
-// MapLit represents a map literal.
-type MapLit struct {
+// TableLit represents a table literal.
+type TableLit struct {
 	LBrace   token.Pos
-	Elements []*MapElementLit
+	Elements []*TableElementLit
 	RBrace   token.Pos
 }
 
-func (e *MapLit) exprNode() {}
+func (e *TableLit) exprNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (e *MapLit) Pos() token.Pos {
+func (e *TableLit) Pos() token.Pos {
 	return e.LBrace
 }
 
 // End returns the position of first character immediately after the node.
-func (e *MapLit) End() token.Pos {
+func (e *TableLit) End() token.Pos {
 	return e.RBrace + 1
 }
 
-func (e *MapLit) String() string {
+func (e *TableLit) String() string {
 	var b strings.Builder
 	b.WriteByte('{')
 	for i, elem := range e.Elements {

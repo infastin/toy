@@ -19,16 +19,16 @@ import (
 
 type compiler struct {
 	symbolTable *toy.SymbolTable
-	globals     []toy.Object
+	globals     []toy.Value
 	modules     toy.ModuleMap
-	constants   []toy.Object
+	constants   []toy.Value
 	output      []string
 }
 
 func newCompiler() *compiler {
 	s := new(compiler)
 
-	replPrintFunc := func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	replPrintFunc := func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		if len(args) == 1 && args[0] == toy.Nil {
 			return toy.Nil, nil
 		}
@@ -45,17 +45,13 @@ func newCompiler() *compiler {
 		return toy.Nil, nil
 	}
 
-	printFunc := func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	printFunc := func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		var b strings.Builder
 		for i, arg := range args {
-			var s toy.String
-			if err := toy.Convert(&s, arg); err != nil {
-				return nil, err
-			}
 			if i != 0 {
 				b.WriteByte(' ')
 			}
-			b.WriteString(string(s))
+			b.WriteString(toy.AsString(arg))
 		}
 		if b.Len() != 0 {
 			s.output = append(s.output, b.String())
@@ -63,10 +59,10 @@ func newCompiler() *compiler {
 		return toy.Nil, nil
 	}
 
-	printfFunc := func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	printfFunc := func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		var (
 			format string
-			rest   []toy.Object
+			rest   []toy.Value
 		)
 		if err := toy.UnpackArgs(args, "format", &format, "...", &rest); err != nil {
 			return nil, err
@@ -87,7 +83,7 @@ func newCompiler() *compiler {
 		toy.NewVariable("printf", toy.NewBuiltinFunction("printf", printfFunc)),
 	)
 
-	s.globals = make([]toy.Object, toy.GlobalsSize)
+	s.globals = make([]toy.Value, toy.GlobalsSize)
 
 	s.symbolTable = toy.NewSymbolTable()
 	for i, v := range toy.Universe {
@@ -121,8 +117,8 @@ func (s *compiler) compileAndRun(input []byte) (string, error) {
 	bytecode := c.Bytecode()
 	bytecode.RemoveDuplicates()
 
-	machine := toy.NewVM(bytecode, s.globals)
-	if err := machine.Run(); err != nil {
+	rt := toy.NewRuntime(bytecode, s.globals)
+	if err := rt.Run(); err != nil {
 		return "", err
 	}
 

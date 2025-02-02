@@ -22,10 +22,10 @@ type Node interface {
 
 // IdentList represents a list of identifiers.
 type IdentList struct {
-	LParen       token.Pos
 	List         []*Ident
 	NumOptionals int
 	VarArgs      bool
+	LParen       token.Pos
 	RParen       token.Pos
 }
 

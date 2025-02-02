@@ -17,26 +17,24 @@ const (
 	OpJump                          // Jump
 	OpNull                          // Push null
 	OpString                        // Build string
-	OpArray                         // Array object
-	OpMap                           // Map object
-	OpTuple                         // Tuple object
-	OpFreeze                        // Make object immutable
+	OpArray                         // Array value
+	OpTable                         // Table value
+	OpTuple                         // Tuple value
 	OpIndex                         // Index access operation
 	OpSetIndex                      // Index assignment operation
-	OpField                         // Field access operation
-	OpSetField                      // Field assignment operation
 	OpSliceIndex                    // Slice operation
 	OpSplat                         // Splat operation
 	OpCall                          // Call function
 	OpReturn                        // Return
 	OpDefer                         // Defer function call
-	OpRunDefer                      // Run defered function calls
+	OpTry                           // Try
+	OpThrow                         // Throw
 	OpGetGlobal                     // Get global variable
 	OpSetGlobal                     // Set global variable
 	OpGetLocal                      // Get local variable
 	OpSetLocal                      // Set local variable
 	OpDefineLocal                   // Define local variable
-	OpGetFreePtr                    // Get free variable pointer object
+	OpGetFreePtr                    // Get free variable pointer value
 	OpGetFree                       // Get free variables
 	OpSetFree                       // Set free variables
 	OpGetLocalPtr                   // Get local variable as a pointer
@@ -50,7 +48,6 @@ const (
 	OpBinaryOp                      // Binary operation
 	OpUnaryOp                       // Unary operation
 	OpCompare                       // Comparison operation
-	OpSuspend                       // Suspend VM
 )
 
 // OpcodeNames are string representation of opcodes.
@@ -68,19 +65,17 @@ var OpcodeNames = [...]string{
 	OpSetGlobal:       "SETG",
 	OpString:          "STR",
 	OpArray:           "ARR",
-	OpMap:             "MAP",
+	OpTable:           "TABLE",
 	OpTuple:           "TUPLE",
-	OpFreeze:          "FREEZE",
 	OpIndex:           "INDEX",
 	OpSetIndex:        "SETINDEX",
-	OpField:           "FIELD",
-	OpSetField:        "SETFIELD",
 	OpSliceIndex:      "SLICE",
 	OpSplat:           "SPLAT",
 	OpCall:            "CALL",
 	OpReturn:          "RET",
 	OpDefer:           "DEFER",
-	OpRunDefer:        "RUNDEFER",
+	OpTry:             "TRY",
+	OpThrow:           "THROW",
 	OpGetLocal:        "GETL",
 	OpSetLocal:        "SETL",
 	OpDefineLocal:     "DEFL",
@@ -98,7 +93,6 @@ var OpcodeNames = [...]string{
 	OpBinaryOp:        "BINARYOP",
 	OpUnaryOp:         "UNARYOP",
 	OpCompare:         "CMP",
-	OpSuspend:         "SUSPEND",
 }
 
 // OpcodeOperands is the number of operands.
@@ -116,19 +110,17 @@ var OpcodeOperands = [...][]int{
 	OpSetGlobal:       {2},
 	OpString:          {2, 1},
 	OpArray:           {2, 1},
-	OpMap:             {2},
+	OpTable:           {2},
 	OpTuple:           {2, 1},
-	OpFreeze:          {},
 	OpIndex:           {1},
 	OpSetIndex:        {},
-	OpField:           {},
-	OpSetField:        {},
 	OpSliceIndex:      {1},
 	OpSplat:           {},
 	OpCall:            {1, 1},
 	OpReturn:          {1},
 	OpDefer:           {1, 1, 1},
-	OpRunDefer:        {},
+	OpTry:             {1, 1},
+	OpThrow:           {1},
 	OpGetLocal:        {1},
 	OpSetLocal:        {1},
 	OpDefineLocal:     {1},
@@ -146,7 +138,6 @@ var OpcodeOperands = [...][]int{
 	OpBinaryOp:        {1},
 	OpUnaryOp:         {1},
 	OpCompare:         {1},
-	OpSuspend:         {},
 }
 
 // Read2 reads a 2-byte operand.

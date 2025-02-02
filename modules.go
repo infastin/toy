@@ -25,7 +25,7 @@ func (m ModuleMap) Add(name string, module Importable) {
 }
 
 // AddBuiltinModule adds a builtin module.
-func (m ModuleMap) AddBuiltinModule(name string, fields map[string]Object) {
+func (m ModuleMap) AddBuiltinModule(name string, fields map[string]Value) {
 	m[name] = &BuiltinModule{Name: name, Members: fields}
 }
 
@@ -70,38 +70,45 @@ func (m ModuleMap) Len() int {
 }
 
 // AddMap adds named modules from another module map.
-func (m ModuleMap) AddMap(o ModuleMap) {
-	maps.Insert(m, maps.All(o))
+func (m ModuleMap) AddMap(other ModuleMap) {
+	maps.Insert(m, maps.All(other))
 }
 
 // BuiltinModule is an importable module that's written in Go.
 type BuiltinModule struct {
 	Name    string
-	Members map[string]Object
+	Members map[string]Value
 }
 
 var BuiltinModuleType = NewType[*BuiltinModule]("module", nil)
 
 func (m *BuiltinModule) importable() {}
 
-func (m *BuiltinModule) Type() ObjectType { return BuiltinModuleType }
-func (m *BuiltinModule) String() string   { return fmt.Sprintf("<module %q>", m.Name) }
-func (m *BuiltinModule) IsFalsy() bool    { return false }
+func (m *BuiltinModule) Type() ValueType { return BuiltinModuleType }
+func (m *BuiltinModule) String() string  { return fmt.Sprintf("<module %q>", m.Name) }
+func (m *BuiltinModule) IsFalsy() bool   { return false }
 
-func (m *BuiltinModule) Clone() Object {
-	fields := make(map[string]Object)
+func (m *BuiltinModule) Clone() Value {
+	fields := make(map[string]Value)
 	for name, value := range m.Members {
 		fields[name] = value.Clone()
 	}
 	return &BuiltinModule{Name: m.Name, Members: m.Members}
 }
 
-func (m *BuiltinModule) FieldGet(name string) (Object, error) {
-	field, ok := m.Members[name]
+func (m *BuiltinModule) Property(key Value) (value Value, found bool, err error) {
+	keyStr, ok := key.(String)
 	if !ok {
-		return nil, ErrNoSuchField
+		return nil, false, &InvalidKeyTypeError{
+			Want: "string",
+			Got:  TypeName(key),
+		}
 	}
-	return field, nil
+	field, ok := m.Members[string(keyStr)]
+	if !ok {
+		return Nil, false, nil
+	}
+	return field, true, nil
 }
 
 // SourceModule is an importable module that's written in Toy.

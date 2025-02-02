@@ -16,7 +16,7 @@ import (
 
 var Module = &toy.BuiltinModule{
 	Name: "os",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"platform": toy.String(runtime.GOOS),
 		"arch":     toy.String(runtime.GOARCH),
 		"devnull":  toy.String(os.DevNull),
@@ -105,7 +105,7 @@ var FileModeType = enum.New("os.FileMode", map[string]FileMode{
 	"IRREGULAR":   FileMode(os.ModeIrregular),
 	"TYPE":        FileMode(os.ModeType),
 	"PERM":        FileMode(os.ModePerm),
-}, func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+}, func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 1,
@@ -125,10 +125,10 @@ var FileModeType = enum.New("os.FileMode", map[string]FileMode{
 	}
 })
 
-func (m FileMode) Type() toy.ObjectType { return FileModeType }
-func (m FileMode) String() string       { return fmt.Sprintf("os.FileMode(%q)", os.FileMode(m).String()) }
-func (m FileMode) IsFalsy() bool        { return false }
-func (m FileMode) Clone() toy.Object    { return m }
+func (m FileMode) Type() toy.ValueType { return FileModeType }
+func (m FileMode) String() string      { return fmt.Sprintf("os.FileMode(%q)", os.FileMode(m).String()) }
+func (m FileMode) IsFalsy() bool       { return false }
+func (m FileMode) Clone() toy.Value    { return m }
 
 func (m FileMode) Convert(p any) error {
 	switch p := p.(type) {
@@ -140,33 +140,40 @@ func (m FileMode) Convert(p any) error {
 	return nil
 }
 
-func (m FileMode) FieldGet(name string) (toy.Object, error) {
-	switch name {
-	case "type":
-		return FileMode(os.FileMode(m).Type()), nil
-	case "perm":
-		return FileMode(os.FileMode(m).Perm()), nil
-	case "isDir":
-		return toy.Bool(os.FileMode(m)&os.ModeDir != 0), nil
-	case "isRegular":
-		return toy.Bool(os.FileMode(m)&os.ModeType == 0), nil
-	case "isSymlink":
-		return toy.Bool(os.FileMode(m)&os.ModeSymlink != 0), nil
-	case "isNamedPipe":
-		return toy.Bool(os.FileMode(m)&os.ModeNamedPipe != 0), nil
-	case "isSocket":
-		return toy.Bool(os.FileMode(m)&os.ModeSocket != 0), nil
-	case "isDevice":
-		return toy.Bool(os.FileMode(m)&os.ModeDevice != 0), nil
-	case "isCharDevice":
-		return toy.Bool(os.FileMode(m)&os.ModeCharDevice != 0), nil
-	case "isIrregular":
-		return toy.Bool(os.FileMode(m)&os.ModeIrregular != 0), nil
+func (m FileMode) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
+	if !ok {
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
 	}
-	return nil, toy.ErrNoSuchField
+	switch string(keyStr) {
+	case "type":
+		return FileMode(os.FileMode(m).Type()), true, nil
+	case "perm":
+		return FileMode(os.FileMode(m).Perm()), true, nil
+	case "isDir":
+		return toy.Bool(os.FileMode(m)&os.ModeDir != 0), true, nil
+	case "isRegular":
+		return toy.Bool(os.FileMode(m)&os.ModeType == 0), true, nil
+	case "isSymlink":
+		return toy.Bool(os.FileMode(m)&os.ModeSymlink != 0), true, nil
+	case "isNamedPipe":
+		return toy.Bool(os.FileMode(m)&os.ModeNamedPipe != 0), true, nil
+	case "isSocket":
+		return toy.Bool(os.FileMode(m)&os.ModeSocket != 0), true, nil
+	case "isDevice":
+		return toy.Bool(os.FileMode(m)&os.ModeDevice != 0), true, nil
+	case "isCharDevice":
+		return toy.Bool(os.FileMode(m)&os.ModeCharDevice != 0), true, nil
+	case "isIrregular":
+		return toy.Bool(os.FileMode(m)&os.ModeIrregular != 0), true, nil
+	}
+	return toy.Nil, false, nil
 }
 
-func (m FileMode) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Object, error) {
+func (m FileMode) BinaryOp(op token.Token, other toy.Value, right bool) (toy.Value, error) {
 	switch y := other.(type) {
 	case FileMode:
 		switch op {
@@ -202,7 +209,7 @@ func (m FileMode) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Ob
 	return nil, toy.ErrInvalidOperation
 }
 
-func (m FileMode) UnaryOp(op token.Token) (toy.Object, error) {
+func (m FileMode) UnaryOp(op token.Token) (toy.Value, error) {
 	switch op {
 	case token.Xor:
 		return ^m, nil
@@ -210,19 +217,19 @@ func (m FileMode) UnaryOp(op token.Token) (toy.Object, error) {
 	return nil, toy.ErrInvalidOperation
 }
 
-func readFileFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func readFileFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
 	}
 	data, err := os.ReadFile(name)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{toy.Bytes(data), toy.Nil}, nil
+	return toy.Bytes(data), nil
 }
 
-func writeFileFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func writeFileFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		name string
 		data toy.StringOrBytes
@@ -232,28 +239,28 @@ func writeFileFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 	if err := os.WriteFile(name, data.Bytes(), os.FileMode(perm)); err != nil {
-		return toy.NewError(err.Error()), nil
+		return nil, err
 	}
 	return toy.Nil, nil
 }
 
-func readDirFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func readDirFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
 	}
 	entries, err := os.ReadDir(name)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error()), toy.Nil}, nil
+		return nil, err
 	}
-	elems := make([]toy.Object, 0, len(entries))
+	elems := make([]toy.Value, 0, len(entries))
 	for _, entry := range entries {
 		elems = append(elems, &DirEntry{entry: entry})
 	}
-	return toy.Tuple{toy.NewArray(elems), toy.Nil}, nil
+	return toy.NewArray(elems), nil
 }
 
-func mkdirFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func mkdirFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		name string
 		perm FileMode = 0755
@@ -264,29 +271,29 @@ func mkdirFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	if all {
 		if err := os.MkdirAll(name, os.FileMode(perm)); err != nil {
-			return toy.NewError(err.Error()), nil
+			return nil, err
 		}
 	} else {
 		if err := os.Mkdir(name, os.FileMode(perm)); err != nil {
-			return toy.NewError(err.Error()), nil
+			return nil, err
 		}
 	}
 	return toy.Nil, nil
 }
 
-func mkdirTempFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func mkdirTempFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var dir, pattern string
 	if err := toy.UnpackArgs(args, "dir", &dir, "pattern", &pattern); err != nil {
 		return nil, err
 	}
 	res, err := os.MkdirTemp(dir, pattern)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{toy.String(res), toy.Nil}, nil
+	return toy.String(res), nil
 }
 
-func removeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func removeFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		name string
 		all  = false
@@ -296,41 +303,41 @@ func removeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	if all {
 		if err := os.RemoveAll(name); err != nil {
-			return toy.NewError(err.Error()), nil
+			return nil, err
 		}
 	} else {
 		if err := os.Remove(name); err != nil {
-			return toy.NewError(err.Error()), nil
+			return nil, err
 		}
 	}
 	return toy.Nil, nil
 }
 
-func argsFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func argsFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
-	elems := make([]toy.Object, 0, len(os.Args))
+	elems := make([]toy.Value, 0, len(os.Args))
 	for _, arg := range os.Args {
 		elems = append(elems, toy.String(arg))
 	}
 	return toy.NewArray(elems), nil
 }
 
-func environFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func environFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	envs := os.Environ()
-	m := toy.NewMap(len(envs))
+	t := toy.NewTable(len(envs))
 	for _, env := range envs {
 		parts := strings.SplitN(env, "=", 2)
-		m.IndexSet(toy.String(parts[0]), toy.String(parts[1]))
+		t.SetProperty(toy.String(parts[0]), toy.String(parts[1]))
 	}
-	return m, nil
+	return t, nil
 }
 
-func chmodFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func chmodFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		name string
 		mode FileMode
@@ -339,12 +346,12 @@ func chmodFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 	if err := os.Chmod(name, os.FileMode(mode)); err != nil {
-		return toy.NewError(err.Error()), nil
+		return nil, err
 	}
 	return toy.Nil, nil
 }
 
-func chownFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func chownFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		name     string
 		uid, gid int
@@ -353,12 +360,12 @@ func chownFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 	if err := os.Chown(name, uid, gid); err != nil {
-		return toy.NewError(err.Error()), nil
+		return nil, err
 	}
 	return toy.Nil, nil
 }
 
-func lchownFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lchownFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		name     string
 		uid, gid int
@@ -367,7 +374,7 @@ func lchownFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 	if err := os.Lchown(name, uid, gid); err != nil {
-		return toy.NewError(err.Error()), nil
+		return nil, err
 	}
 	return toy.Nil, nil
 }
@@ -378,70 +385,77 @@ type FileInfo struct {
 
 var FileInfoType = toy.NewType[*FileInfo]("os.FileInfo", nil)
 
-func (f *FileInfo) Type() toy.ObjectType { return FileInfoType }
-func (f *FileInfo) String() string       { return fmt.Sprintf("os.FileInfo(%q)", f.info.Name()) }
-func (f *FileInfo) IsFalsy() bool        { return false }
-func (f *FileInfo) Clone() toy.Object    { return &FileInfo{info: f.info} }
+func (f *FileInfo) Type() toy.ValueType { return FileInfoType }
+func (f *FileInfo) String() string      { return fmt.Sprintf("os.FileInfo(%q)", f.info.Name()) }
+func (f *FileInfo) IsFalsy() bool       { return false }
+func (f *FileInfo) Clone() toy.Value    { return &FileInfo{info: f.info} }
 
-func (f *FileInfo) FieldGet(name string) (toy.Object, error) {
-	switch name {
-	case "name":
-		return toy.String(f.info.Name()), nil
-	case "size":
-		return toy.Int(f.info.Size()), nil
-	case "mode":
-		return FileMode(f.info.Mode()), nil
-	case "modTime":
-		return time.Time(f.info.ModTime()), nil
-	case "type":
-		return FileMode(f.info.Mode().Type()), nil
-	case "perm":
-		return FileMode(f.info.Mode().Perm()), nil
-	case "isDir":
-		return toy.Bool(f.info.Mode()&os.ModeDir != 0), nil
-	case "isRegular":
-		return toy.Bool(f.info.Mode()&os.ModeType == 0), nil
-	case "isSymlink":
-		return toy.Bool(f.info.Mode()&os.ModeSymlink != 0), nil
-	case "isNamedPipe":
-		return toy.Bool(f.info.Mode()&os.ModeNamedPipe != 0), nil
-	case "isSocket":
-		return toy.Bool(f.info.Mode()&os.ModeSocket != 0), nil
-	case "isDevice":
-		return toy.Bool(f.info.Mode()&os.ModeDevice != 0), nil
-	case "isCharDevice":
-		return toy.Bool(f.info.Mode()&os.ModeCharDevice != 0), nil
-	case "isIrregular":
-		return toy.Bool(f.info.Mode()&os.ModeIrregular != 0), nil
+func (f *FileInfo) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
+	if !ok {
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
 	}
-	return nil, toy.ErrNoSuchField
+	switch string(keyStr) {
+	case "name":
+		return toy.String(f.info.Name()), true, nil
+	case "size":
+		return toy.Int(f.info.Size()), true, nil
+	case "mode":
+		return FileMode(f.info.Mode()), true, nil
+	case "modTime":
+		return time.Time(f.info.ModTime()), true, nil
+	case "type":
+		return FileMode(f.info.Mode().Type()), true, nil
+	case "perm":
+		return FileMode(f.info.Mode().Perm()), true, nil
+	case "isDir":
+		return toy.Bool(f.info.Mode()&os.ModeDir != 0), true, nil
+	case "isRegular":
+		return toy.Bool(f.info.Mode()&os.ModeType == 0), true, nil
+	case "isSymlink":
+		return toy.Bool(f.info.Mode()&os.ModeSymlink != 0), true, nil
+	case "isNamedPipe":
+		return toy.Bool(f.info.Mode()&os.ModeNamedPipe != 0), true, nil
+	case "isSocket":
+		return toy.Bool(f.info.Mode()&os.ModeSocket != 0), true, nil
+	case "isDevice":
+		return toy.Bool(f.info.Mode()&os.ModeDevice != 0), true, nil
+	case "isCharDevice":
+		return toy.Bool(f.info.Mode()&os.ModeCharDevice != 0), true, nil
+	case "isIrregular":
+		return toy.Bool(f.info.Mode()&os.ModeIrregular != 0), true, nil
+	}
+	return toy.Nil, false, nil
 }
 
-func statFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func statFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
 	}
 	info, err := os.Stat(name)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{&FileInfo{info: info}, toy.Nil}, nil
+	return &FileInfo{info: info}, nil
 }
 
-func lstatFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lstatFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
 	}
 	info, err := os.Lstat(name)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{&FileInfo{info: info}, toy.Nil}, nil
+	return &FileInfo{info: info}, nil
 }
 
-func truncateFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func truncateFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		name string
 		size int64
@@ -450,7 +464,7 @@ func truncateFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 	if err := os.Truncate(name, size); err != nil {
-		return toy.NewError(err.Error()), nil
+		return nil, err
 	}
 	return toy.Nil, nil
 }
@@ -461,81 +475,95 @@ type DirEntry struct {
 
 var DirEntryType = toy.NewType[*DirEntry]("os.DirEntry", nil)
 
-func (e *DirEntry) Type() toy.ObjectType { return DirEntryType }
-func (e *DirEntry) String() string       { return fmt.Sprintf("os.DirEntry(%q)", e.entry.Name()) }
-func (e *DirEntry) IsFalsy() bool        { return false }
-func (e *DirEntry) Clone() toy.Object    { return &DirEntry{entry: e.entry} }
+func (e *DirEntry) Type() toy.ValueType { return DirEntryType }
+func (e *DirEntry) String() string      { return fmt.Sprintf("os.DirEntry(%q)", e.entry.Name()) }
+func (e *DirEntry) IsFalsy() bool       { return false }
+func (e *DirEntry) Clone() toy.Value    { return &DirEntry{entry: e.entry} }
 
-func (e *DirEntry) FieldGet(name string) (toy.Object, error) {
-	switch name {
+func (e *DirEntry) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
+	if !ok {
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
+	}
+	switch string(keyStr) {
 	case "name":
-		return toy.String(e.entry.Name()), nil
+		return toy.String(e.entry.Name()), true, nil
 	case "type":
-		return FileMode(e.entry.Type()), nil
+		return FileMode(e.entry.Type()), true, nil
 	case "isDir":
-		return toy.Bool(e.entry.Type()&os.ModeDir != 0), nil
+		return toy.Bool(e.entry.Type()&os.ModeDir != 0), true, nil
 	case "isRegular":
-		return toy.Bool(e.entry.Type()&os.ModeType == 0), nil
+		return toy.Bool(e.entry.Type()&os.ModeType == 0), true, nil
 	case "isSymlink":
-		return toy.Bool(e.entry.Type()&os.ModeSymlink != 0), nil
+		return toy.Bool(e.entry.Type()&os.ModeSymlink != 0), true, nil
 	case "isNamedPipe":
-		return toy.Bool(e.entry.Type()&os.ModeNamedPipe != 0), nil
+		return toy.Bool(e.entry.Type()&os.ModeNamedPipe != 0), true, nil
 	case "isSocket":
-		return toy.Bool(e.entry.Type()&os.ModeSocket != 0), nil
+		return toy.Bool(e.entry.Type()&os.ModeSocket != 0), true, nil
 	case "isDevice":
-		return toy.Bool(e.entry.Type()&os.ModeDevice != 0), nil
+		return toy.Bool(e.entry.Type()&os.ModeDevice != 0), true, nil
 	case "isCharDevice":
-		return toy.Bool(e.entry.Type()&os.ModeCharDevice != 0), nil
+		return toy.Bool(e.entry.Type()&os.ModeCharDevice != 0), true, nil
 	case "isIrregular":
-		return toy.Bool(e.entry.Type()&os.ModeIrregular != 0), nil
+		return toy.Bool(e.entry.Type()&os.ModeIrregular != 0), true, nil
 	}
-	method, ok := dirEntryMethods[name]
+	method, ok := dirEntryMethods[string(keyStr)]
 	if ok {
-		return method.WithReceiver(e), nil
+		return method.WithReceiver(e), true, nil
 	}
-	return nil, toy.ErrNoSuchField
+	return toy.Nil, false, nil
 }
 
 var dirEntryMethods = map[string]*toy.BuiltinFunction{
 	"info": toy.NewBuiltinFunction("info", dirEntryInfoMd),
 }
 
-func dirEntryInfoMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func dirEntryInfoMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(*DirEntry)
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
 	}
 	info, err := recv.entry.Info()
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{&FileInfo{info: info}, toy.Nil}, nil
+	return &FileInfo{info: info}, nil
 }
 
 type File os.File
 
 var FileType = toy.NewType[*File]("os.File", nil)
 
-func (f *File) Type() toy.ObjectType { return FileType }
-func (f *File) String() string       { return fmt.Sprintf("os.File(%q)", (*os.File)(f).Name()) }
-func (f *File) IsFalsy() bool        { return false }
+func (f *File) Type() toy.ValueType { return FileType }
+func (f *File) String() string      { return fmt.Sprintf("os.File(%q)", (*os.File)(f).Name()) }
+func (f *File) IsFalsy() bool       { return false }
 
-func (f *File) Clone() toy.Object {
+func (f *File) Clone() toy.Value {
 	c := new(File)
 	*c = *f
 	return c
 }
 
-func (f *File) FieldGet(name string) (toy.Object, error) {
-	switch name {
+func (f *File) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
+	if !ok {
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
+	}
+	switch string(keyStr) {
 	case "name":
-		return toy.String((*os.File)(f).Name()), nil
+		return toy.String((*os.File)(f).Name()), true, nil
 	}
-	method, ok := fileMethods[name]
+	method, ok := fileMethods[string(keyStr)]
 	if ok {
-		return method.WithReceiver(f), nil
+		return method.WithReceiver(f), true, nil
 	}
-	return nil, toy.ErrNoSuchField
+	return toy.Nil, false, nil
 }
 
 var fileMethods = map[string]*toy.BuiltinFunction{
@@ -552,7 +580,7 @@ var fileMethods = map[string]*toy.BuiltinFunction{
 	"readdir":  toy.NewBuiltinFunction("readdir", fileReaddirMd),
 }
 
-func fileWriteMd(_ *toy.VM, args ...toy.Object) (_ toy.Object, err error) {
+func fileWriteMd(_ *toy.Runtime, args ...toy.Value) (_ toy.Value, err error) {
 	var (
 		recv = args[0].(*File)
 		data toy.StringOrBytes
@@ -565,18 +593,18 @@ func fileWriteMd(_ *toy.VM, args ...toy.Object) (_ toy.Object, err error) {
 	if off != nil {
 		n, err = (*os.File)(recv).WriteAt(data.Bytes(), *off)
 		if err != nil {
-			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+			return nil, err
 		}
 	} else {
 		n, err = (*os.File)(recv).Write(data.Bytes())
 		if err != nil {
-			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+			return nil, err
 		}
 	}
-	return toy.Tuple{toy.Int(n), toy.Nil}, nil
+	return toy.Int(n), nil
 }
 
-func fileReadMd(_ *toy.VM, args ...toy.Object) (_ toy.Object, err error) {
+func fileReadMd(_ *toy.Runtime, args ...toy.Value) (_ toy.Value, err error) {
 	var (
 		recv = args[0].(*File)
 		buf  toy.Bytes
@@ -589,52 +617,52 @@ func fileReadMd(_ *toy.VM, args ...toy.Object) (_ toy.Object, err error) {
 	if off != nil {
 		n, err = (*os.File)(recv).ReadAt(buf, *off)
 		if err != nil {
-			return toy.Tuple{toy.Nil, toy.Nil, toy.NewError(err.Error())}, nil
+			return nil, err
 		}
 	} else {
 		n, err = (*os.File)(recv).Read(buf)
 		if err != nil {
-			return toy.Tuple{toy.Nil, toy.Nil, toy.NewError(err.Error())}, nil
+			return nil, err
 		}
 	}
-	return toy.Tuple{buf[:n], toy.Int(n), toy.Nil}, nil
+	return toy.Tuple{buf[:n], toy.Int(n)}, nil
 }
 
-func fileCloseMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileCloseMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(*File)
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
 	}
 	if err := (*os.File)(recv).Close(); err != nil {
-		return toy.NewError(err.Error()), nil
+		return nil, err
 	}
 	return toy.Nil, nil
 }
 
-func fileStatMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileStatMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(*File)
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
 	}
 	info, err := (*os.File)(recv).Stat()
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{&FileInfo{info: info}, toy.Nil}, nil
+	return &FileInfo{info: info}, nil
 }
 
-func fileSyncMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileSyncMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(*File)
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
 	}
 	if err := (*os.File)(recv).Sync(); err != nil {
-		return toy.NewError(err.Error()), nil
+		return nil, err
 	}
 	return toy.Nil, nil
 }
 
-func fileTruncateMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileTruncateMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv = args[0].(*File)
 		size int64
@@ -643,12 +671,12 @@ func fileTruncateMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 	if err := (*os.File)(recv).Truncate(size); err != nil {
-		return toy.NewError(err.Error()), nil
+		return nil, err
 	}
 	return toy.Nil, nil
 }
 
-func fileChownMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileChownMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv     = args[0].(*File)
 		uid, gid int
@@ -657,12 +685,12 @@ func fileChownMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 	if err := (*os.File)(recv).Chown(uid, gid); err != nil {
-		return toy.NewError(err.Error()), nil
+		return nil, err
 	}
 	return toy.Nil, nil
 }
 
-func fileChmodMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileChmodMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv = args[0].(*File)
 		mode FileMode
@@ -671,23 +699,23 @@ func fileChmodMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 	if err := (*os.File)(recv).Chmod(os.FileMode(mode)); err != nil {
-		return toy.NewError(err.Error()), nil
+		return nil, err
 	}
 	return toy.Nil, nil
 }
 
-func fileChdirMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileChdirMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(*File)
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args[1:])}
 	}
 	if err := (*os.File)(recv).Chdir(); err != nil {
-		return toy.NewError(err.Error()), nil
+		return nil, err
 	}
 	return toy.Nil, nil
 }
 
-func fileSeekMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileSeekMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv   = args[0].(*File)
 		offset int64
@@ -698,12 +726,12 @@ func fileSeekMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	ret, err := (*os.File)(recv).Seek(offset, whence)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{toy.Int(ret), toy.Nil}, nil
+	return toy.Int(ret), nil
 }
 
-func fileReaddirMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func fileReaddirMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv = args[0].(*File)
 		n    = -1
@@ -713,16 +741,16 @@ func fileReaddirMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	entries, err := (*os.File)(recv).ReadDir(n)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	elems := make([]toy.Object, 0, len(entries))
+	elems := make([]toy.Value, 0, len(entries))
 	for _, entry := range entries {
 		elems = append(elems, &DirEntry{entry: entry})
 	}
-	return toy.Tuple{toy.NewArray(elems), toy.Nil}, nil
+	return toy.NewArray(elems), nil
 }
 
-func openFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func openFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		name string
 		flag = os.O_RDONLY
@@ -733,31 +761,31 @@ func openFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	file, err := os.OpenFile(name, flag, os.FileMode(perm))
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{(*File)(file), toy.Nil}, nil
+	return (*File)(file), nil
 }
 
-func createFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func createFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var name string
 	if err := toy.UnpackArgs(args, "name", &name); err != nil {
 		return nil, err
 	}
 	file, err := os.Create(name)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{(*File)(file), toy.Nil}, nil
+	return (*File)(file), nil
 }
 
-func createTempFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func createTempFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var dir, pattern string
 	if err := toy.UnpackArgs(args, "dir", &dir, "pattern", &pattern); err != nil {
 		return nil, err
 	}
 	file, err := os.CreateTemp(dir, pattern)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{(*File)(file), toy.Nil}, nil
+	return (*File)(file), nil
 }

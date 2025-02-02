@@ -8,7 +8,7 @@ import (
 
 var Module = &toy.BuiltinModule{
 	Name: "base64",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"encode":       toy.NewBuiltinFunction("base64.encode", makeEncodeFn(base64.StdEncoding)),
 		"decode":       toy.NewBuiltinFunction("base64.decode", makeDecodeFn(base64.StdEncoding)),
 		"rawEncode":    toy.NewBuiltinFunction("base64.encode", makeEncodeFn(base64.RawStdEncoding)),
@@ -21,7 +21,7 @@ var Module = &toy.BuiltinModule{
 }
 
 func makeEncodeFn(enc *base64.Encoding) toy.CallableFunc {
-	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	return func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		var data toy.StringOrBytes
 		if err := toy.UnpackArgs(args, "data", &data); err != nil {
 			return nil, err
@@ -31,15 +31,15 @@ func makeEncodeFn(enc *base64.Encoding) toy.CallableFunc {
 }
 
 func makeDecodeFn(enc *base64.Encoding) toy.CallableFunc {
-	return func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+	return func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		var data toy.String
 		if err := toy.UnpackArgs(args, "data", &data); err != nil {
 			return nil, err
 		}
 		binary, err := enc.DecodeString(string(data))
 		if err != nil {
-			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+			return nil, err
 		}
-		return toy.Tuple{toy.Bytes(binary), toy.Nil}, nil
+		return toy.Bytes(binary), nil
 	}
 }

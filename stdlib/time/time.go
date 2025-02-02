@@ -11,7 +11,7 @@ import (
 
 var Module = &toy.BuiltinModule{
 	Name: "time",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"Time":     TimeType,
 		"Duration": DurationType,
 
@@ -54,7 +54,7 @@ var Module = &toy.BuiltinModule{
 
 type Time time.Time
 
-var TimeType = toy.NewType[Time]("time.Time", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+var TimeType = toy.NewType[Time]("time.Time", func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) < 1 && len(args) > 3 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 1,
@@ -97,18 +97,18 @@ var TimeType = toy.NewType[Time]("time.Time", func(_ *toy.VM, args ...toy.Object
 	return Time(t), nil
 })
 
-func (t Time) Type() toy.ObjectType { return TimeType }
+func (t Time) Type() toy.ValueType { return TimeType }
 
 func (t Time) String() string {
 	s := (time.Time)(t).Format(time.RFC3339Nano)
 	return fmt.Sprintf("time.Time(%q)", s)
 }
 
-func (t Time) IsFalsy() bool     { return (time.Time)(t).IsZero() }
-func (t Time) Clone() toy.Object { return t }
-func (t Time) Hash() uint64      { return hash.Int64(time.Time(t).UnixNano()) }
+func (t Time) IsFalsy() bool    { return (time.Time)(t).IsZero() }
+func (t Time) Clone() toy.Value { return t }
+func (t Time) Hash() uint64     { return hash.Int64(time.Time(t).UnixNano()) }
 
-func (t Time) Compare(op token.Token, rhs toy.Object) (bool, error) {
+func (t Time) Compare(op token.Token, rhs toy.Value) (bool, error) {
 	y, ok := rhs.(Time)
 	if !ok {
 		return false, toy.ErrInvalidOperation
@@ -130,7 +130,7 @@ func (t Time) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	return false, toy.ErrInvalidOperation
 }
 
-func (t Time) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Object, error) {
+func (t Time) BinaryOp(op token.Token, other toy.Value, right bool) (toy.Value, error) {
 	switch y := other.(type) {
 	case Time:
 		switch op {
@@ -160,46 +160,53 @@ func (t Time) Convert(p any) error {
 	return nil
 }
 
-func (t Time) FieldGet(name string) (toy.Object, error) {
-	switch name {
+func (t Time) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
+	if !ok {
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
+	}
+	switch string(keyStr) {
 	case "year":
-		return toy.Int(time.Time(t).Year()), nil
+		return toy.Int(time.Time(t).Year()), true, nil
 	case "month":
-		return toy.Int(time.Time(t).Month()), nil
+		return toy.Int(time.Time(t).Month()), true, nil
 	case "day":
-		return toy.Int(time.Time(t).Day()), nil
+		return toy.Int(time.Time(t).Day()), true, nil
 	case "weekday":
-		return toy.Int(time.Time(t).Weekday()), nil
+		return toy.Int(time.Time(t).Weekday()), true, nil
 	case "isoWeek":
 		year, week := time.Time(t).ISOWeek()
-		return toy.Tuple{toy.Int(year), toy.Int(week)}, nil
+		return toy.Tuple{toy.Int(year), toy.Int(week)}, true, nil
 	case "clock":
 		hour, min, sec := time.Time(t).Clock()
-		return toy.Tuple{toy.Int(hour), toy.Int(min), toy.Int(sec)}, nil
+		return toy.Tuple{toy.Int(hour), toy.Int(min), toy.Int(sec)}, true, nil
 	case "hour":
-		return toy.Int(time.Time(t).Hour()), nil
+		return toy.Int(time.Time(t).Hour()), true, nil
 	case "minute":
-		return toy.Int(time.Time(t).Minute()), nil
+		return toy.Int(time.Time(t).Minute()), true, nil
 	case "second":
-		return toy.Int(time.Time(t).Second()), nil
+		return toy.Int(time.Time(t).Second()), true, nil
 	case "nanosecond":
-		return toy.Int(time.Time(t).Nanosecond()), nil
+		return toy.Int(time.Time(t).Nanosecond()), true, nil
 	case "yearDay":
-		return toy.Int(time.Time(t).YearDay()), nil
+		return toy.Int(time.Time(t).YearDay()), true, nil
 	case "unix":
-		return toy.Int(time.Time(t).Unix()), nil
+		return toy.Int(time.Time(t).Unix()), true, nil
 	case "unixMilli":
-		return toy.Int(time.Time(t).UnixMilli()), nil
+		return toy.Int(time.Time(t).UnixMilli()), true, nil
 	case "unixMicro":
-		return toy.Int(time.Time(t).UnixMicro()), nil
+		return toy.Int(time.Time(t).UnixMicro()), true, nil
 	case "unixNano":
-		return toy.Int(time.Time(t).UnixNano()), nil
+		return toy.Int(time.Time(t).UnixNano()), true, nil
 	}
-	method, ok := timeMethods[name]
+	method, ok := timeMethods[string(keyStr)]
 	if !ok {
-		return nil, toy.ErrNoSuchField
+		return toy.Nil, false, nil
 	}
-	return method.WithReceiver(t), nil
+	return method.WithReceiver(t), true, nil
 }
 
 var timeMethods = map[string]*toy.BuiltinFunction{
@@ -209,7 +216,7 @@ var timeMethods = map[string]*toy.BuiltinFunction{
 	"truncate":   toy.NewBuiltinFunction("truncate", timeTruncateMd),
 }
 
-func timeFormatMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func timeFormatMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv   = args[0].(Time)
 		layout string
@@ -220,7 +227,7 @@ func timeFormatMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(time.Time(recv).Format(layout)), nil
 }
 
-func timeInLocationMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func timeInLocationMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv     = args[0].(Time)
 		location string
@@ -230,12 +237,12 @@ func timeInLocationMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	loc, err := time.LoadLocation(location)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{Time(time.Time(recv).In(loc)), toy.Nil}, nil
+	return Time(time.Time(recv).In(loc)), nil
 }
 
-func timeRoundMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func timeRoundMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv = args[0].(Time)
 		dur  Duration
@@ -246,7 +253,7 @@ func timeRoundMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Time(time.Time(recv).Round(time.Duration(dur))), nil
 }
 
-func timeTruncateMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func timeTruncateMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv = args[0].(Time)
 		dur  Duration
@@ -257,7 +264,7 @@ func timeTruncateMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Time(time.Time(recv).Truncate(time.Duration(dur))), nil
 }
 
-func parseFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		x        string
 		layout   = time.RFC3339Nano
@@ -269,29 +276,29 @@ func parseFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	if location == "UTC" {
 		t, err := time.Parse(layout, x)
 		if err != nil {
-			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+			return nil, err
 		}
 		return Time(t), nil
 	}
 	loc, err := time.LoadLocation(location)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
 	t, err := time.ParseInLocation(layout, x, loc)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{Time(t), toy.Nil}, nil
+	return Time(t), nil
 }
 
-func nowFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func nowFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	return Time(time.Now()), nil
 }
 
-func dateFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func dateFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		year, month, day, hour, min, sec, nsec int
 		location                               string
@@ -310,14 +317,14 @@ func dateFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 	loc, err := time.LoadLocation(location)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, loc)), toy.Nil}, nil
+	return Time(time.Date(year, time.Month(month), day, hour, min, sec, nsec, loc)), nil
 }
 
 type Duration time.Duration
 
-var DurationType = toy.NewType[Duration]("time.Duration", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+var DurationType = toy.NewType[Duration]("time.Duration", func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 1,
@@ -341,17 +348,17 @@ var DurationType = toy.NewType[Duration]("time.Duration", func(_ *toy.VM, args .
 	}
 })
 
-func (d Duration) Type() toy.ObjectType { return DurationType }
+func (d Duration) Type() toy.ValueType { return DurationType }
 
 func (d Duration) String() string {
 	s := time.Duration(d).String()
 	return fmt.Sprintf("time.Duration(%q)", s)
 }
 
-func (d Duration) IsFalsy() bool     { return d == 0 }
-func (d Duration) Clone() toy.Object { return d }
+func (d Duration) IsFalsy() bool    { return d == 0 }
+func (d Duration) Clone() toy.Value { return d }
 
-func (d Duration) Compare(op token.Token, rhs toy.Object) (bool, error) {
+func (d Duration) Compare(op token.Token, rhs toy.Value) (bool, error) {
 	y, ok := rhs.(Duration)
 	if !ok {
 		return false, toy.ErrInvalidOperation
@@ -373,7 +380,7 @@ func (d Duration) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	return false, toy.ErrInvalidOperation
 }
 
-func (d Duration) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Object, error) {
+func (d Duration) BinaryOp(op token.Token, other toy.Value, right bool) (toy.Value, error) {
 	switch op {
 	case token.Add:
 		switch y := other.(type) {
@@ -421,26 +428,33 @@ func (d Duration) Convert(p any) error {
 	return nil
 }
 
-func (d Duration) FieldGet(name string) (toy.Object, error) {
-	switch name {
-	case "hours":
-		return toy.Float(time.Duration(d).Hours()), nil
-	case "minutes":
-		return toy.Float(time.Duration(d).Minutes()), nil
-	case "seconds":
-		return toy.Float(time.Duration(d).Seconds()), nil
-	case "milliseconds":
-		return toy.Int(time.Duration(d).Milliseconds()), nil
-	case "microseconds":
-		return toy.Int(time.Duration(d).Microseconds()), nil
-	case "nanoseconds":
-		return toy.Int(time.Duration(d).Nanoseconds()), nil
-	}
-	method, ok := timeDurationMethods[name]
+func (d Duration) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
 	if !ok {
-		return nil, toy.ErrNoSuchField
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
 	}
-	return method.WithReceiver(d), nil
+	switch string(keyStr) {
+	case "hours":
+		return toy.Float(time.Duration(d).Hours()), true, nil
+	case "minutes":
+		return toy.Float(time.Duration(d).Minutes()), true, nil
+	case "seconds":
+		return toy.Float(time.Duration(d).Seconds()), true, nil
+	case "milliseconds":
+		return toy.Int(time.Duration(d).Milliseconds()), true, nil
+	case "microseconds":
+		return toy.Int(time.Duration(d).Microseconds()), true, nil
+	case "nanoseconds":
+		return toy.Int(time.Duration(d).Nanoseconds()), true, nil
+	}
+	method, ok := timeDurationMethods[string(keyStr)]
+	if !ok {
+		return toy.Nil, false, nil
+	}
+	return method.WithReceiver(d), true, nil
 }
 
 var timeDurationMethods = map[string]*toy.BuiltinFunction{
@@ -448,7 +462,7 @@ var timeDurationMethods = map[string]*toy.BuiltinFunction{
 	"truncate": toy.NewBuiltinFunction("truncate", durationTruncateMd),
 }
 
-func durationRoundMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func durationRoundMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv = args[0].(Duration)
 		m    Duration
@@ -459,7 +473,7 @@ func durationRoundMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Duration(time.Duration(recv).Round(time.Duration(m))), nil
 }
 
-func durationTruncateMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func durationTruncateMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv = args[0].(Duration)
 		m    Duration
@@ -470,19 +484,19 @@ func durationTruncateMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Duration(time.Duration(recv).Truncate(time.Duration(m))), nil
 }
 
-func parseDurationFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseDurationFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var x string
 	if err := toy.UnpackArgs(args, "x", &x); err != nil {
 		return nil, err
 	}
 	d, err := time.ParseDuration(x)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{Duration(d), toy.Nil}, nil
+	return Duration(d), nil
 }
 
-func sinceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func sinceFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var t Time
 	if err := toy.UnpackArgs(args, "t", &t); err != nil {
 		return nil, err
@@ -490,7 +504,7 @@ func sinceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Duration(time.Since(time.Time(t))), nil
 }
 
-func untilFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func untilFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var t Time
 	if err := toy.UnpackArgs(args, "t", &t); err != nil {
 		return nil, err
@@ -498,7 +512,7 @@ func untilFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Duration(time.Until(time.Time(t))), nil
 }
 
-func unixFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func unixFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var sec, nsec int64
 	if err := toy.UnpackArgs(args, "sec", &sec, "nsec", &nsec); err != nil {
 		return nil, err
@@ -506,7 +520,7 @@ func unixFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Time(time.Unix(sec, nsec)), nil
 }
 
-func unixMicroFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func unixMicroFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var usec int64
 	if err := toy.UnpackArgs(args, "usec", &usec); err != nil {
 		return nil, err
@@ -514,7 +528,7 @@ func unixMicroFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return Time(time.UnixMicro(usec)), nil
 }
 
-func unixMilliFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func unixMilliFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var msec int64
 	if err := toy.UnpackArgs(args, "msec", &msec); err != nil {
 		return nil, err

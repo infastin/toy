@@ -13,7 +13,7 @@ import (
 
 var Module = &toy.BuiltinModule{
 	Name: "json",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"encode": toy.NewBuiltinFunction("json.encode", encodeFn),
 		"decode": toy.NewBuiltinFunction("json.decode", decodeFn),
 	},
@@ -21,7 +21,7 @@ var Module = &toy.BuiltinModule{
 
 func sequenceToJSON(enc *jx.Encoder, seq toy.Sequence) (err error) {
 	enc.ArrStart()
-	for elem := range toy.Elements(seq) {
+	for elem := range seq.Elements() {
 		if err := objectToJSON(enc, elem); err != nil {
 			return err
 		}
@@ -32,7 +32,7 @@ func sequenceToJSON(enc *jx.Encoder, seq toy.Sequence) (err error) {
 
 func mappingToJSON(enc *jx.Encoder, mapping toy.Mapping) (err error) {
 	enc.ObjStart()
-	for key, value := range toy.Entries(mapping) {
+	for key, value := range mapping.Entries() {
 		keyStr, ok := key.(toy.String)
 		if !ok {
 			return fmt.Errorf("unsupported key type: %s", toy.TypeName(key))
@@ -46,7 +46,7 @@ func mappingToJSON(enc *jx.Encoder, mapping toy.Mapping) (err error) {
 	return nil
 }
 
-func objectToJSON(enc *jx.Encoder, o toy.Object) (err error) {
+func objectToJSON(enc *jx.Encoder, o toy.Value) (err error) {
 	switch x := o.(type) {
 	case json.Marshaler:
 		data, err := x.MarshalJSON()
@@ -89,9 +89,9 @@ func objectToJSON(enc *jx.Encoder, o toy.Object) (err error) {
 	}
 }
 
-func encodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func encodeFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
-		x      toy.Object
+		x      toy.Value
 		indent *int
 	)
 	if err := toy.UnpackArgs(args, "x", &x, "indent?", &indent); err != nil {
@@ -107,14 +107,14 @@ func encodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 
 	if err := objectToJSON(enc, x); err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
 
-	return toy.Tuple{toy.Bytes(enc.Bytes()), toy.Nil}, nil
+	return toy.Bytes(enc.Bytes()), nil
 }
 
 func jsonArrayToArray(dec *jx.Decoder) (*toy.Array, error) {
-	var elems []toy.Object
+	var elems []toy.Value
 	if err := dec.Arr(func(d *jx.Decoder) error {
 		obj, err := jsonToObject(d)
 		if err != nil {
@@ -128,22 +128,22 @@ func jsonArrayToArray(dec *jx.Decoder) (*toy.Array, error) {
 	return toy.NewArray(elems), nil
 }
 
-func jsonObjectToMap(dec *jx.Decoder) (*toy.Map, error) {
-	m := new(toy.Map)
+func jsonObjectToTable(dec *jx.Decoder) (*toy.Table, error) {
+	t := new(toy.Table)
 	if err := dec.Obj(func(d *jx.Decoder, key string) error {
 		value, err := jsonToObject(d)
 		if err != nil {
 			return fmt.Errorf("%s: %w", key, err)
 		}
-		m.IndexSet(toy.String(key), value)
+		t.SetProperty(toy.String(key), value)
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return m, nil
+	return t, nil
 }
 
-func jsonToObject(dec *jx.Decoder) (toy.Object, error) {
+func jsonToObject(dec *jx.Decoder) (toy.Value, error) {
 	switch dec.Next() {
 	case jx.Number:
 		num, err := dec.Num()
@@ -176,12 +176,12 @@ func jsonToObject(dec *jx.Decoder) (toy.Object, error) {
 	case jx.Array:
 		return jsonArrayToArray(dec)
 	case jx.Object:
-		return jsonObjectToMap(dec)
+		return jsonObjectToTable(dec)
 	}
 	return nil, dec.Skip()
 }
 
-func decodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func decodeFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var data toy.StringOrBytes
 	if err := toy.UnpackArgs(args, "data", &data); err != nil {
 		return nil, err
@@ -194,8 +194,8 @@ func decodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 
 	obj, err := jsonToObject(dec)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, err
+		return nil, err
 	}
 
-	return toy.Tuple{obj, toy.Nil}, nil
+	return obj, nil
 }

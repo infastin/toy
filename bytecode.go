@@ -12,7 +12,7 @@ import (
 type Bytecode struct {
 	FileSet      *token.FileSet
 	MainFunction *CompiledFunction
-	Constants    []Object
+	Constants    []Value
 }
 
 // FormatInstructions returns human readable string representations of
@@ -43,7 +43,7 @@ func (b *Bytecode) FormatConstants() (output []string) {
 // RemoveDuplicates finds and removes the duplicate values in Constants.
 // NOTE: this function mutates Bytecode.
 func (b *Bytecode) RemoveDuplicates() {
-	var deduped []Object
+	var deduped []Value
 
 	indexMap := make(map[int]int) // mapping from old constant index to new index
 	fns := make(map[*CompiledFunction]int)
@@ -147,7 +147,7 @@ func (b *Bytecode) RemoveUnused() {
 	b.Constants = stripped
 }
 
-func (b *Bytecode) removeUnused(insts []byte, stripped []Object, indexMap map[int]int) []Object {
+func (b *Bytecode) removeUnused(insts []byte, stripped []Value, indexMap map[int]int) []Value {
 	for i := 0; i < len(insts); {
 		opcode := insts[i]
 		operands, offset := bytecode.ReadOperands(bytecode.OpcodeOperands[opcode], insts[i+1:])

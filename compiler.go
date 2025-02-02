@@ -42,7 +42,7 @@ type CompilerError struct {
 
 func (e *CompilerError) Error() string {
 	filePos := e.FileSet.Position(e.Node.Pos())
-	return fmt.Sprintf("Compile Error: %s\n\tat %s", e.Err.Error(), filePos)
+	return fmt.Sprintf("compile error: %s\n└─ at %s", e.Err.Error(), filePos)
 }
 
 // Compiler compiles the AST into a bytecode.
@@ -52,7 +52,7 @@ type Compiler struct {
 	modulePath      string
 	importDir       string
 	importFileExt   []string
-	constants       []Object
+	constants       []Value
 	symbolTable     *SymbolTable
 	scopes          []compilationScope
 	scopeIndex      int
@@ -69,7 +69,7 @@ type Compiler struct {
 func NewCompiler(
 	file *token.File,
 	symbolTable *SymbolTable,
-	constants []Object,
+	constants []Value,
 	modules ModuleGetter,
 	trace io.Writer,
 ) *Compiler {
@@ -83,7 +83,7 @@ func NewCompiler(
 		symbolTable = NewSymbolTable()
 	}
 
-	// add builtin objects to the symbol table
+	// add builtin values to the symbol table
 	for i, v := range Universe {
 		symbolTable.DefineBuiltin(i, v.name)
 	}
@@ -125,6 +125,8 @@ func (c *Compiler) Compile(node ast.Node) error {
 				return err
 			}
 		}
+		// code optimization
+		c.optimizeFunc(node)
 	case *ast.ExprStmt:
 		if err := c.Compile(node.Expr); err != nil {
 			return err
@@ -371,22 +373,17 @@ func (c *Compiler) Compile(node ast.Node) error {
 			c.emit(node, bytecode.OpGetFree, symbol.Index)
 		}
 	case *ast.ArrayLit:
-		splat := 0
-		for _, elem := range node.Elements {
-			if _, ok := elem.(*ast.SplatExpr); ok {
-				splat = 1
-			}
-			if err := c.Compile(elem); err != nil {
-				return err
-			}
+		splat, err := c.compileListElements(node.Elements)
+		if err != nil {
+			return err
 		}
 		c.emit(node, bytecode.OpArray, len(node.Elements), splat)
-	case *ast.MapLit:
+	case *ast.TableLit:
 		for _, elt := range node.Elements {
 			switch key := elt.Key.(type) {
 			case *ast.Ident:
 				c.emit(key, bytecode.OpConstant, c.addConstant(String(key.Name)))
-			case *ast.MapKeyExpr:
+			case *ast.TableKeyExpr:
 				if err := c.Compile(key.Expr); err != nil {
 					return err
 				}
@@ -395,13 +392,11 @@ func (c *Compiler) Compile(node ast.Node) error {
 				return err
 			}
 		}
-		c.emit(node, bytecode.OpMap, len(node.Elements))
+		c.emit(node, bytecode.OpTable, len(node.Elements))
 	case *ast.SelectorExpr: // selector on RHS side
-		if err := c.Compile(node.Expr); err != nil {
+		if err := c.compileSelectorExpr(node, false); err != nil {
 			return err
 		}
-		c.emit(node.Sel, bytecode.OpConstant, c.addConstant(String(node.Sel.Name)))
-		c.emit(node, bytecode.OpField)
 	case *ast.IndexExpr:
 		if err := c.compileIndexExpr(node, false); err != nil {
 			return err
@@ -519,10 +514,6 @@ func (c *Compiler) Compile(node ast.Node) error {
 			c.emit(node, bytecode.OpConstant, c.addConstant(compiledFunction))
 		}
 	case *ast.ReturnStmt:
-		if c.symbolTable.Parent(true) == nil {
-			// outside the function
-			return c.errorf(node, "return not allowed outside function")
-		}
 		for _, result := range node.Results {
 			if err := c.Compile(result); err != nil {
 				return err
@@ -535,22 +526,14 @@ func (c *Compiler) Compile(node ast.Node) error {
 		if len(node.Results) != 0 {
 			hasResults = 1
 		}
-		if len(c.currentDeferMap()) != 0 {
-			c.emit(nil, bytecode.OpRunDefer)
-		}
 		c.emit(node, bytecode.OpReturn, hasResults)
 	case *ast.DeferStmt:
 		if err := c.Compile(node.CallExpr.Func); err != nil {
 			return err
 		}
-		splat := 0
-		for _, arg := range node.CallExpr.Args {
-			if _, ok := arg.(*ast.SplatExpr); ok {
-				splat = 1
-			}
-			if err := c.Compile(arg); err != nil {
-				return err
-			}
+		splat, err := c.compileListElements(node.CallExpr.Args)
+		if err != nil {
+			return err
 		}
 		deferIdx := c.addDeferPos(node.CallExpr.Pos())
 		c.emit(node, bytecode.OpDefer, len(node.CallExpr.Args), splat, deferIdx)
@@ -563,14 +546,9 @@ func (c *Compiler) Compile(node ast.Node) error {
 		if err := c.Compile(node.Func); err != nil {
 			return err
 		}
-		splat := 0
-		for _, arg := range node.Args {
-			if _, ok := arg.(*ast.SplatExpr); ok {
-				splat = 1
-			}
-			if err := c.Compile(arg); err != nil {
-				return err
-			}
+		splat, err := c.compileListElements(node.Args)
+		if err != nil {
+			return err
 		}
 		c.emit(node, bytecode.OpCall, len(node.Args), splat)
 	case *ast.ImportExpr:
@@ -616,23 +594,29 @@ func (c *Compiler) Compile(node ast.Node) error {
 		} else {
 			return c.errorf(node, "module '%s' not found", node.ModuleName)
 		}
-	case *ast.ExportStmt:
-		// export statement must be in top-level scope
-		if c.scopeIndex != 0 {
-			return c.errorf(node, "export not allowed inside function")
-		}
-		// export statement is simply ignore when compiling non-module code
-		if c.parent == nil {
-			return nil
-		}
-		if err := c.Compile(node.Result); err != nil {
+	case *ast.TryExpr:
+		if err := c.Compile(node.CallExpr.Func); err != nil {
 			return err
 		}
-		if len(c.currentDeferMap()) != 0 {
-			c.emit(nil, bytecode.OpRunDefer)
+		splat, err := c.compileListElements(node.CallExpr.Args)
+		if err != nil {
+			return err
 		}
-		c.emit(node, bytecode.OpFreeze)
-		c.emit(node, bytecode.OpReturn, 1)
+		c.emit(node, bytecode.OpTry, len(node.CallExpr.Args), splat)
+	case *ast.ThrowStmt:
+		for _, e := range node.Errors {
+			if err := c.Compile(e); err != nil {
+				return err
+			}
+		}
+		if len(node.Errors) > 1 {
+			c.emit(node, bytecode.OpTuple, len(node.Errors), 0)
+		}
+		var hasErrors int
+		if len(node.Errors) != 0 {
+			hasErrors = 1
+		}
+		c.emit(node, bytecode.OpThrow, hasErrors)
 	case *ast.CondExpr:
 		if err := c.Compile(node.Cond); err != nil {
 			return err
@@ -663,15 +647,10 @@ func (c *Compiler) Compile(node ast.Node) error {
 
 // Bytecode returns a compiled bytecode.
 func (c *Compiler) Bytecode() *Bytecode {
-	insts := c.currentInstructions()
-	if len(c.currentDeferMap()) != 0 {
-		insts = append(insts, bytecode.OpRunDefer)
-	}
-	insts = append(insts, bytecode.OpSuspend)
 	return &Bytecode{
 		FileSet: c.file.Set(),
 		MainFunction: &CompiledFunction{
-			instructions: insts,
+			instructions: c.currentInstructions(),
 			sourceMap:    c.currentSourceMap(),
 			deferMap:     c.currentDeferMap(),
 		},
@@ -721,6 +700,32 @@ func (c *Compiler) SetImportFileExt(exts ...string) error {
 // local module files.
 func (c *Compiler) GetImportFileExt() []string {
 	return c.importFileExt
+}
+
+func (c *Compiler) compileListElements(elems []ast.Expr) (splat int, err error) {
+	splat = 0
+	for _, elem := range elems {
+		if _, ok := elem.(*ast.SplatExpr); ok {
+			splat = 1
+		}
+		if err := c.Compile(elem); err != nil {
+			return 0, err
+		}
+	}
+	return splat, nil
+}
+
+func (c *Compiler) compileSelectorExpr(node *ast.SelectorExpr, withOk bool) error {
+	if err := c.Compile(node.Expr); err != nil {
+		return err
+	}
+	c.emit(node.Sel, bytecode.OpConstant, c.addConstant(String(node.Sel.Name)))
+	returnBool := 0
+	if withOk {
+		returnBool = 1
+	}
+	c.emit(node, bytecode.OpIndex, returnBool)
+	return nil
 }
 
 func (c *Compiler) compileIndexExpr(node *ast.IndexExpr, withOk bool) error {
@@ -802,7 +807,6 @@ func (c *Compiler) compileAssign(
 		c.emit(node, bytecode.OpBinaryOp, int(token.Nullish))
 	}
 
-	var isField bool
 	if sel != nil {
 		// compile left side of the selector expression
 		if err := c.Compile(expr); err != nil {
@@ -810,7 +814,6 @@ func (c *Compiler) compileAssign(
 		}
 		// compile selector
 		if ident, ok := sel.(*ast.Ident); ok {
-			isField = true
 			c.emit(sel, bytecode.OpConstant, c.addConstant(String(ident.Name)))
 		} else if err := c.Compile(sel); err != nil {
 			return err
@@ -818,11 +821,7 @@ func (c *Compiler) compileAssign(
 	}
 
 	if sel != nil {
-		if isField {
-			c.emit(node, bytecode.OpSetField)
-		} else {
-			c.emit(node, bytecode.OpSetIndex)
-		}
+		c.emit(node, bytecode.OpSetIndex)
 	} else {
 		switch symbol.Scope {
 		case ScopeGlobal:
@@ -942,13 +941,19 @@ func (c *Compiler) compileAssignDefine(
 		}
 	} else {
 		// rhs should be an indexable
-		if idx, ok := rhs[0].(*ast.IndexExpr); ok {
+		switch rhs0 := rhs[0].(type) {
+		case *ast.SelectorExpr:
 			// x, ok := xs[0]
-			if err := c.compileIndexExpr(idx, true); err != nil {
+			if err := c.compileSelectorExpr(rhs0, true); err != nil {
 				return err
 			}
-		} else {
-			if err := c.Compile(rhs[0]); err != nil {
+		case *ast.IndexExpr:
+			// x, ok := xs[0]
+			if err := c.compileIndexExpr(rhs0, true); err != nil {
+				return err
+			}
+		default:
+			if err := c.Compile(rhs0); err != nil {
 				return err
 			}
 		}
@@ -962,7 +967,6 @@ func (c *Compiler) compileAssignDefine(
 			lr.symbol = c.symbolTable.Define(lr.ident)
 		}
 
-		var isField bool
 		if lr.sel != nil {
 			// compile left side of the selector expression
 			if err := c.Compile(lr.expr); err != nil {
@@ -970,7 +974,6 @@ func (c *Compiler) compileAssignDefine(
 			}
 			// compile selector
 			if ident, ok := lr.sel.(*ast.Ident); ok {
-				isField = true
 				c.emit(lr.sel, bytecode.OpConstant, c.addConstant(String(ident.Name)))
 			} else if err := c.Compile(lr.sel); err != nil {
 				return err
@@ -983,11 +986,7 @@ func (c *Compiler) compileAssignDefine(
 		}
 
 		if lr.sel != nil {
-			if isField {
-				c.emit(node, bytecode.OpSetField)
-			} else {
-				c.emit(node, bytecode.OpSetIndex)
-			}
+			c.emit(node, bytecode.OpSetIndex)
 		} else {
 			// symbol can't be nil here,
 			// since it can only be nil in selector expressions
@@ -1284,10 +1283,12 @@ func (c *Compiler) compileModule(
 	}
 
 	// code optimization
-	moduleCompiler.optimizeFunc(node)
+	numRemovedLocals := moduleCompiler.optimizeFunc(node)
+
 	compiledFunc := moduleCompiler.Bytecode().MainFunction
-	compiledFunc.numLocals = symbolTable.MaxSymbols()
+	compiledFunc.numLocals = symbolTable.MaxSymbols() - numRemovedLocals
 	c.storeCompiledModule(modulePath, compiledFunc)
+
 	return compiledFunc, nil
 }
 
@@ -1403,14 +1404,14 @@ func (c *Compiler) errorf(node ast.Node, format string, args ...any) error {
 	}
 }
 
-func (c *Compiler) addConstant(o Object) int {
+func (c *Compiler) addConstant(v Value) int {
 	if c.parent != nil {
 		// module compilers will use their parent's constants array
-		return c.parent.addConstant(o)
+		return c.parent.addConstant(v)
 	}
-	c.constants = append(c.constants, o)
+	c.constants = append(c.constants, v)
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("CONST %04d %s", len(c.constants)-1, o))
+		c.printTrace(fmt.Sprintf("CONST %04d %s", len(c.constants)-1, v))
 	}
 	return len(c.constants) - 1
 }
@@ -1527,9 +1528,6 @@ func (c *Compiler) optimizeFunc(node ast.Node) int {
 
 	// append "return"
 	if appendReturn {
-		if len(c.currentDeferMap()) != 0 {
-			c.emit(nil, bytecode.OpRunDefer)
-		}
 		c.emit(node, bytecode.OpReturn, 0)
 	}
 

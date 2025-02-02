@@ -5,19 +5,21 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"iter"
 	"net"
 	"slices"
 
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/hash"
 	"github.com/infastin/toy/internal/fndef"
+	"github.com/infastin/toy/internal/xiter"
 	"github.com/infastin/toy/stdlib/enum"
 	"github.com/infastin/toy/token"
 )
 
 var Module = &toy.BuiltinModule{
 	Name: "net",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"IP":       IPType,
 		"parseIP":  toy.NewBuiltinFunction("parseIP", parseIPFn),
 		"ipv4":     toy.NewBuiltinFunction("ipv4", ipv4Fn),
@@ -53,7 +55,7 @@ var Module = &toy.BuiltinModule{
 
 type IP net.IP
 
-var IPType = toy.NewType[IP]("net.IP", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+var IPType = toy.NewType[IP]("net.IP", func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 1,
@@ -86,10 +88,15 @@ var IPType = toy.NewType[IP]("net.IP", func(_ *toy.VM, args ...toy.Object) (toy.
 			}
 		}
 		ip := make(IP, x.Len())
-		for i, v := range toy.Enumerate(x) {
+		for i, v := range xiter.Enum(x.Elements()) {
 			b, ok := v.(toy.Int)
 			if !ok {
-				return nil, fmt.Errorf("value[%d]: want 'int', got '%s'", i, toy.TypeName(v))
+				return nil, &toy.InvalidArgumentTypeError{
+					Name: "value",
+					Sel:  fmt.Sprintf("[%d]", i),
+					Want: "int",
+					Got:  toy.TypeName(v),
+				}
 			}
 			ip[i] = byte(b)
 		}
@@ -103,13 +110,13 @@ var IPType = toy.NewType[IP]("net.IP", func(_ *toy.VM, args ...toy.Object) (toy.
 	}
 })
 
-func (ip IP) Type() toy.ObjectType { return IPType }
-func (ip IP) String() string       { return fmt.Sprintf("net.IP(%q)", net.IP(ip).String()) }
-func (ip IP) IsFalsy() bool        { return net.IP(ip).IsUnspecified() }
-func (ip IP) Clone() toy.Object    { return slices.Clone(ip) }
-func (ip IP) Hash() uint64         { return hash.Bytes(ip[:]) }
+func (ip IP) Type() toy.ValueType { return IPType }
+func (ip IP) String() string      { return fmt.Sprintf("net.IP(%q)", net.IP(ip).String()) }
+func (ip IP) IsFalsy() bool       { return net.IP(ip).IsUnspecified() }
+func (ip IP) Clone() toy.Value    { return slices.Clone(ip) }
+func (ip IP) Hash() uint64        { return hash.Bytes(ip[:]) }
 
-func (ip IP) Compare(op token.Token, rhs toy.Object) (bool, error) {
+func (ip IP) Compare(op token.Token, rhs toy.Value) (bool, error) {
 	y, ok := rhs.(IP)
 	if !ok {
 		return false, toy.ErrInvalidOperation
@@ -123,12 +130,19 @@ func (ip IP) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	return false, toy.ErrInvalidOperation
 }
 
-func (ip IP) FieldGet(name string) (toy.Object, error) {
-	method, ok := ipMethods[name]
+func (ip IP) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
 	if !ok {
-		return nil, toy.ErrNoSuchField
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
 	}
-	return method.WithReceiver(ip), nil
+	method, ok := ipMethods[string(keyStr)]
+	if !ok {
+		return toy.Nil, false, nil
+	}
+	return method.WithReceiver(ip), true, nil
 }
 
 func (ip IP) Convert(p any) error {
@@ -138,7 +152,7 @@ func (ip IP) Convert(p any) error {
 	case *toy.Bytes:
 		*p = toy.Bytes(ip)
 	case **toy.Array:
-		elems := make([]toy.Object, len(ip))
+		elems := make([]toy.Value, len(ip))
 		for i, b := range ip {
 			elems[i] = toy.Int(b)
 		}
@@ -155,43 +169,25 @@ func (ip IP) Convert(p any) error {
 	return nil
 }
 
-func (ip IP) Len() int            { return len(ip) }
-func (ip IP) At(i int) toy.Object { return toy.Int(ip[i]) }
+func (ip IP) Len() int           { return len(ip) }
+func (ip IP) At(i int) toy.Value { return toy.Int(ip[i]) }
 
-func (ip IP) Items() []toy.Object {
-	elems := make([]toy.Object, len(ip))
+func (ip IP) Items() []toy.Value {
+	elems := make([]toy.Value, len(ip))
 	for i, b := range ip {
 		elems[i] = toy.Int(b)
 	}
 	return elems
 }
 
-func (ip IP) Iterate() toy.Iterator { return &ipIterator{ip: ip, i: 0} }
-
-type ipIterator struct {
-	ip IP
-	i  int
-}
-
-var ipIteratorType = toy.NewType[*ipIterator]("net.IP-iterator", nil)
-
-func (it *ipIterator) Type() toy.ObjectType { return ipIteratorType }
-func (it *ipIterator) String() string       { return "<net.IP-iterator>" }
-func (it *ipIterator) IsFalsy() bool        { return true }
-func (it *ipIterator) Clone() toy.Object    { return &ipIterator{ip: it.ip, i: it.i} }
-
-func (it *ipIterator) Next(key, value *toy.Object) bool {
-	if it.i < len(it.ip) {
-		if key != nil {
-			*key = toy.Int(it.i)
+func (ip IP) Iterate() iter.Seq[toy.Value] {
+	return func(yield func(toy.Value) bool) {
+		for _, b := range ip {
+			if !yield(toy.Int(b)) {
+				break
+			}
 		}
-		if value != nil {
-			*value = toy.Int(it.ip[it.i])
-		}
-		it.i++
-		return true
 	}
-	return false
 }
 
 var ipMethods = map[string]*toy.BuiltinFunction{
@@ -208,7 +204,7 @@ var ipMethods = map[string]*toy.BuiltinFunction{
 	"defaultMask":          toy.NewBuiltinFunction("defaultMask", ipDefaultMaskMd),
 }
 
-func ipIsUnspecifiedMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsUnspecifiedMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -217,7 +213,7 @@ func ipIsUnspecifiedMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(net.IP(recv).IsUnspecified()), nil
 }
 
-func ipIsLoopbackMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsLoopbackMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -226,7 +222,7 @@ func ipIsLoopbackMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(net.IP(recv).IsLoopback()), nil
 }
 
-func ipIsPrivateMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsPrivateMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -235,7 +231,7 @@ func ipIsPrivateMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(net.IP(recv).IsPrivate()), nil
 }
 
-func ipIsMulticastMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsMulticastMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -244,7 +240,7 @@ func ipIsMulticastMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(net.IP(recv).IsMulticast()), nil
 }
 
-func ipIsLinkLocalMulticastMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsLinkLocalMulticastMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -253,7 +249,7 @@ func ipIsLinkLocalMulticastMd(_ *toy.VM, args ...toy.Object) (toy.Object, error)
 	return toy.Bool(net.IP(recv).IsLinkLocalMulticast()), nil
 }
 
-func ipIsLinkLocalUnicastMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsLinkLocalUnicastMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -262,7 +258,7 @@ func ipIsLinkLocalUnicastMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(net.IP(recv).IsLinkLocalUnicast()), nil
 }
 
-func ipIsGlobalUnicastMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipIsGlobalUnicastMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -271,7 +267,7 @@ func ipIsGlobalUnicastMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(net.IP(recv).IsGlobalUnicast()), nil
 }
 
-func ipTo4Md(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipTo4Md(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -280,7 +276,7 @@ func ipTo4Md(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return IP(net.IP(recv).To4()), nil
 }
 
-func ipTo16Md(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipTo16Md(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -289,7 +285,7 @@ func ipTo16Md(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return IP(net.IP(recv).To16()), nil
 }
 
-func ipMaskMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipMaskMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv = args[0].(IP)
 		mask IPMask
@@ -300,7 +296,7 @@ func ipMaskMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return IP(net.IP(recv).Mask(net.IPMask(mask))), nil
 }
 
-func ipDefaultMaskMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipDefaultMaskMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(IP)
 	args = args[1:]
 	if len(args) != 0 {
@@ -309,19 +305,19 @@ func ipDefaultMaskMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return IP(net.IP(recv).DefaultMask()), nil
 }
 
-func parseIPFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseIPFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
 	}
 	ip := net.ParseIP(s)
 	if ip == nil {
-		return toy.Tuple{toy.Nil, toy.NewError("invalid ip")}, nil
+		return nil, errors.New("invalid ip")
 	}
-	return toy.Tuple{IP(ip), toy.Nil}, nil
+	return IP(ip), nil
 }
 
-func ipv4Fn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipv4Fn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var a, b, c, d byte
 	if err := toy.UnpackArgs(args, "a", &a, "b", &b, "c", &c, "d", &d); err != nil {
 		return nil, err
@@ -329,25 +325,25 @@ func ipv4Fn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return IP(net.IPv4(a, b, c, d)), nil
 }
 
-func lookupIPFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lookupIPFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var host string
 	if err := toy.UnpackArgs(args, "host", &host); err != nil {
 		return nil, err
 	}
 	ips, err := net.LookupIP(host)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	elems := make([]toy.Object, 0, len(ips))
+	elems := make([]toy.Value, 0, len(ips))
 	for _, ip := range ips {
 		elems = append(elems, IP(ip))
 	}
-	return toy.Tuple{toy.NewArray(elems), toy.Nil}, nil
+	return toy.NewArray(elems), nil
 }
 
 type IPMask net.IPMask
 
-var IPMaskType = toy.NewType[IPMask]("net.IPMask", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+var IPMaskType = toy.NewType[IPMask]("net.IPMask", func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) < 1 && len(args) > 2 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 1,
@@ -388,17 +384,22 @@ var IPMaskType = toy.NewType[IPMask]("net.IPMask", func(_ *toy.VM, args ...toy.O
 				}
 			}
 			m := make(IPMask, x.Len())
-			for i, v := range toy.Enumerate(x) {
+			for i, v := range xiter.Enum(x.Elements()) {
 				b, ok := v.(toy.Int)
 				if !ok {
-					return nil, fmt.Errorf("value[%d]: want 'int', got '%s'", i, toy.TypeName(v))
+					return nil, &toy.InvalidArgumentTypeError{
+						Name: "value",
+						Sel:  fmt.Sprintf("[%d]", i),
+						Want: "int",
+						Got:  toy.TypeName(v),
+					}
 				}
 				m[i] = byte(b)
 			}
 			return m, nil
 		default:
 			var m IPMask
-			if err := toy.Convert(&m, args[0]); err != nil {
+			if err := toy.Convert(&m, x); err != nil {
 				return nil, err
 			}
 			return m, nil
@@ -415,13 +416,13 @@ var IPMaskType = toy.NewType[IPMask]("net.IPMask", func(_ *toy.VM, args ...toy.O
 	return IPMask(mask), nil
 })
 
-func (m IPMask) Type() toy.ObjectType { return IPMaskType }
-func (m IPMask) String() string       { return fmt.Sprintf("net.IPMask(%q)", net.IPMask(m).String()) }
-func (m IPMask) IsFalsy() bool        { return len(m) == 0 }
-func (m IPMask) Clone() toy.Object    { return slices.Clone(m) }
-func (m IPMask) Hash() uint64         { return hash.Bytes(m[:]) }
+func (m IPMask) Type() toy.ValueType { return IPMaskType }
+func (m IPMask) String() string      { return fmt.Sprintf("net.IPMask(%q)", net.IPMask(m).String()) }
+func (m IPMask) IsFalsy() bool       { return len(m) == 0 }
+func (m IPMask) Clone() toy.Value    { return slices.Clone(m) }
+func (m IPMask) Hash() uint64        { return hash.Bytes(m[:]) }
 
-func (m IPMask) Compare(op token.Token, rhs toy.Object) (bool, error) {
+func (m IPMask) Compare(op token.Token, rhs toy.Value) (bool, error) {
 	y, ok := rhs.(IPMask)
 	if !ok {
 		return false, toy.ErrInvalidOperation
@@ -435,12 +436,19 @@ func (m IPMask) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	return false, toy.ErrInvalidOperation
 }
 
-func (m IPMask) FieldGet(name string) (toy.Object, error) {
-	method, ok := ipMaskMethods[name]
+func (m IPMask) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
 	if !ok {
-		return nil, toy.ErrNoSuchField
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
 	}
-	return method.WithReceiver(m), nil
+	method, ok := ipMaskMethods[string(keyStr)]
+	if !ok {
+		return toy.Nil, false, nil
+	}
+	return method.WithReceiver(m), true, nil
 }
 
 func (m IPMask) Convert(p any) error {
@@ -450,7 +458,7 @@ func (m IPMask) Convert(p any) error {
 	case *toy.Bytes:
 		*p = toy.Bytes(m)
 	case **toy.Array:
-		elems := make([]toy.Object, len(m))
+		elems := make([]toy.Value, len(m))
 		for i, b := range m {
 			elems[i] = toy.Int(b)
 		}
@@ -467,50 +475,32 @@ func (m IPMask) Convert(p any) error {
 	return nil
 }
 
-func (m IPMask) Len() int            { return len(m) }
-func (m IPMask) At(i int) toy.Object { return toy.Int(m[i]) }
+func (m IPMask) Len() int           { return len(m) }
+func (m IPMask) At(i int) toy.Value { return toy.Int(m[i]) }
 
-func (m IPMask) Items() []toy.Object {
-	elems := make([]toy.Object, len(m))
+func (m IPMask) Items() []toy.Value {
+	elems := make([]toy.Value, len(m))
 	for i, b := range m {
 		elems[i] = toy.Int(b)
 	}
 	return elems
 }
 
-func (m IPMask) Iterate() toy.Iterator { return &ipMaskIterator{m: m, i: 0} }
-
-type ipMaskIterator struct {
-	m IPMask
-	i int
-}
-
-var ipMaskIteratorType = toy.NewType[*ipMaskIterator]("net.IPMask-iterator", nil)
-
-func (it *ipMaskIterator) Type() toy.ObjectType { return ipMaskIteratorType }
-func (it *ipMaskIterator) String() string       { return "<net.IPMask-iterator>" }
-func (it *ipMaskIterator) IsFalsy() bool        { return true }
-func (it *ipMaskIterator) Clone() toy.Object    { return &ipMaskIterator{m: it.m, i: it.i} }
-
-func (it *ipMaskIterator) Next(key, value *toy.Object) bool {
-	if it.i < len(it.m) {
-		if key != nil {
-			*key = toy.Int(it.i)
+func (m IPMask) Iterate() iter.Seq[toy.Value] {
+	return func(yield func(toy.Value) bool) {
+		for _, b := range m {
+			if !yield(toy.Int(b)) {
+				break
+			}
 		}
-		if value != nil {
-			*value = toy.Int(it.m[it.i])
-		}
-		it.i++
-		return true
 	}
-	return false
 }
 
 var ipMaskMethods = map[string]*toy.BuiltinFunction{
 	"size": toy.NewBuiltinFunction("size", ipMaskSizeMd),
 }
 
-func ipMaskSizeMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipMaskSizeMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	recv := args[0].(IPMask)
 	args = args[1:]
 	if len(args) != 0 {
@@ -520,19 +510,19 @@ func ipMaskSizeMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Tuple{toy.Int(ones), toy.Int(bits)}, nil
 }
 
-func cidrMaskFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func cidrMaskFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var ones, bits int
 	if err := toy.UnpackArgs(args, "ones", &ones, "bits", &bits); err != nil {
 		return nil, err
 	}
 	mask := net.CIDRMask(ones, bits)
 	if mask == nil {
-		return toy.Tuple{toy.Nil, toy.NewError("invalid number of ones and bits")}, nil
+		return nil, errors.New("invalid number of ones and bits")
 	}
-	return toy.Tuple{IPMask(mask), toy.Nil}, nil
+	return IPMask(mask), nil
 }
 
-func ipv4MaskFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func ipv4MaskFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var a, b, c, d byte
 	if err := toy.UnpackArgs(args, "a", &a, "b", &b, "c", &c, "d", &d); err != nil {
 		return nil, err
@@ -540,21 +530,21 @@ func ipv4MaskFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return IPMask(net.IPv4Mask(a, b, c, d)), nil
 }
 
-func parseCIDRFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseCIDRFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
 	}
 	ip, ipNet, err := net.ParseCIDR(s)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{IP(ip), (*IPNet)(ipNet), toy.Nil}, nil
+	return toy.Tuple{IP(ip), (*IPNet)(ipNet)}, nil
 }
 
 type IPNet net.IPNet
 
-var IPNetType = toy.NewType[*IPNet]("net.IPNet", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+var IPNetType = toy.NewType[*IPNet]("net.IPNet", func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) < 1 && len(args) > 2 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 1,
@@ -572,7 +562,7 @@ var IPNetType = toy.NewType[*IPNet]("net.IPNet", func(_ *toy.VM, args ...toy.Obj
 			return (*IPNet)(ipNet), nil
 		default:
 			var n *IPNet
-			if err := toy.Convert(&n, args[0]); err != nil {
+			if err := toy.Convert(&n, x); err != nil {
 				return nil, err
 			}
 			return n, nil
@@ -588,12 +578,12 @@ var IPNetType = toy.NewType[*IPNet]("net.IPNet", func(_ *toy.VM, args ...toy.Obj
 	return &IPNet{IP: net.IP(ip), Mask: net.IPMask(mask)}, nil
 })
 
-func (n *IPNet) Type() toy.ObjectType { return IPNetType }
-func (n *IPNet) String() string       { return fmt.Sprintf("net.IPNet(%q)", (*net.IPNet)(n).String()) }
-func (n *IPNet) IsFalsy() bool        { return false }
-func (n *IPNet) Clone() toy.Object    { return &IPNet{IP: n.IP, Mask: n.Mask} }
+func (n *IPNet) Type() toy.ValueType { return IPNetType }
+func (n *IPNet) String() string      { return fmt.Sprintf("net.IPNet(%q)", (*net.IPNet)(n).String()) }
+func (n *IPNet) IsFalsy() bool       { return false }
+func (n *IPNet) Clone() toy.Value    { return &IPNet{IP: n.IP, Mask: n.Mask} }
 
-func (n *IPNet) Compare(op token.Token, rhs toy.Object) (bool, error) {
+func (n *IPNet) Compare(op token.Token, rhs toy.Value) (bool, error) {
 	y, ok := rhs.(*IPNet)
 	if !ok {
 		return false, toy.ErrInvalidOperation
@@ -607,14 +597,21 @@ func (n *IPNet) Compare(op token.Token, rhs toy.Object) (bool, error) {
 	return false, toy.ErrInvalidOperation
 }
 
-func (n *IPNet) FieldGet(name string) (toy.Object, error) {
-	switch name {
-	case "ip":
-		return IP(n.IP), nil
-	case "mask":
-		return IPMask(n.Mask), nil
+func (n *IPNet) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
+	if !ok {
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
 	}
-	return nil, toy.ErrNoSuchField
+	switch string(keyStr) {
+	case "ip":
+		return IP(n.IP), true, nil
+	case "mask":
+		return IPMask(n.Mask), true, nil
+	}
+	return toy.Nil, false, nil
 }
 
 func (n *IPNet) Convert(p any) error {
@@ -627,7 +624,7 @@ func (n *IPNet) Convert(p any) error {
 	return nil
 }
 
-func (n *IPNet) Contains(value toy.Object) (bool, error) {
+func (n *IPNet) Contains(value toy.Value) (bool, error) {
 	ip, ok := value.(IP)
 	if !ok {
 		return false, &toy.InvalidValueTypeError{
@@ -640,7 +637,7 @@ func (n *IPNet) Contains(value toy.Object) (bool, error) {
 
 type MAC net.HardwareAddr
 
-var MACType = toy.NewType[MAC]("net.MAC", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+var MACType = toy.NewType[MAC]("net.MAC", func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 1,
@@ -673,10 +670,15 @@ var MACType = toy.NewType[MAC]("net.MAC", func(_ *toy.VM, args ...toy.Object) (t
 			}
 		}
 		m := make(MAC, x.Len())
-		for i, v := range toy.Enumerate(x) {
+		for i, v := range xiter.Enum(x.Elements()) {
 			b, ok := v.(toy.Int)
 			if !ok {
-				return nil, fmt.Errorf("value[%d]: want 'int', got '%s'", i, toy.TypeName(v))
+				return nil, &toy.InvalidArgumentTypeError{
+					Name: "value",
+					Sel:  fmt.Sprintf("[%d]", i),
+					Want: "int",
+					Got:  toy.TypeName(v),
+				}
 			}
 			m[i] = byte(b)
 		}
@@ -690,13 +692,13 @@ var MACType = toy.NewType[MAC]("net.MAC", func(_ *toy.VM, args ...toy.Object) (t
 	}
 })
 
-func (m MAC) Type() toy.ObjectType { return MACType }
-func (m MAC) String() string       { return fmt.Sprintf("net.MAC(%q)", net.HardwareAddr(m).String()) }
-func (m MAC) IsFalsy() bool        { return len(m) == 0 }
-func (m MAC) Clone() toy.Object    { return slices.Clone(m) }
-func (m MAC) Hash() uint64         { return hash.Bytes(m[:]) }
+func (m MAC) Type() toy.ValueType { return MACType }
+func (m MAC) String() string      { return fmt.Sprintf("net.MAC(%q)", net.HardwareAddr(m).String()) }
+func (m MAC) IsFalsy() bool       { return len(m) == 0 }
+func (m MAC) Clone() toy.Value    { return slices.Clone(m) }
+func (m MAC) Hash() uint64        { return hash.Bytes(m[:]) }
 
-func (m MAC) Compare(op token.Token, rhs toy.Object) (bool, error) {
+func (m MAC) Compare(op token.Token, rhs toy.Value) (bool, error) {
 	y, ok := rhs.(MAC)
 	if !ok {
 		return false, toy.ErrInvalidOperation
@@ -717,7 +719,7 @@ func (m MAC) Convert(p any) error {
 	case *toy.Bytes:
 		*p = toy.Bytes(m)
 	case **toy.Array:
-		elems := make([]toy.Object, len(m))
+		elems := make([]toy.Value, len(m))
 		for i, b := range m {
 			elems[i] = toy.Int(b)
 		}
@@ -734,53 +736,35 @@ func (m MAC) Convert(p any) error {
 	return nil
 }
 
-func (m MAC) Len() int            { return len(m) }
-func (m MAC) At(i int) toy.Object { return toy.Int(m[i]) }
+func (m MAC) Len() int           { return len(m) }
+func (m MAC) At(i int) toy.Value { return toy.Int(m[i]) }
 
-func (m MAC) Items() []toy.Object {
-	elems := make([]toy.Object, len(m))
+func (m MAC) Items() []toy.Value {
+	elems := make([]toy.Value, len(m))
 	for i, b := range m {
 		elems[i] = toy.Int(b)
 	}
 	return elems
 }
 
-func (m MAC) Iterate() toy.Iterator { return &macIterator{m: m, i: 0} }
-
-type macIterator struct {
-	m MAC
-	i int
-}
-
-var macIteratorType = toy.NewType[*macIterator]("net.MAC-iterator", nil)
-
-func (it *macIterator) Type() toy.ObjectType { return macIteratorType }
-func (it *macIterator) String() string       { return "<net.MAC-iterator>" }
-func (it *macIterator) IsFalsy() bool        { return true }
-func (it *macIterator) Clone() toy.Object    { return &macIterator{m: it.m, i: it.i} }
-
-func (it *macIterator) Next(key, value *toy.Object) bool {
-	if it.i < len(it.m) {
-		if key != nil {
-			*key = toy.Int(it.i)
+func (m MAC) Iterate() iter.Seq[toy.Value] {
+	return func(yield func(toy.Value) bool) {
+		for _, b := range m {
+			if !yield(toy.Int(b)) {
+				break
+			}
 		}
-		if value != nil {
-			*value = toy.Int(it.m[it.i])
-		}
-		it.i++
-		return true
 	}
-	return false
 }
 
-func parseMACFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func parseMACFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var s string
 	if err := toy.UnpackArgs(args, "s", &s); err != nil {
 		return nil, err
 	}
 	mac, err := net.ParseMAC(s)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
 	return MAC(mac), nil
 }
@@ -791,72 +775,86 @@ type Addr struct {
 
 var AddrType = toy.NewType[*Addr]("net.Addr", nil)
 
-func (a *Addr) Type() toy.ObjectType { return AddrType }
-func (a *Addr) String() string       { return fmt.Sprintf("net.Addr(%q, %q)", a.a.Network(), a.a.String()) }
-func (a *Addr) IsFalsy() bool        { return false }
-func (a *Addr) Clone() toy.Object    { return &Addr{a: a.a} }
+func (a *Addr) Type() toy.ValueType { return AddrType }
+func (a *Addr) String() string      { return fmt.Sprintf("net.Addr(%q, %q)", a.a.Network(), a.a.String()) }
+func (a *Addr) IsFalsy() bool       { return false }
+func (a *Addr) Clone() toy.Value    { return &Addr{a: a.a} }
 
-func (a *Addr) FieldGet(name string) (toy.Object, error) {
-	switch name {
-	case "network":
-		return toy.String(a.a.Network()), nil
-	case "address":
-		return toy.String(a.a.String()), nil
+func (a *Addr) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
+	if !ok {
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
 	}
-	return nil, toy.ErrNoSuchField
+	switch string(keyStr) {
+	case "network":
+		return toy.String(a.a.Network()), true, nil
+	case "address":
+		return toy.String(a.a.String()), true, nil
+	}
+	return toy.Nil, false, nil
 }
 
-func interfaceAddrsFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func interfaceAddrsFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	elems := make([]toy.Object, 0, len(addrs))
+	elems := make([]toy.Value, 0, len(addrs))
 	for _, addr := range addrs {
 		elems = append(elems, &Addr{a: addr})
 	}
-	return toy.Tuple{toy.NewArray(elems), toy.Nil}, nil
+	return toy.NewArray(elems), nil
 }
 
 type IPAddr net.IPAddr
 
 var IPAddrType = toy.NewType[*IPAddr]("net.IPAddr", nil)
 
-func (a *IPAddr) Type() toy.ObjectType { return IPAddrType }
-func (a *IPAddr) String() string       { return fmt.Sprintf("net.IPAddr(%q)", (*net.IPAddr)(a).String()) }
-func (a *IPAddr) IsFalsy() bool        { return false }
-func (a *IPAddr) Clone() toy.Object    { return &IPAddr{IP: a.IP, Zone: a.Zone} }
+func (a *IPAddr) Type() toy.ValueType { return IPAddrType }
+func (a *IPAddr) String() string      { return fmt.Sprintf("net.IPAddr(%q)", (*net.IPAddr)(a).String()) }
+func (a *IPAddr) IsFalsy() bool       { return false }
+func (a *IPAddr) Clone() toy.Value    { return &IPAddr{IP: a.IP, Zone: a.Zone} }
 
-func (a *IPAddr) FieldGet(name string) (toy.Object, error) {
-	switch name {
-	case "ip":
-		return IP(a.IP), nil
-	case "zone":
-		return toy.String(a.Zone), nil
+func (a *IPAddr) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
+	if !ok {
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
 	}
-	return nil, toy.ErrNoSuchField
+	switch string(keyStr) {
+	case "ip":
+		return IP(a.IP), true, nil
+	case "zone":
+		return toy.String(a.Zone), true, nil
+	}
+	return toy.Nil, false, nil
 }
 
-func resolveIPAddrFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func resolveIPAddrFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var network, address string
 	if err := toy.UnpackArgs(args, "network", &network, "address", &address); err != nil {
 		return nil, err
 	}
 	addr, err := net.ResolveIPAddr(network, address)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	return toy.Tuple{(*IPAddr)(addr), toy.Nil}, nil
+	return (*IPAddr)(addr), nil
 }
 
 type Interface net.Interface
 
 var InterfaceType = toy.NewType[*Interface]("net.Interface", nil)
 
-func (i *Interface) Type() toy.ObjectType { return InterfaceType }
+func (i *Interface) Type() toy.ValueType { return InterfaceType }
 
 func (i *Interface) String() string {
 	return fmt.Sprintf("net.Interface(%q)", (*net.Interface)(i).Name)
@@ -864,26 +862,33 @@ func (i *Interface) String() string {
 
 func (i *Interface) IsFalsy() bool { return false }
 
-func (i *Interface) Clone() toy.Object {
+func (i *Interface) Clone() toy.Value {
 	c := new(Interface)
 	*c = *i
 	return c
 }
 
-func (i *Interface) FieldGet(name string) (toy.Object, error) {
-	switch name {
-	case "index":
-		return toy.Int(i.Index), nil
-	case "mtu":
-		return toy.Int(i.MTU), nil
-	case "name":
-		return toy.String(i.Name), nil
-	case "mac":
-		return MAC(i.HardwareAddr), nil
-	case "flags":
-		return InterfaceFlags(i.Flags), nil
+func (i *Interface) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
+	if !ok {
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
 	}
-	return nil, toy.ErrNoSuchField
+	switch string(keyStr) {
+	case "index":
+		return toy.Int(i.Index), true, nil
+	case "mtu":
+		return toy.Int(i.MTU), true, nil
+	case "name":
+		return toy.String(i.Name), true, nil
+	case "mac":
+		return MAC(i.HardwareAddr), true, nil
+	case "flags":
+		return InterfaceFlags(i.Flags), true, nil
+	}
+	return toy.Nil, false, nil
 }
 
 type InterfaceFlags net.Flags
@@ -895,7 +900,7 @@ var InterfaceFlagsType = enum.New("net.InterfaceFlags", map[string]InterfaceFlag
 	"POINT_TO_POINT": InterfaceFlags(net.FlagPointToPoint),
 	"MULTICAST":      InterfaceFlags(net.FlagMulticast),
 	"RUNNING":        InterfaceFlags(net.FlagRunning),
-}, func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+}, func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 1,
@@ -915,14 +920,14 @@ var InterfaceFlagsType = enum.New("net.InterfaceFlags", map[string]InterfaceFlag
 	}
 })
 
-func (f InterfaceFlags) Type() toy.ObjectType { return InterfaceFlagsType }
+func (f InterfaceFlags) Type() toy.ValueType { return InterfaceFlagsType }
 
 func (f InterfaceFlags) String() string {
 	return fmt.Sprintf("net.InterfaceFlags(%q)", net.Flags(f).String())
 }
 
-func (f InterfaceFlags) IsFalsy() bool     { return false }
-func (f InterfaceFlags) Clone() toy.Object { return f }
+func (f InterfaceFlags) IsFalsy() bool    { return false }
+func (f InterfaceFlags) Clone() toy.Value { return f }
 
 func (f InterfaceFlags) Convert(p any) error {
 	switch p := p.(type) {
@@ -934,7 +939,7 @@ func (f InterfaceFlags) Convert(p any) error {
 	return nil
 }
 
-func (f InterfaceFlags) BinaryOp(op token.Token, other toy.Object, right bool) (toy.Object, error) {
+func (f InterfaceFlags) BinaryOp(op token.Token, other toy.Value, right bool) (toy.Value, error) {
 	switch y := other.(type) {
 	case InterfaceFlags:
 		switch op {
@@ -970,7 +975,7 @@ func (f InterfaceFlags) BinaryOp(op token.Token, other toy.Object, right bool) (
 	return nil, toy.ErrInvalidOperation
 }
 
-func (f InterfaceFlags) UnaryOp(op token.Token) (toy.Object, error) {
+func (f InterfaceFlags) UnaryOp(op token.Token) (toy.Value, error) {
 	switch op {
 	case token.Xor:
 		return ^f, nil
@@ -978,7 +983,7 @@ func (f InterfaceFlags) UnaryOp(op token.Token) (toy.Object, error) {
 	return nil, toy.ErrInvalidOperation
 }
 
-func lookupInterfaceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func lookupInterfaceFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 1,
@@ -990,15 +995,15 @@ func lookupInterfaceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	case toy.String:
 		iface, err := net.InterfaceByName(string(x))
 		if err != nil {
-			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+			return nil, err
 		}
-		return toy.Tuple{(*Interface)(iface), toy.Nil}, nil
+		return (*Interface)(iface), nil
 	case toy.Int:
 		iface, err := net.InterfaceByIndex(int(x))
 		if err != nil {
-			return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+			return nil, err
 		}
-		return toy.Tuple{(*Interface)(iface), toy.Nil}, nil
+		return (*Interface)(iface), nil
 	default:
 		return nil, &toy.InvalidArgumentTypeError{
 			Name: "id",
@@ -1008,18 +1013,18 @@ func lookupInterfaceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	}
 }
 
-func interfacesFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func interfacesFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 0 {
 		return nil, &toy.WrongNumArgumentsError{Got: len(args)}
 	}
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, nil
+		return nil, err
 	}
-	elems := make([]toy.Object, 0, len(ifaces))
+	elems := make([]toy.Value, 0, len(ifaces))
 	for i := range ifaces {
 		iface := (*Interface)(&ifaces[i])
 		elems = append(elems, iface)
 	}
-	return toy.Tuple{toy.NewArray(elems), toy.Nil}, nil
+	return toy.NewArray(elems), nil
 }

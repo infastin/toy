@@ -9,7 +9,7 @@ import (
 
 var Module = &toy.BuiltinModule{
 	Name: "env",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"expand": toy.NewBuiltinFunction("env.expand", fndef.ASRS("s", os.ExpandEnv)),
 		"clear":  toy.NewBuiltinFunction("env.clear", fndef.AR(os.Clearenv)),
 		"get":    toy.NewBuiltinFunction("env.get", fndef.ASRS("key", os.Getenv)),

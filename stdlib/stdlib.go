@@ -9,10 +9,9 @@ import (
 	"github.com/infastin/toy/stdlib/math"
 	"github.com/infastin/toy/stdlib/net"
 	"github.com/infastin/toy/stdlib/os"
-	"github.com/infastin/toy/stdlib/os/env"
-	"github.com/infastin/toy/stdlib/os/exec"
+	osenv "github.com/infastin/toy/stdlib/os/env"
 	ospath "github.com/infastin/toy/stdlib/os/path"
-	"github.com/infastin/toy/stdlib/os/user"
+	osuser "github.com/infastin/toy/stdlib/os/user"
 	"github.com/infastin/toy/stdlib/path"
 	"github.com/infastin/toy/stdlib/rand"
 	"github.com/infastin/toy/stdlib/regexp"
@@ -30,10 +29,9 @@ var StdLib = toy.ModuleMap{
 	"math":    math.Module,
 	"net":     net.Module,
 	"os":      os.Module,
-	"os/env":  env.Module,
-	"os/exec": exec.Module,
+	"os/env":  osenv.Module,
 	"os/path": ospath.Module,
-	"os/user": user.Module,
+	"os/user": osuser.Module,
 	"path":    path.Module,
 	"rand":    rand.Module,
 	"regexp":  regexp.Module,

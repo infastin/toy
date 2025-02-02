@@ -3,12 +3,14 @@ package yaml
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/infastin/toy"
+	"github.com/infastin/toy/internal/xiter"
 	toytime "github.com/infastin/toy/stdlib/time"
 
 	"gopkg.in/yaml.v3"
@@ -16,7 +18,7 @@ import (
 
 var Module = &toy.BuiltinModule{
 	Name: "yaml",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"encode": toy.NewBuiltinFunction("yaml.encode", encodeFn),
 		"decode": toy.NewBuiltinFunction("yaml.decode", decodeFn),
 	},
@@ -24,7 +26,7 @@ var Module = &toy.BuiltinModule{
 
 func sequenceToYAML(seq toy.Sequence) (*yaml.Node, error) {
 	nodes := make([]*yaml.Node, 0, seq.Len())
-	for elem := range toy.Elements(seq) {
+	for elem := range seq.Elements() {
 		node, err := objectToYAML(elem)
 		if err != nil {
 			return nil, err
@@ -42,7 +44,7 @@ func mappingToYAML(mapping toy.Mapping) (_ *yaml.Node, err error) {
 		nodeStyle yaml.Style
 		nodes     []*yaml.Node
 	)
-	for key, value := range toy.Entries(mapping) {
+	for key, value := range mapping.Entries() {
 		keyStr, ok := key.(toy.String)
 		if !ok {
 			return nil, fmt.Errorf("unsupported key type: %s", toy.TypeName(key))
@@ -55,7 +57,7 @@ func mappingToYAML(mapping toy.Mapping) (_ *yaml.Node, err error) {
 					return nil, fmt.Errorf("%s: %w", string(keyStr), err)
 				}
 			case toy.Sequence:
-				for i, elem := range toy.Entries(x) {
+				for i, elem := range xiter.Enum(x.Elements()) {
 					style, ok := elem.(toy.String)
 					if !ok {
 						return nil, fmt.Errorf("%s[%d]: want 'string', got '%s'", string(keyStr), i, toy.TypeName(elem))
@@ -108,7 +110,7 @@ func parseStyle(s string) (yaml.Style, error) {
 	return 0, fmt.Errorf("invalid yaml style: %s", s)
 }
 
-func objectToYAML(o toy.Object) (*yaml.Node, error) {
+func objectToYAML(o toy.Value) (*yaml.Node, error) {
 	switch x := o.(type) {
 	case yaml.Marshaler:
 		data, err := x.MarshalYAML()
@@ -182,9 +184,9 @@ func objectToYAML(o toy.Object) (*yaml.Node, error) {
 	}
 }
 
-func encodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func encodeFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
-		x      toy.Object
+		x      toy.Value
 		indent = 2
 	)
 	if err := toy.UnpackArgs(args, "x", &x, "indent?", &indent); err != nil {
@@ -193,7 +195,7 @@ func encodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 
 	node, err := objectToYAML(x)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, err
+		return nil, err
 	}
 
 	var buf bytes.Buffer
@@ -205,11 +207,11 @@ func encodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 		return nil, err
 	}
 
-	return toy.Tuple{toy.Bytes(buf.Bytes()), toy.Nil}, nil
+	return toy.Bytes(buf.Bytes()), nil
 }
 
 func yamlSequenceToArray(seq *yaml.Node) (*toy.Array, error) {
-	elems := make([]toy.Object, 0, len(seq.Content))
+	elems := make([]toy.Value, 0, len(seq.Content))
 	for _, node := range seq.Content {
 		value, err := yamlToObject(node)
 		if err != nil {
@@ -220,19 +222,19 @@ func yamlSequenceToArray(seq *yaml.Node) (*toy.Array, error) {
 	return toy.NewArray(elems), nil
 }
 
-func yamlMappingToMap(mapping *yaml.Node) (*toy.Map, error) {
-	m := toy.NewMap(len(mapping.Content) / 2)
+func yamlMappingToTable(mapping *yaml.Node) (*toy.Table, error) {
+	t := toy.NewTable(len(mapping.Content) / 2)
 	for i := 0; i < len(mapping.Content); i += 2 {
 		value, err := yamlToObject(mapping.Content[i+1])
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", mapping.Content[i].Value, err)
 		}
-		m.IndexSet(toy.String(mapping.Content[i].Value), value)
+		t.SetProperty(toy.String(mapping.Content[i].Value), value)
 	}
-	return m, nil
+	return t, nil
 }
 
-func yamlToObject(node *yaml.Node) (toy.Object, error) {
+func yamlToObject(node *yaml.Node) (toy.Value, error) {
 	switch node.Kind {
 	case yaml.ScalarNode:
 		switch node.Tag {
@@ -264,12 +266,12 @@ func yamlToObject(node *yaml.Node) (toy.Object, error) {
 	case yaml.SequenceNode:
 		return yamlSequenceToArray(node)
 	case yaml.MappingNode:
-		return yamlMappingToMap(node)
+		return yamlMappingToTable(node)
 	}
 	return nil, fmt.Errorf("value with kind %d can't be decoded", node.Kind)
 }
 
-func decodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func decodeFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var data toy.StringOrBytes
 	if err := toy.UnpackArgs(args, "data", &data); err != nil {
 		return nil, err
@@ -277,13 +279,13 @@ func decodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 
 	node := new(yaml.Node)
 	if err := yaml.Unmarshal(data.Bytes(), node); err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, err
+		return nil, err
 	}
 
 	switch node.Kind {
 	case yaml.DocumentNode:
 		if len(node.Content) != 1 {
-			return toy.Tuple{toy.Nil, toy.NewError("invalid yaml document")}, nil
+			return nil, errors.New("invalid yaml document")
 		}
 		node = node.Content[0]
 	case yaml.AliasNode:
@@ -292,8 +294,8 @@ func decodeFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 
 	obj, err := yamlToObject(node)
 	if err != nil {
-		return toy.Tuple{toy.Nil, toy.NewError(err.Error())}, err
+		return nil, err
 	}
 
-	return toy.Tuple{obj, toy.Nil}, nil
+	return obj, nil
 }

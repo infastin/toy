@@ -9,7 +9,7 @@ import (
 
 var Module = &toy.BuiltinModule{
 	Name: "regexp",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"Regexp": RegexpType,
 		"Match":  RegexpMatchType,
 
@@ -22,7 +22,7 @@ var Module = &toy.BuiltinModule{
 
 type Regexp regexp.Regexp
 
-var RegexpType = toy.NewType[*Regexp]("regexp.Regexp", func(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+var RegexpType = toy.NewType[*Regexp]("regexp.Regexp", func(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	if len(args) != 1 {
 		return nil, &toy.WrongNumArgumentsError{
 			WantMin: 1,
@@ -46,17 +46,24 @@ var RegexpType = toy.NewType[*Regexp]("regexp.Regexp", func(_ *toy.VM, args ...t
 	}
 })
 
-func (r *Regexp) Type() toy.ObjectType { return RegexpType }
-func (r *Regexp) String() string       { return fmt.Sprintf("/%s/", (*regexp.Regexp)(r).String()) }
-func (r *Regexp) IsFalsy() bool        { return false }
-func (r *Regexp) Clone() toy.Object    { return r }
+func (r *Regexp) Type() toy.ValueType { return RegexpType }
+func (r *Regexp) String() string      { return fmt.Sprintf("/%s/", (*regexp.Regexp)(r).String()) }
+func (r *Regexp) IsFalsy() bool       { return false }
+func (r *Regexp) Clone() toy.Value    { return r }
 
-func (r *Regexp) FieldGet(name string) (toy.Object, error) {
-	m, ok := regexpMethods[name]
+func (r *Regexp) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
 	if !ok {
-		return nil, toy.ErrNoSuchField
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
 	}
-	return m.WithReceiver(r), nil
+	m, ok := regexpMethods[string(keyStr)]
+	if !ok {
+		return toy.Nil, false, nil
+	}
+	return m.WithReceiver(r), true, nil
 }
 
 var regexpMethods = map[string]*toy.BuiltinFunction{
@@ -64,7 +71,7 @@ var regexpMethods = map[string]*toy.BuiltinFunction{
 	"replace": toy.NewBuiltinFunction("replace", regexpReplaceMd),
 }
 
-func regexpFindMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func regexpFindMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv  = args[0].(*Regexp)
 		input toy.StringOrBytes
@@ -76,7 +83,7 @@ func regexpFindMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return regexpFindStringSubmatch((*regexp.Regexp)(recv), input.String(), n)
 }
 
-func regexpReplaceMd(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func regexpReplaceMd(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		recv  = args[0].(*Regexp)
 		input toy.StringOrBytes
@@ -96,10 +103,10 @@ type RegexpMatch struct {
 
 var RegexpMatchType = toy.NewType[RegexpMatch]("regexp.Match", nil)
 
-func (m RegexpMatch) Type() toy.ObjectType { return RegexpMatchType }
-func (m RegexpMatch) String() string       { return fmt.Sprintf("regexp.Match(%q)", m.text) }
-func (m RegexpMatch) IsFalsy() bool        { return len(m.text) == 0 }
-func (m RegexpMatch) Clone() toy.Object    { return m }
+func (m RegexpMatch) Type() toy.ValueType { return RegexpMatchType }
+func (m RegexpMatch) String() string      { return fmt.Sprintf("regexp.Match(%q)", m.text) }
+func (m RegexpMatch) IsFalsy() bool       { return len(m.text) == 0 }
+func (m RegexpMatch) Clone() toy.Value    { return m }
 
 func (m RegexpMatch) Convert(p any) error {
 	switch p := p.(type) {
@@ -113,19 +120,26 @@ func (m RegexpMatch) Convert(p any) error {
 	return nil
 }
 
-func (m RegexpMatch) FieldGet(name string) (toy.Object, error) {
-	switch name {
-	case "text":
-		return toy.String(m.text), nil
-	case "begin":
-		return toy.Int(m.begin), nil
-	case "end":
-		return toy.Int(m.end), nil
+func (m RegexpMatch) Property(key toy.Value) (value toy.Value, found bool, err error) {
+	keyStr, ok := key.(toy.String)
+	if !ok {
+		return nil, false, &toy.InvalidKeyTypeError{
+			Want: "string",
+			Got:  toy.TypeName(key),
+		}
 	}
-	return nil, toy.ErrNoSuchField
+	switch string(keyStr) {
+	case "text":
+		return toy.String(m.text), true, nil
+	case "begin":
+		return toy.Int(m.begin), true, nil
+	case "end":
+		return toy.Int(m.end), true, nil
+	}
+	return toy.Nil, false, nil
 }
 
-func compileFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func compileFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var expr string
 	if err := toy.UnpackArgs(args, "expr", &expr); err != nil {
 		return nil, err
@@ -137,7 +151,7 @@ func compileFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return (*Regexp)(r), nil
 }
 
-func matchFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func matchFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		pattern string
 		data    toy.StringOrBytes
@@ -152,7 +166,7 @@ func matchFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(matched), nil
 }
 
-func findFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func findFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		expr  string
 		input toy.StringOrBytes
@@ -168,7 +182,7 @@ func findFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return regexpFindStringSubmatch(r, input.String(), n)
 }
 
-func replaceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func replaceFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var (
 		expr  string
 		input toy.StringOrBytes
@@ -185,15 +199,15 @@ func replaceFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.String(result), nil
 }
 
-func regexpFindStringSubmatch(r *regexp.Regexp, s string, n *int) (toy.Object, error) {
+func regexpFindStringSubmatch(r *regexp.Regexp, s string, n *int) (toy.Value, error) {
 	if n != nil {
 		matches := r.FindAllStringSubmatchIndex(s, *n)
 		if matches == nil {
 			return toy.Nil, nil
 		}
-		results := make([]toy.Object, 0, len(matches))
+		results := make([]toy.Value, 0, len(matches))
 		for _, match := range matches {
-			result := make([]toy.Object, 0, len(match))
+			result := make([]toy.Value, 0, len(match))
 			for i := 0; i < len(match); i += 2 {
 				begin, end := match[i], match[i+1]
 				result = append(result, RegexpMatch{
@@ -210,7 +224,7 @@ func regexpFindStringSubmatch(r *regexp.Regexp, s string, n *int) (toy.Object, e
 	if matches == nil {
 		return toy.Nil, nil
 	}
-	results := make([]toy.Object, 0, len(matches)/2)
+	results := make([]toy.Value, 0, len(matches)/2)
 	for i := 0; i < len(matches); i += 2 {
 		begin, end := matches[i], matches[i+1]
 		results = append(results, RegexpMatch{

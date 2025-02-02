@@ -9,7 +9,7 @@ import (
 
 var Module = &toy.BuiltinModule{
 	Name: "math",
-	Members: map[string]toy.Object{
+	Members: map[string]toy.Value{
 		"e":                    toy.Float(math.E),
 		"pi":                   toy.Float(math.Pi),
 		"phi":                  toy.Float(math.Phi),
@@ -85,7 +85,7 @@ var Module = &toy.BuiltinModule{
 	},
 }
 
-func isInfFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func isInfFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var f float64
 	if err := toy.UnpackArgs(args, "f", &f); err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func isInfFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
 	return toy.Bool(math.IsInf(f, 1)), nil
 }
 
-func isNegInfFn(_ *toy.VM, args ...toy.Object) (toy.Object, error) {
+func isNegInfFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	var f float64
 	if err := toy.UnpackArgs(args, "f", &f); err != nil {
 		return nil, err

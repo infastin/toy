@@ -19,7 +19,7 @@ const (
 )
 
 // CallableFunc is a function signature for the callable functions.
-type CallableFunc = func(r *Runtime, args ...Value) (Value, error)
+type CallableFunc func(r *Runtime, args ...Value) (Value, error)
 
 // Variable is a user-defined variable for the script.
 type Variable struct {

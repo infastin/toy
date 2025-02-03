@@ -1,7 +1,6 @@
 package toy
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -80,7 +79,7 @@ func UnpackArgs(args []Value, pairs ...any) error {
 			panic(fmt.Sprintf("expected *[]Value type for remaining arguments, got %T", pairs[2*i+1]))
 		}
 		if err := Unpack(pairs[2*i+1], arg); err != nil {
-			if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
+			if e, ok := err.(*InvalidValueTypeError); ok {
 				err = &InvalidArgumentTypeError{
 					Name: name,
 					Sel:  e.Sel,
@@ -88,7 +87,7 @@ func UnpackArgs(args []Value, pairs ...any) error {
 					Got:  e.Got,
 				}
 			} else {
-				err = fmt.Errorf("%s: %w", name, err)
+				err = fmt.Errorf("invalid value for argument '%s': %w", name, err)
 			}
 			return err
 		}
@@ -103,7 +102,7 @@ func UnpackArgs(args []Value, pairs ...any) error {
 			continue
 		}
 		if defined.Bit(i) == 0 {
-			return &MissingArgumentError{Name: name}
+			return fmt.Errorf("missing argument for '%s'", name)
 		}
 	}
 	return nil
@@ -402,10 +401,14 @@ func unpackToSlice(rv reflect.Value, v Value) error {
 	for i, elem := range xiter.Enum(iterable.Elements()) {
 		sv := reflect.New(rte)
 		if err := Unpack(sv.Interface(), elem); err != nil {
-			if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
-				e.Sel = fmt.Sprintf("[%d]%s", i, e.Sel)
+			if e, ok := err.(*InvalidValueTypeError); ok {
+				err = &InvalidValueTypeError{
+					Sel:  fmt.Sprintf("[%d]%s", i, e.Sel),
+					Want: e.Want,
+					Got:  e.Got,
+				}
 			} else {
-				err = fmt.Errorf("[%d]: %w", i, err)
+				err = fmt.Errorf("invalid value for '[%d]': %w", i, err)
 			}
 			return err
 		}
@@ -431,10 +434,14 @@ func unpackToArray(rv reflect.Value, v Value) error {
 			break // too many elements
 		}
 		if err := Unpack(rv.Index(i).Addr().Interface(), elem); err != nil {
-			if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
-				e.Sel = fmt.Sprintf("[%d]%s", i, e.Sel)
+			if e, ok := err.(*InvalidValueTypeError); ok {
+				err = &InvalidValueTypeError{
+					Sel:  fmt.Sprintf("[%d]%s", i, e.Sel),
+					Want: e.Want,
+					Got:  e.Got,
+				}
 			} else {
-				err = fmt.Errorf("[%d]: %w", i, err)
+				err = fmt.Errorf("invalid value for '[%d]': %w", i, err)
 			}
 			return err
 		}
@@ -471,20 +478,26 @@ func unpackToMap(rv reflect.Value, v Value) error {
 	for key, value := range kviterable.Entries() {
 		kv := reflect.New(rtk)
 		if err := Unpack(kv.Interface(), key); err != nil {
-			if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
-				e.Want = fmt.Sprintf("kv-iterable[%s, ...]", e.Want)
-				e.Got = fmt.Sprintf("%s[%s, ...]", TypeName(v), e.Got)
+			if e, ok := err.(*InvalidValueTypeError); ok {
+				err = &InvalidValueTypeError{
+					Want: fmt.Sprintf("kv-iterable[%s, ...]", e.Want),
+					Got:  fmt.Sprintf("%s[%s, ...]", TypeName(v), e.Got),
+				}
 			} else {
-				err = fmt.Errorf("invalid key: %w", err)
+				err = fmt.Errorf("invalid key '[%s]': %w", key.String(), err)
 			}
 			return err
 		}
 		ev := reflect.New(rte)
 		if err := Unpack(ev.Interface(), value); err != nil {
-			if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
-				e.Sel = fmt.Sprintf("[%s]%s", key.String(), e.Sel)
+			if e, ok := err.(*InvalidValueTypeError); ok {
+				err = &InvalidValueTypeError{
+					Sel:  fmt.Sprintf("[%s]%s", key.String(), e.Sel),
+					Want: e.Want,
+					Got:  e.Got,
+				}
 			} else {
-				err = fmt.Errorf("[%s]: %w", key.String(), err)
+				err = fmt.Errorf("invalid value for '[%s]': %w", key.String(), err)
 			}
 			return err
 		}
@@ -504,6 +517,8 @@ func unpackToStruct(rv reflect.Value, v Value) error {
 	}
 
 	fields := make(map[string]reflect.Value)
+	required := make(map[string]struct{})
+	var rest *[]Tuple
 
 	var extract func(reflect.Value)
 	extract = func(rv reflect.Value) {
@@ -534,7 +549,22 @@ func unpackToStruct(rv reflect.Value, v Value) error {
 				}
 				extract(fv)
 			} else if name != "" && field.IsExported() {
-				fields[name] = rv.Field(i)
+				fv := rv.Field(i)
+				if name == "..." {
+					fvp := fv.Addr()
+					p, ok := fvp.Interface().(*[]Tuple)
+					if !ok {
+						panic(fmt.Sprintf("expected *[]Tuple type for remaining key-value pairs, got %s", fvp.Type().String()))
+					}
+					rest = p
+				} else {
+					if name[len(name)-1] != '?' {
+						required[name] = struct{}{}
+					} else {
+						name = name[:len(name)-1]
+					}
+					fields[name] = fv
+				}
 			}
 		}
 	}
@@ -543,19 +573,36 @@ func unpackToStruct(rv reflect.Value, v Value) error {
 	for key, value := range kviterable.Entries() {
 		keyStr, ok := key.(String)
 		if !ok {
+			if rest != nil {
+				*rest = append(*rest, Tuple{key, value})
+			}
 			continue
 		}
 		fv, ok := fields[string(keyStr)]
 		if !ok {
+			if rest != nil {
+				*rest = append(*rest, Tuple{key, value})
+			}
 			continue
 		}
+		delete(required, string(keyStr))
 		if err := Unpack(fv.Addr().Interface(), value); err != nil {
-			if e := (*InvalidValueTypeError)(nil); errors.As(err, &e) {
-				e.Sel = fmt.Sprintf(".%s%s", string(keyStr), e.Sel)
+			if e, ok := err.(*InvalidValueTypeError); ok {
+				err = &InvalidValueTypeError{
+					Sel:  fmt.Sprintf(".%s%s", string(keyStr), e.Sel),
+					Want: e.Want,
+					Got:  e.Got,
+				}
 			} else {
-				err = fmt.Errorf(".%s: %w", string(keyStr), err)
+				err = fmt.Errorf("invalid value for '%s': %w", string(keyStr), err)
 			}
 			return err
+		}
+	}
+
+	if len(required) != 0 {
+		for key := range required {
+			return fmt.Errorf("missing key '%s'", key)
 		}
 	}
 

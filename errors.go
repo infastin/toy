@@ -86,21 +86,3 @@ func (e *WrongNumArgumentsError) Error() string {
 	b.WriteString(strconv.Itoa(e.Got))
 	return b.String()
 }
-
-// MissingArgumentError represents a missing argument error.
-type MissingArgumentError struct {
-	Name string
-}
-
-func (e *MissingArgumentError) Error() string {
-	return fmt.Sprintf("missing argument for '%s'", e.Name)
-}
-
-// UnexpectedArgumentError represents an unexpected argument error.
-type UnexpectedArgumentError struct {
-	Name string
-}
-
-func (e *UnexpectedArgumentError) Error() string {
-	return fmt.Sprintf("unexpected argument '%s'", e.Name)
-}

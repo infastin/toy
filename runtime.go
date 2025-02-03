@@ -810,19 +810,19 @@ func (e *runtimeError) Unwrap() error {
 // - msg field contains the string representation of the error.
 // - val field contains the value thrown by throw keyword.
 func newExceptionTable(err error) Value {
-	t := NewTable(2)
 	if rErr := (*runtimeError)(nil); errors.As(err, &rErr) {
 		// we only care about the initial error
-		t.SetProperty(String("msg"), String(rErr.Errors[0].Error()))
-		if e := (*Exception)(nil); errors.As(rErr.Errors[0], &e) {
-			t.SetProperty(String("val"), e.Value)
-		} else {
-			t.SetProperty(String("val"), Nil)
-		}
-	} else {
-		t.SetProperty(String("msg"), String(err.Error()))
-		t.SetProperty(String("val"), Nil)
+		err = rErr.Errors[0]
 	}
+	var val Value
+	if exc := (*Exception)(nil); errors.As(err, &exc) {
+		val = exc.Value
+	} else {
+		val = Nil
+	}
+	t := NewTable(2)
+	t.SetProperty(String("msg"), String(err.Error()))
+	t.SetProperty(String("val"), val)
 	return t.Freeze()
 }
 

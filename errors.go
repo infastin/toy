@@ -22,6 +22,16 @@ var (
 	ErrDivisionByZero = errors.New("division by zero")
 )
 
+// Exception is a special error type returned by (*Runtime).run()
+// when an Exception is thrown by throw keyword.
+type Exception struct {
+	Value Value
+}
+
+func (e *Exception) Error() string {
+	return "exception: " + AsString(e.Value)
+}
+
 // InvalidKeyTypeError represents an invalid key type error.
 type InvalidKeyTypeError struct {
 	Want string

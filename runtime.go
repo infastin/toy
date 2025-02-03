@@ -463,7 +463,7 @@ func (r *Runtime) run() (_ Value, err error) {
 			}
 			r.sp--
 
-			return nil, &exception{errVal: errVal}
+			return nil, &Exception{Value: errVal}
 		case bytecode.OpDefineLocal:
 			r.ip++
 			localIndex := int(r.curInsts[r.ip])
@@ -639,7 +639,7 @@ func (r *Runtime) safeCall(callable Callable, args []Value) (_ Value, err error)
 			case error:
 				err = e
 			case Value:
-				err = &exception{errVal: e}
+				err = &Exception{Value: e}
 			default:
 				err = fmt.Errorf("unknown panic: %v", e)
 			}
@@ -776,16 +776,6 @@ func (r *Runtime) runDefer() (err error) {
 	return nil
 }
 
-// exception is a special error type returned by (*Runtime).run()
-// when an exception is thrown by throw keyword.
-type exception struct {
-	errVal Value
-}
-
-func (e *exception) Error() string {
-	return "exception: " + AsString(e.errVal)
-}
-
 // runtimeError is a special error type returned by (*Runtime).unwind()
 // that contains all errors encountered and a stacktrace.
 type runtimeError struct {
@@ -808,6 +798,11 @@ func (e *runtimeError) Error() string {
 	return b.String()
 }
 
+func (e *runtimeError) Unwrap() error {
+	// we only care about the initial error
+	return e.Errors[0]
+}
+
 // newExceptionTable turns the error into an immutable table
 // containing information about the exception/runtime error.
 // This table is then returned by try keyword.
@@ -817,9 +812,10 @@ func (e *runtimeError) Error() string {
 func newExceptionTable(err error) Value {
 	t := NewTable(2)
 	if rErr := (*runtimeError)(nil); errors.As(err, &rErr) {
+		// we only care about the initial error
 		t.SetProperty(String("msg"), String(rErr.Errors[0].Error()))
-		if e := (*exception)(nil); errors.As(rErr.Errors[0], &e) {
-			t.SetProperty(String("val"), e.errVal)
+		if e := (*Exception)(nil); errors.As(rErr.Errors[0], &e) {
+			t.SetProperty(String("val"), e.Value)
 		} else {
 			t.SetProperty(String("val"), Nil)
 		}

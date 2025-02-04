@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/infastin/toy"
-	"github.com/infastin/toy/internal/xiter"
 	toytime "github.com/infastin/toy/stdlib/time"
 
 	"gopkg.in/yaml.v3"
@@ -40,38 +39,11 @@ func sequenceToYAML(seq toy.Sequence) (*yaml.Node, error) {
 }
 
 func mappingToYAML(mapping toy.Mapping) (_ *yaml.Node, err error) {
-	var (
-		nodeStyle yaml.Style
-		nodes     []*yaml.Node
-	)
+	nodes := make([]*yaml.Node, 0, 2*mapping.Len())
 	for key, value := range mapping.Entries() {
 		keyStr, ok := key.(toy.String)
 		if !ok {
 			return nil, fmt.Errorf("unsupported key type: %s", toy.TypeName(key))
-		}
-		if keyStr == "_yaml" {
-			switch x := value.(type) {
-			case toy.String:
-				nodeStyle, err = parseStyle(string(x))
-				if err != nil {
-					return nil, fmt.Errorf("%s: %w", string(keyStr), err)
-				}
-			case toy.Sequence:
-				for i, elem := range xiter.Enum(x.Elements()) {
-					style, ok := elem.(toy.String)
-					if !ok {
-						return nil, fmt.Errorf("%s[%d]: want 'string', got '%s'", string(keyStr), i, toy.TypeName(elem))
-					}
-					tmp, err := parseStyle(string(style))
-					if err != nil {
-						return nil, fmt.Errorf("%s[%d]: %w", string(keyStr), i, err)
-					}
-					nodeStyle |= tmp
-				}
-			default:
-				return nil, fmt.Errorf("%s: want 'string or sequence', got '%s'", string(keyStr), toy.TypeName(value))
-			}
-			continue
 		}
 		node, err := objectToYAML(value)
 		if err != nil {
@@ -87,27 +59,8 @@ func mappingToYAML(mapping toy.Mapping) (_ *yaml.Node, err error) {
 	}
 	return &yaml.Node{
 		Kind:    yaml.MappingNode,
-		Style:   nodeStyle,
 		Content: nodes,
 	}, nil
-}
-
-func parseStyle(s string) (yaml.Style, error) {
-	switch s {
-	case "tagged":
-		return yaml.TaggedStyle, nil
-	case "double-quoted":
-		return yaml.DoubleQuotedStyle, nil
-	case "single-quoted":
-		return yaml.SingleQuotedStyle, nil
-	case "literal":
-		return yaml.LiteralStyle, nil
-	case "folded":
-		return yaml.FoldedStyle, nil
-	case "flow":
-		return yaml.FlowStyle, nil
-	}
-	return 0, fmt.Errorf("invalid yaml style: %s", s)
 }
 
 func objectToYAML(o toy.Value) (*yaml.Node, error) {

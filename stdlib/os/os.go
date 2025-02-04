@@ -89,6 +89,21 @@ var Seek = enum.New("os.Seek", map[string]toy.Int{
 
 type FileMode os.FileMode
 
+func (m *FileMode) Unpack(v toy.Value) error {
+	switch x := v.(type) {
+	case FileMode:
+		*m = x
+	case toy.Int:
+		*m = FileMode(x)
+	default:
+		return &toy.InvalidValueTypeError{
+			Want: "os.FileMode or int",
+			Got:  toy.TypeName(v),
+		}
+	}
+	return nil
+}
+
 var FileModeType = enum.New("os.FileMode", map[string]FileMode{
 	"DIR":         FileMode(os.ModeDir),
 	"APPEND":      FileMode(os.ModeAppend),

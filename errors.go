@@ -32,6 +32,16 @@ func (e *Exception) Error() string {
 	return "exception: " + AsString(e.Value)
 }
 
+// NewExceptionMsg creates a new exception from a message.
+func NewExceptionMsg(msg string) error {
+	return &Exception{Value: String(msg)}
+}
+
+// NewExceptionMsg creates a new exception from a formatted message.
+func NewExceptionMsgf(format string, args ...any) error {
+	return &Exception{Value: String(fmt.Sprintf(format, args...))}
+}
+
 // InvalidKeyTypeError represents an invalid key type error.
 type InvalidKeyTypeError struct {
 	Want string

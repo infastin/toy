@@ -3,6 +3,7 @@ package toy
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync/atomic"
 
@@ -236,15 +237,35 @@ func (r *Runtime) run() (_ Value, err error) {
 			r.stack[r.sp] = NewArray(elements)
 			r.sp++
 		case bytecode.OpTable:
-			r.ip += 2
-			numElements := 2 * read2(r.curInsts, r.ip)
+			r.ip += 3
+			numElements := read2(r.curInsts, r.ip-1)
+			splat := int(r.curInsts[r.ip])
 
 			t := NewTable(numElements)
-			for i := r.sp - numElements; i < r.sp; i += 2 {
-				key := r.stack[i]
-				value := r.stack[i+1]
-				if err := t.ht.insert(key, value); err != nil {
-					return nil, fmt.Errorf("table key '%s': %w", key.String(), err)
+			if splat == 1 {
+				for i := r.sp - numElements; i < r.sp; {
+					switch elem := r.stack[i].(type) {
+					case *splatMapping:
+						for key, value := range elem.m.Entries() {
+							if err := t.ht.insert(key, value); err != nil {
+								return nil, fmt.Errorf("table key '%s': %w", key.String(), err)
+							}
+						}
+						i++
+					default:
+						value := r.stack[i+1]
+						if err := t.ht.insert(elem, value); err != nil {
+							return nil, fmt.Errorf("table key '%s': %w", elem.String(), err)
+						}
+						i += 2
+					}
+				}
+			} else {
+				for i := r.sp - numElements; i < r.sp; i += 2 {
+					key, value := r.stack[i], r.stack[i+1]
+					if err := t.ht.insert(key, value); err != nil {
+						return nil, fmt.Errorf("table key '%s': %w", key.String(), err)
+					}
 				}
 			}
 			r.sp -= numElements
@@ -333,13 +354,24 @@ func (r *Runtime) run() (_ Value, err error) {
 			r.stack[r.sp] = res
 			r.sp++
 		case bytecode.OpSplat:
+			r.ip++
+			isMapping := int(r.curInsts[r.ip])
 			value := r.stack[r.sp-1]
-			seq, ok := value.(Sequence)
-			if !ok {
-				return nil, fmt.Errorf("splat operator can only be used with sequence, got '%s' instead",
-					TypeName(seq))
+			if isMapping == 1 {
+				m, ok := value.(Mapping)
+				if !ok {
+					return nil, fmt.Errorf("splat operator can only be used with mapping here, got '%s' instead",
+						TypeName(value))
+				}
+				r.stack[r.sp-1] = &splatMapping{m: m}
+			} else {
+				seq, ok := value.(Sequence)
+				if !ok {
+					return nil, fmt.Errorf("splat operator can only be used with sequence here, got '%s' instead",
+						TypeName(value))
+				}
+				r.stack[r.sp-1] = &splatSequence{s: seq}
 			}
-			r.stack[r.sp-1] = &splatSequence{s: seq}
 		case bytecode.OpCall:
 			r.ip += 2
 			numArgs := int(r.curInsts[r.ip-1])
@@ -704,11 +736,11 @@ func (r *Runtime) takeListElements(numElems, splat int) []Value {
 	elems := make([]Value, 0, numElems)
 	if splat == 1 {
 		for i := r.sp - numElems; i < r.sp; i++ {
-			switch arg := r.stack[i].(type) {
+			switch elem := r.stack[i].(type) {
 			case *splatSequence:
-				elems = append(elems, arg.s.Items()...)
+				slices.AppendSeq(elems, elem.s.Elements())
 			default:
-				elems = append(elems, arg)
+				elems = append(elems, elem)
 			}
 		}
 	} else {

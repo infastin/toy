@@ -445,34 +445,34 @@ func (e *TableKeyExpr) String() string {
 	return "[" + e.Expr.String() + "]"
 }
 
-// TableElementLit represents a table element.
-type TableElementLit struct {
+// TableElement represents a table element.
+type TableElement struct {
 	Key      Expr
 	ColonPos token.Pos
 	Value    Expr
 }
 
-func (e *TableElementLit) exprNode() {}
+func (e *TableElement) exprNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (e *TableElementLit) Pos() token.Pos {
+func (e *TableElement) Pos() token.Pos {
 	return e.Key.Pos()
 }
 
 // End returns the position of first character immediately after the node.
-func (e *TableElementLit) End() token.Pos {
+func (e *TableElement) End() token.Pos {
 	return e.Value.End()
 }
 
-func (e *TableElementLit) String() string {
+func (e *TableElement) String() string {
 	return e.Key.String() + ": " + e.Value.String()
 }
 
 // TableLit represents a table literal.
 type TableLit struct {
-	LBrace   token.Pos
-	Elements []*TableElementLit
-	RBrace   token.Pos
+	LBrace token.Pos
+	Exprs  []Expr
+	RBrace token.Pos
 }
 
 func (e *TableLit) exprNode() {}
@@ -490,7 +490,7 @@ func (e *TableLit) End() token.Pos {
 func (e *TableLit) String() string {
 	var b strings.Builder
 	b.WriteByte('{')
-	for i, elem := range e.Elements {
+	for i, elem := range e.Exprs {
 		if i != 0 {
 			b.WriteString(", ")
 		}

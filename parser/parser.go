@@ -260,12 +260,9 @@ func (p *Parser) parseListElement() ast.Expr {
 	if p.token != token.Ellipsis {
 		return p.parseExpr()
 	}
-	ellipsis := p.pos
-	p.next()
-	x := p.parseExpr()
 	return &ast.SplatExpr{
-		Ellipsis: ellipsis,
-		Expr:     x,
+		Ellipsis: p.expect(token.Ellipsis),
+		Expr:     p.parseExpr(),
 	}
 }
 
@@ -1135,7 +1132,7 @@ func (p *Parser) parseExprList() (list []ast.Expr) {
 	return list
 }
 
-func (p *Parser) parsetTableElementLit() *ast.TableElementLit {
+func (p *Parser) parsetTableElementLit() *ast.TableElement {
 	if p.trace {
 		defer untracep(tracep(p, "TableElementLit"))
 	}
@@ -1162,7 +1159,7 @@ func (p *Parser) parsetTableElementLit() *ast.TableElementLit {
 	}
 	colonPos := p.expect(token.Colon)
 	valueExpr := p.parseExpr()
-	return &ast.TableElementLit{
+	return &ast.TableElement{
 		Key:      key,
 		ColonPos: colonPos,
 		Value:    valueExpr,
@@ -1177,9 +1174,16 @@ func (p *Parser) parseTableLit() *ast.TableLit {
 	lbrace := p.expect(token.LBrace)
 	p.exprLevel++
 
-	var elements []*ast.TableElementLit
+	var exprs []ast.Expr
 	for p.token != token.RBrace && p.token != token.EOF {
-		elements = append(elements, p.parsetTableElementLit())
+		if p.token == token.Ellipsis {
+			exprs = append(exprs, &ast.SplatExpr{
+				Ellipsis: p.expect(token.Ellipsis),
+				Expr:     p.parseExpr(),
+			})
+		} else {
+			exprs = append(exprs, p.parsetTableElementLit())
+		}
 		if !p.expectComma("table element") {
 			break
 		}
@@ -1189,9 +1193,9 @@ func (p *Parser) parseTableLit() *ast.TableLit {
 	rbrace := p.expect(token.RBrace)
 
 	return &ast.TableLit{
-		LBrace:   lbrace,
-		RBrace:   rbrace,
-		Elements: elements,
+		LBrace: lbrace,
+		RBrace: rbrace,
+		Exprs:  exprs,
 	}
 }
 

@@ -1842,3 +1842,14 @@ func (v *splatSequence) Type() ValueType { return nil }
 func (v *splatSequence) String() string  { return "<splat-sequence>" }
 func (v *splatSequence) IsFalsy() bool   { return true }
 func (v *splatSequence) Clone() Value    { return v }
+
+// splatMapping represents a mapping in the runtime
+// that supposed to be splat.
+type splatMapping struct {
+	m Mapping
+}
+
+func (v *splatMapping) Type() ValueType { return nil }
+func (v *splatMapping) String() string  { return "<splat-mapping>" }
+func (v *splatMapping) IsFalsy() bool   { return true }
+func (v *splatMapping) Clone() Value    { return v }

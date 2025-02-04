@@ -379,20 +379,32 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 		c.emit(node, bytecode.OpArray, len(node.Elements), splat)
 	case *ast.TableLit:
-		for _, elt := range node.Elements {
-			switch key := elt.Key.(type) {
-			case *ast.Ident:
-				c.emit(key, bytecode.OpConstant, c.addConstant(String(key.Name)))
-			case *ast.TableKeyExpr:
-				if err := c.Compile(key.Expr); err != nil {
+		var numElems, splat int
+		for _, expr := range node.Exprs {
+			switch expr := expr.(type) {
+			case *ast.TableElement:
+				switch key := expr.Key.(type) {
+				case *ast.Ident:
+					c.emit(key, bytecode.OpConstant, c.addConstant(String(key.Name)))
+				case *ast.TableKeyExpr:
+					if err := c.Compile(key.Expr); err != nil {
+						return err
+					}
+				}
+				if err := c.Compile(expr.Value); err != nil {
 					return err
 				}
-			}
-			if err := c.Compile(elt.Value); err != nil {
-				return err
+				numElems += 2
+			case *ast.SplatExpr:
+				if err := c.Compile(expr.Expr); err != nil {
+					return err
+				}
+				c.emit(expr, bytecode.OpSplat, 1)
+				splat = 1
+				numElems++
 			}
 		}
-		c.emit(node, bytecode.OpTable, len(node.Elements))
+		c.emit(node, bytecode.OpTable, numElems, splat)
 	case *ast.SelectorExpr: // selector on RHS side
 		if err := c.compileSelectorExpr(node, false); err != nil {
 			return err
@@ -537,11 +549,6 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 		deferIdx := c.addDeferPos(node.CallExpr.Pos())
 		c.emit(node, bytecode.OpDefer, len(node.CallExpr.Args), splat, deferIdx)
-	case *ast.SplatExpr:
-		if err := c.Compile(node.Expr); err != nil {
-			return err
-		}
-		c.emit(node, bytecode.OpSplat)
 	case *ast.CallExpr:
 		if err := c.Compile(node.Func); err != nil {
 			return err
@@ -703,13 +710,18 @@ func (c *Compiler) GetImportFileExt() []string {
 }
 
 func (c *Compiler) compileListElements(elems []ast.Expr) (splat int, err error) {
-	splat = 0
 	for _, elem := range elems {
-		if _, ok := elem.(*ast.SplatExpr); ok {
+		switch elem := elem.(type) {
+		case *ast.SplatExpr:
+			if err := c.Compile(elem.Expr); err != nil {
+				return 0, err
+			}
+			c.emit(elem, bytecode.OpSplat, 0)
 			splat = 1
-		}
-		if err := c.Compile(elem); err != nil {
-			return 0, err
+		default:
+			if err := c.Compile(elem); err != nil {
+				return 0, err
+			}
 		}
 	}
 	return splat, nil

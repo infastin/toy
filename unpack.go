@@ -389,16 +389,16 @@ func Unpack(ptr any, v Value) error {
 
 // unpacks v into rv (go slice).
 func unpackToSlice(rv reflect.Value, v Value) error {
-	iterable, ok := v.(Iterable)
+	seq, ok := v.(Sequence)
 	if !ok {
 		return &InvalidValueTypeError{
-			Want: "iterable",
+			Want: "sequence",
 			Got:  TypeName(v),
 		}
 	}
 	rt := rv.Type()
 	rte := rt.Elem()
-	for i, elem := range xiter.Enum(iterable.Elements()) {
+	for i, elem := range xiter.Enum(seq.Elements()) {
 		sv := reflect.New(rte)
 		if err := Unpack(sv.Interface(), elem); err != nil {
 			if e, ok := err.(*InvalidValueTypeError); ok {
@@ -419,16 +419,16 @@ func unpackToSlice(rv reflect.Value, v Value) error {
 
 // unpacks v into rv (go array).
 func unpackToArray(rv reflect.Value, v Value) error {
-	iterable, ok := v.(Iterable)
+	seq, ok := v.(Sequence)
 	if !ok {
 		return &InvalidValueTypeError{
-			Want: "iterable",
+			Want: "sequence",
 			Got:  TypeName(v),
 		}
 	}
 	rvLen := rv.Len()
 	i := 0
-	for elem := range iterable.Elements() {
+	for elem := range seq.Elements() {
 		if i == rvLen {
 			i++
 			break // too many elements
@@ -448,13 +448,9 @@ func unpackToArray(rv reflect.Value, v Value) error {
 		i++
 	}
 	if i != rvLen { // wrong number of elements
-		size := i
-		if seq, ok := v.(Sequence); ok {
-			size = seq.Len()
-		}
 		return &InvalidValueTypeError{
-			Want: fmt.Sprintf("iterable[%d]", rvLen),
-			Got:  fmt.Sprintf("%s[%d]", TypeName(v), size),
+			Want: fmt.Sprintf("sequence[%d]", rvLen),
+			Got:  fmt.Sprintf("%s[%d]", TypeName(v), seq.Len()),
 		}
 	}
 	return nil
@@ -462,10 +458,10 @@ func unpackToArray(rv reflect.Value, v Value) error {
 
 // unpacks v into rv (go map).
 func unpackToMap(rv reflect.Value, v Value) error {
-	kviterable, ok := v.(KVIterable)
+	mapping, ok := v.(Mapping)
 	if !ok {
 		return &InvalidValueTypeError{
-			Want: "kv-iterable",
+			Want: "mapping",
 			Got:  TypeName(v),
 		}
 	}
@@ -475,12 +471,12 @@ func unpackToMap(rv reflect.Value, v Value) error {
 	}
 	rtk := rt.Key()
 	rte := rt.Elem()
-	for key, value := range kviterable.Entries() {
+	for key, value := range mapping.Entries() {
 		kv := reflect.New(rtk)
 		if err := Unpack(kv.Interface(), key); err != nil {
 			if e, ok := err.(*InvalidValueTypeError); ok {
 				err = &InvalidValueTypeError{
-					Want: fmt.Sprintf("kv-iterable[%s, ...]", e.Want),
+					Want: fmt.Sprintf("mapping[%s, ...]", e.Want),
 					Got:  fmt.Sprintf("%s[%s, ...]", TypeName(v), e.Got),
 				}
 			} else {
@@ -508,10 +504,10 @@ func unpackToMap(rv reflect.Value, v Value) error {
 
 // unpacks v into rv (struct).
 func unpackToStruct(rv reflect.Value, v Value) error {
-	kviterable, ok := v.(KVIterable)
+	mapping, ok := v.(Mapping)
 	if !ok {
 		return &InvalidValueTypeError{
-			Want: "kv-iterable",
+			Want: "mapping",
 			Got:  TypeName(v),
 		}
 	}
@@ -570,7 +566,7 @@ func unpackToStruct(rv reflect.Value, v Value) error {
 	}
 	extract(rv)
 
-	for key, value := range kviterable.Entries() {
+	for key, value := range mapping.Entries() {
 		keyStr, ok := key.(String)
 		if !ok {
 			if rest != nil {

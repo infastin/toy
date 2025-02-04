@@ -1392,6 +1392,21 @@ func (v *Array) Compare(op token.Token, rhs Value) (bool, error) {
 	return false, ErrInvalidOperation
 }
 
+func (v *Array) BinaryOp(op token.Token, other Value, right bool) (Value, error) {
+	switch op {
+	case token.Add:
+		switch y := other.(type) {
+		case *Array:
+			return &Array{
+				elems:     slices.Concat(v.elems, y.elems),
+				immutable: v.immutable,
+				itercount: 0,
+			}, nil
+		}
+	}
+	return nil, ErrInvalidOperation
+}
+
 func (v *Array) Contains(value Value) (bool, error) {
 	for _, obj := range v.elems {
 		if eq, err := Equal(obj, value); err != nil {
@@ -1600,6 +1615,17 @@ func (v Tuple) Compare(op token.Token, rhs Value) (bool, error) {
 		}
 	}
 	return false, ErrInvalidOperation
+}
+
+func (v Tuple) BinaryOp(op token.Token, other Value, right bool) (Value, error) {
+	switch op {
+	case token.Add:
+		switch y := other.(type) {
+		case Tuple:
+			return slices.Concat(v, y), nil
+		}
+	}
+	return nil, ErrInvalidOperation
 }
 
 func (v Tuple) Contains(value Value) (bool, error) {

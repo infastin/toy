@@ -581,25 +581,25 @@ func (e *SliceExpr) String() string {
 	return b.String()
 }
 
-// PlainText represents a text inside of string literals.
-type PlainText struct {
+// StringFragment represents a string fragment.
+type StringFragment struct {
 	Value    string
 	ValuePos token.Pos
 }
 
-func (e *PlainText) exprNode() {}
+func (e *StringFragment) exprNode() {}
 
 // Pos returns the position of first character belonging to the node.
-func (e *PlainText) Pos() token.Pos {
+func (e *StringFragment) Pos() token.Pos {
 	return e.ValuePos
 }
 
 // End returns the position of first character immediately after the node.
-func (e *PlainText) End() token.Pos {
+func (e *StringFragment) End() token.Pos {
 	return token.Pos(int(e.ValuePos) + len(e.Value))
 }
 
-func (e *PlainText) String() string {
+func (e *StringFragment) String() string {
 	return e.Value
 }
 

@@ -187,7 +187,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		if len(node.Exprs) == 1 {
 			// maybe we don't need to build a string
 			switch expr := node.Exprs[0].(type) {
-			case *ast.PlainText:
+			case *ast.StringFragment:
 				// we don't need to build a string here,
 				// since it's already a string
 				str := expr.Value
@@ -211,7 +211,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		// build a string here
 		for _, expr := range node.Exprs {
 			switch expr := expr.(type) {
-			case *ast.PlainText:
+			case *ast.StringFragment:
 				c.emit(expr, bytecode.OpConstant, c.addConstant(String(expr.Value)))
 			case *ast.StringInterpolationExpr:
 				if err := c.Compile(expr.Expr); err != nil {
@@ -752,11 +752,11 @@ func (c *Compiler) compileAssign(
 		return c.compileAssignDefine(node, lhs, rhs, op)
 	}
 
-	ident, expr, sel := resolveAssignLHS(lhs[0])
+	ident, hasSel := resolveAssignLHS(lhs[0])
 	// we disallow statements like 1 += 1
 	// and allow statements like [1, 2, 3][0] += 1
-	if ident == "" && sel == nil {
-		return c.errorf(node, "cannot assign to '%s': not a selector expression", expr.String())
+	if ident == "" && !hasSel {
+		return c.errorf(node, "cannot assign to '%s': not a selector expression", lhs[0].String())
 	}
 
 	// it's fine for symbol to be nil,
@@ -807,20 +807,25 @@ func (c *Compiler) compileAssign(
 		c.emit(node, bytecode.OpBinaryOp, int(token.Nullish))
 	}
 
-	if sel != nil {
-		// compile left side of the selector expression
-		if err := c.Compile(expr); err != nil {
-			return err
-		}
-		// compile selector
-		if ident, ok := sel.(*ast.Ident); ok {
-			c.emit(sel, bytecode.OpConstant, c.addConstant(String(ident.Name)))
-		} else if err := c.Compile(sel); err != nil {
-			return err
+	if hasSel {
+		// compile selector expression
+		switch x := lhs[0].(type) {
+		case *ast.SelectorExpr:
+			if err := c.Compile(x.Expr); err != nil {
+				return err
+			}
+			c.emit(x.Sel, bytecode.OpConstant, c.addConstant(String(x.Sel.Name)))
+		case *ast.IndexExpr:
+			if err := c.Compile(x.Expr); err != nil {
+				return err
+			}
+			if err := c.Compile(x.Index); err != nil {
+				return err
+			}
 		}
 	}
 
-	if sel != nil {
+	if hasSel {
 		c.emit(node, bytecode.OpSetIndex)
 	} else {
 		switch symbol.Scope {
@@ -860,8 +865,7 @@ func (c *Compiler) compileAssignDefine(
 
 	type lhsResolved struct {
 		ident  string
-		expr   ast.Expr
-		sel    ast.Expr
+		hasSel bool
 		isFunc bool
 		symbol *Symbol
 		exists bool
@@ -873,17 +877,17 @@ func (c *Compiler) compileAssignDefine(
 
 	// we have to resolve everything first
 	for j := range lhs {
-		ident, expr, sel := resolveAssignLHS(lhs[j])
+		ident, hasSel := resolveAssignLHS(lhs[j])
 		// we disallow statements like 1 := 1 or 1 = 1
 		// and allow statements like [1, 2, 3][0] = 1
-		if ident == "" && sel == nil {
+		if ident == "" && !hasSel {
 			if op == token.Define {
-				return c.errorf(node, "non-name '%s' on left side of :=", expr.String())
+				return c.errorf(node, "non-name '%s' on left side of :=", lhs[j].String())
 			}
-			return c.errorf(node, "cannot assign to '%s': not a selector expression", expr.String())
+			return c.errorf(node, "cannot assign to '%s': not a selector expression", lhs[j].String())
 		}
 		// we also disallow using selectors with define operator
-		if op == token.Define && sel != nil {
+		if op == token.Define && hasSel {
 			return c.errorf(node, "operator := not allowed with selector")
 		}
 
@@ -923,8 +927,7 @@ func (c *Compiler) compileAssignDefine(
 
 		resolved = append(resolved, &lhsResolved{
 			ident:  ident,
-			expr:   expr,
-			sel:    sel,
+			hasSel: hasSel,
 			isFunc: isFunc,
 			symbol: symbol,
 			exists: exists,
@@ -967,16 +970,21 @@ func (c *Compiler) compileAssignDefine(
 			lr.symbol = c.symbolTable.Define(lr.ident)
 		}
 
-		if lr.sel != nil {
-			// compile left side of the selector expression
-			if err := c.Compile(lr.expr); err != nil {
-				return err
-			}
-			// compile selector
-			if ident, ok := lr.sel.(*ast.Ident); ok {
-				c.emit(lr.sel, bytecode.OpConstant, c.addConstant(String(ident.Name)))
-			} else if err := c.Compile(lr.sel); err != nil {
-				return err
+		if lr.hasSel {
+			// compile selector expression
+			switch x := lhs[j].(type) {
+			case *ast.SelectorExpr:
+				if err := c.Compile(x.Expr); err != nil {
+					return err
+				}
+				c.emit(x.Sel, bytecode.OpConstant, c.addConstant(String(x.Sel.Name)))
+			case *ast.IndexExpr:
+				if err := c.Compile(x.Expr); err != nil {
+					return err
+				}
+				if err := c.Compile(x.Index); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -985,7 +993,7 @@ func (c *Compiler) compileAssignDefine(
 			c.emit(node, bytecode.OpIdxElem, j)
 		}
 
-		if lr.sel != nil {
+		if lr.hasSel {
 			c.emit(node, bytecode.OpSetIndex)
 		} else {
 			// symbol can't be nil here,
@@ -1579,24 +1587,22 @@ func (c *Compiler) getPathModule(moduleName string) (pathFile string, err error)
 	return "", fmt.Errorf("module '%s' not found at: %s", moduleName, pathFile)
 }
 
-// For the given expression, returns the name of the leftmost identifier,
-// an expression containing all but the last selector,
-// and the last selector for the given expression.
-// If the given expression is just an identifier, returns the name
-// of the identifier, and the other results are set to nil.
+// For the given expression, returns the name of the leftmost identifier
+// and true if the given expression is either index or selector expression.
+// If the given expression is just an identifier, returns the name of the identifier.
 // If the leftmost expression is not an identifier, then name is set to "".
-func resolveAssignLHS(expr ast.Expr) (name string, x, sel ast.Expr) {
+func resolveAssignLHS(expr ast.Expr) (name string, hasSel bool) {
 	switch term := expr.(type) {
 	case *ast.SelectorExpr:
-		x, sel = term.Expr, term.Sel
+		expr, hasSel = term.Expr, true
 	case *ast.IndexExpr:
-		x, sel = term.Expr, term.Index
+		expr, hasSel = term.Expr, true
 	case *ast.Ident:
-		return term.Name, nil, nil
+		return term.Name, false
 	default:
-		return "", expr, nil
+		return "", false
 	}
-	left := x
+	left := expr
 	for {
 		switch term := left.(type) {
 		case *ast.SelectorExpr:
@@ -1604,9 +1610,9 @@ func resolveAssignLHS(expr ast.Expr) (name string, x, sel ast.Expr) {
 		case *ast.IndexExpr:
 			left = term.Expr
 		case *ast.Ident:
-			return term.Name, x, sel
+			return term.Name, hasSel
 		default:
-			return "", x, sel
+			return "", hasSel
 		}
 	}
 }

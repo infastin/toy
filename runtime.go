@@ -585,10 +585,10 @@ func (r *Runtime) run() (_ Value, err error) {
 
 			var itValue *iterator
 			switch iterable := dst.(type) {
-			case Iterable:
-				itValue = newIterator(iterable.Elements())
 			case KVIterable:
 				itValue = newIterator2(iterable.Entries())
+			case Iterable:
+				itValue = newIterator(iterable.Elements())
 			default:
 				return nil, fmt.Errorf("not iterable: %s", TypeName(dst))
 			}

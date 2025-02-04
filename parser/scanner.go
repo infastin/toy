@@ -615,7 +615,7 @@ func (s *Scanner) scanString() (tok token.Token, literal string, insertSemi bool
 		s.next()
 	}
 
-	return token.PlainText, string(s.src[offs:s.offset]), false
+	return token.StringFragment, string(s.src[offs:s.offset]), false
 }
 
 func (s *Scanner) scanRawString() (tok token.Token, literal string, insertSemi bool) {
@@ -674,7 +674,7 @@ func (s *Scanner) scanRawString() (tok token.Token, literal string, insertSemi b
 		lit = StripCR(lit, false)
 	}
 
-	return token.PlainText, string(lit), false
+	return token.StringFragment, string(lit), false
 }
 
 func (s *Scanner) scanIndentedString() (tok token.Token, literal string, insertSemi bool) {
@@ -736,7 +736,7 @@ func (s *Scanner) scanIndentedString() (tok token.Token, literal string, insertS
 		lit = StripCR(lit, false)
 	}
 
-	return token.PlainText, string(lit), false
+	return token.StringFragment, string(lit), false
 }
 
 // StripCR removes carriage return characters.

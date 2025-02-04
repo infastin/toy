@@ -13,7 +13,7 @@ const (
 	Illegal Token = iota
 	EOF
 	Comment
-	PlainText // foo
+	StringFragment // foo
 
 	_literalBeg
 	// Identifiers and basic type literals
@@ -102,10 +102,10 @@ const (
 
 var tokens = [...]string{
 	// Special tokens
-	Illegal:   "ILLEGAL",
-	EOF:       "EOF",
-	Comment:   "COMMENT",
-	PlainText: "PLAINTEXT",
+	Illegal:        "ILLEGAL",
+	EOF:            "EOF",
+	Comment:        "COMMENT",
+	StringFragment: "STRFRAG",
 
 	// Identifiers and basic type literals
 	Ident: "IDENT",

@@ -548,8 +548,8 @@ func (p *Parser) parseStringLit(kind token.Token) ast.Expr {
 loop:
 	for p.token != kind && p.token != token.EOF {
 		switch p.token {
-		case token.PlainText:
-			exprs = append(exprs, &ast.PlainText{
+		case token.StringFragment:
+			exprs = append(exprs, &ast.StringFragment{
 				Value:    unescape(p.tokenLit),
 				ValuePos: p.pos,
 			})
@@ -590,8 +590,8 @@ func (p *Parser) parseSimpleString(kind token.Token) string {
 		return ""
 	}
 	if len(str.Exprs) == 1 {
-		if plain, ok := str.Exprs[0].(*ast.PlainText); ok {
-			return plain.Value
+		if fragment, ok := str.Exprs[0].(*ast.StringFragment); ok {
+			return fragment.Value
 		}
 	}
 	p.error(str.Pos(), "cannot use string interpolation")

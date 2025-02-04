@@ -1047,14 +1047,6 @@ func (v String) BinaryOp(op token.Token, other Value, right bool) (Value, error)
 			}
 			return v + String(y), nil
 		}
-	case token.Mul:
-		switch y := other.(type) {
-		case Int:
-			if y <= 0 {
-				return String(""), nil
-			}
-			return String(strings.Repeat(string(v), int(y))), nil
-		}
 	}
 	return nil, ErrInvalidOperation
 }
@@ -1152,14 +1144,6 @@ func (v Bytes) BinaryOp(op token.Token, other Value, right bool) (Value, error) 
 		switch y := other.(type) {
 		case Bytes:
 			return append(v, y...), nil
-		}
-	case token.Mul:
-		switch y := other.(type) {
-		case Int:
-			if y <= 0 {
-				return Bytes{}, nil
-			}
-			return Bytes(bytes.Repeat(v, int(y))), nil
 		}
 	}
 	return nil, ErrInvalidOperation
@@ -1408,34 +1392,6 @@ func (v *Array) Compare(op token.Token, rhs Value) (bool, error) {
 	return false, ErrInvalidOperation
 }
 
-func (v *Array) BinaryOp(op token.Token, other Value, right bool) (Value, error) {
-	switch op {
-	case token.Add:
-		switch y := other.(type) {
-		case *Array:
-			return &Array{
-				elems:     slices.Concat(v.elems, y.elems),
-				immutable: v.immutable,
-				itercount: 0,
-			}, nil
-		}
-	case token.Mul:
-		switch y := other.(type) {
-		case Int:
-			var newElems []Value
-			if y >= 1 {
-				newElems = slices.Repeat(v.elems, int(y))
-			}
-			return &Array{
-				elems:     newElems,
-				immutable: v.immutable,
-				itercount: 0,
-			}, nil
-		}
-	}
-	return nil, ErrInvalidOperation
-}
-
 func (v *Array) Contains(value Value) (bool, error) {
 	for _, obj := range v.elems {
 		if eq, err := Equal(obj, value); err != nil {
@@ -1644,25 +1600,6 @@ func (v Tuple) Compare(op token.Token, rhs Value) (bool, error) {
 		}
 	}
 	return false, ErrInvalidOperation
-}
-
-func (v Tuple) BinaryOp(op token.Token, other Value, right bool) (Value, error) {
-	switch op {
-	case token.Add:
-		switch y := other.(type) {
-		case Tuple:
-			return slices.Concat(v, y), nil
-		}
-	case token.Mul:
-		switch y := other.(type) {
-		case Int:
-			if y >= 1 {
-				return slices.Repeat(v, int(y)), nil
-			}
-			return Tuple{}, nil
-		}
-	}
-	return nil, ErrInvalidOperation
 }
 
 func (v Tuple) Contains(value Value) (bool, error) {

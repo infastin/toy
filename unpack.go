@@ -115,6 +115,15 @@ func Unpack(ptr any, v Value) error {
 		return ptr.Unpack(v)
 	case *Value:
 		*ptr = v
+	case *ValueType:
+		t, ok := v.(ValueType)
+		if !ok {
+			return &InvalidArgumentTypeError{
+				Want: "type",
+				Got:  TypeName(v),
+			}
+		}
+		*ptr = t
 	case *string:
 		s, ok := v.(String)
 		if !ok {

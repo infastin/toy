@@ -738,7 +738,7 @@ func (r *Runtime) takeListElements(numElems, splat int) []Value {
 		for i := r.sp - numElems; i < r.sp; i++ {
 			switch elem := r.stack[i].(type) {
 			case *splatSequence:
-				slices.AppendSeq(elems, elem.s.Elements())
+				elems = slices.AppendSeq(elems, elem.s.Elements())
 			default:
 				elems = append(elems, elem)
 			}

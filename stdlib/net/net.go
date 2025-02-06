@@ -8,6 +8,7 @@ import (
 	"iter"
 	"net"
 	"slices"
+	"strconv"
 
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/hash"
@@ -35,7 +36,7 @@ var Module = &toy.BuiltinModule{
 		"resolveIPAddr":   toy.NewBuiltinFunction("resolveIPAddr", resolveIPAddrFn),
 		"lookupInterface": toy.NewBuiltinFunction("lookupInterface", lookupInterfaceFn),
 		"interfaces":      toy.NewBuiltinFunction("interfaces", interfacesFn),
-		"joinHostPort":    toy.NewBuiltinFunction("joinHostPort", fndef.ASSRS("host", "port", net.JoinHostPort)),
+		"joinHostPort":    toy.NewBuiltinFunction("joinHostPort", joinHostPortFn),
 		"splitHostPort":   toy.NewBuiltinFunction("splitHostPort", fndef.ASRSSE("hostport", net.SplitHostPort)),
 		"lookupAddr":      toy.NewBuiltinFunction("lookupAddr", fndef.ASRSsE("addr", net.LookupAddr)),
 		"lookupHost":      toy.NewBuiltinFunction("lookupHost", fndef.ASRSsE("host", net.LookupHost)),
@@ -990,4 +991,26 @@ func interfacesFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		elems = append(elems, iface)
 	}
 	return toy.NewArray(elems), nil
+}
+
+func joinHostPortFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
+	var (
+		host string
+		port toy.Value
+	)
+	if err := toy.UnpackArgs(args, "host", &host, "port", &port); err != nil {
+		return nil, err
+	}
+	switch port := port.(type) {
+	case toy.String:
+		return toy.String(net.JoinHostPort(host, string(port))), nil
+	case toy.Int:
+		return toy.String(net.JoinHostPort(host, strconv.Itoa(int(port)))), nil
+	default:
+		return nil, &toy.InvalidArgumentTypeError{
+			Name: "port",
+			Want: "string or int",
+			Got:  toy.TypeName(port),
+		}
+	}
 }

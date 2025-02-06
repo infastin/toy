@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/internal/fndef"
@@ -18,6 +19,8 @@ var Module = &toy.BuiltinModule{
 		"base":         toy.NewBuiltinFunction("path.base", fndef.ASRS("path", filepath.Base)),
 		"dir":          toy.NewBuiltinFunction("path.dir", fndef.ASRS("path", filepath.Dir)),
 		"ext":          toy.NewBuiltinFunction("path.ext", fndef.ASRS("path", filepath.Ext)),
+		"noext":        toy.NewBuiltinFunction("path.noext", noextFn),
+		"stem":         toy.NewBuiltinFunction("path.stem", stemFn),
 		"clean":        toy.NewBuiltinFunction("path.clean", fndef.ASRS("path", filepath.Clean)),
 		"evalSymlinks": toy.NewBuiltinFunction("path.evalSymlinks", fndef.ASRSE("path", filepath.EvalSymlinks)),
 		"split":        toy.NewBuiltinFunction("path.split", fndef.ASRSS("path", filepath.Split)),
@@ -58,6 +61,23 @@ func joinFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		elems = append(elems, string(str))
 	}
 	return toy.String(filepath.Join(elems...)), nil
+}
+
+func noextFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
+	var s string
+	if err := toy.UnpackArgs(args, "path", &s); err != nil {
+		return nil, err
+	}
+	return toy.String(strings.TrimSuffix(s, filepath.Ext(s))), nil
+}
+
+func stemFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
+	var s string
+	if err := toy.UnpackArgs(args, "path", &s); err != nil {
+		return nil, err
+	}
+	s = filepath.Base(s)
+	return toy.String(strings.TrimSuffix(s, filepath.Ext(s))), nil
 }
 
 func expandFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {

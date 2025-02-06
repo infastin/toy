@@ -1,6 +1,7 @@
 package text
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -52,7 +53,7 @@ var Module = &toy.BuiltinModule{
 
 		"parseInt":   toy.NewBuiltinFunction("text.parseInt", parseInt),
 		"parseFloat": toy.NewBuiltinFunction("text.parseFloat", parseFloat),
-		"parseBool":  toy.NewBuiltinFunction("text.parseBool", fndef.ASRBE("s", strconv.ParseBool)),
+		"parseBool":  toy.NewBuiltinFunction("text.parseBool", parseBool),
 	},
 }
 
@@ -238,7 +239,7 @@ func parseInt(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	}
 	i, err := strconv.ParseInt(s, base, 64)
 	if err != nil {
-		return nil, err
+		return nil, errors.Unwrap(err)
 	}
 	return toy.Int(i), nil
 }
@@ -250,9 +251,21 @@ func parseFloat(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		return nil, err
+		return nil, errors.Unwrap(err)
 	}
 	return toy.Float(f), nil
+}
+
+func parseBool(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
+	var s string
+	if err := toy.UnpackArgs(args, "s", &s); err != nil {
+		return nil, err
+	}
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		return nil, errors.Unwrap(err)
+	}
+	return toy.Bool(b), nil
 }
 
 type Builder strings.Builder

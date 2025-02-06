@@ -2,6 +2,7 @@ package toy
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"iter"
 	"math"
@@ -1005,11 +1006,24 @@ func (v String) Slice(low, high int) Value {
 }
 
 func (v String) Convert(p any) error {
-	b, ok := p.(*Bytes)
-	if !ok {
+	switch p := p.(type) {
+	case *Bytes:
+		*p = []byte(v)
+	case *Int:
+		i, err := strconv.ParseInt(string(v), 10, 64)
+		if err != nil {
+			return errors.Unwrap(err)
+		}
+		*p = Int(i)
+	case *Float:
+		f, err := strconv.ParseFloat(string(v), 64)
+		if err != nil {
+			return errors.Unwrap(err)
+		}
+		*p = Float(f)
+	default:
 		return ErrNotConvertible
 	}
-	*b = []byte(v)
 	return nil
 }
 

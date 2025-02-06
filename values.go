@@ -1269,7 +1269,41 @@ type Array struct {
 }
 
 // ArrayType is the type of Array.
-var ArrayType = NewType[*Array]("array", nil)
+var ArrayType = NewType[*Array]("array", func(_ *Runtime, args ...Value) (Value, error) {
+	switch len(args) {
+	case 1:
+		if _, isInt := args[0].(Int); !isInt {
+			var arr *Array
+			if err := Convert(&arr, args[0]); err != nil {
+				return nil, err
+			}
+			return arr, nil
+		}
+		fallthrough
+	case 2:
+		var (
+			size  int
+			value Value = Nil
+		)
+		if err := UnpackArgs(args, "size", &size, "value?", &value); err != nil {
+			return nil, err
+		}
+		if size < 0 {
+			return nil, fmt.Errorf("negative array size: %d", size)
+		}
+		arr := make([]Value, int(size))
+		for i := range arr {
+			arr[i] = value
+		}
+		return NewArray(arr), nil
+	default:
+		return nil, &WrongNumArgumentsError{
+			WantMin: 1,
+			WantMax: 2,
+			Got:     len(args),
+		}
+	}
+})
 
 // NewArray returns an array containing the specified elements.
 // Callers should not subsequently modify elems.

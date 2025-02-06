@@ -736,7 +736,7 @@ func (c *Compiler) compileSelectorExpr(node *ast.SelectorExpr, withOk bool) erro
 	if withOk {
 		returnBool = 1
 	}
-	c.emit(node, bytecode.OpIndex, returnBool)
+	c.emit(node.Sel, bytecode.OpIndex, returnBool)
 	return nil
 }
 
@@ -751,7 +751,7 @@ func (c *Compiler) compileIndexExpr(node *ast.IndexExpr, withOk bool) error {
 	if withOk {
 		returnBool = 1
 	}
-	c.emit(node, bytecode.OpIndex, returnBool)
+	c.emit(node.Index, bytecode.OpIndex, returnBool)
 	return nil
 }
 
@@ -767,18 +767,18 @@ func (c *Compiler) compileAssign(
 	ident, hasSel := resolveAssignLHS(lhs[0])
 	// we disallow statements like 1 += 1
 	// and allow statements like [1, 2, 3][0] += 1
-	if ident == "" && !hasSel {
-		return c.errorf(node, "cannot assign to '%s': not a selector expression", lhs[0].String())
+	if ident == nil && !hasSel {
+		return c.errorf(lhs[0], "cannot assign to '%s': not a selector expression", lhs[0].String())
 	}
 
 	// it's fine for symbol to be nil,
 	// since it won't be used in selector expressions
 	var symbol *Symbol
-	if ident != "" {
+	if ident != nil {
 		var exists bool
-		symbol, _, exists = c.symbolTable.Resolve(ident, false)
+		symbol, _, exists = c.symbolTable.Resolve(ident.Name, false)
 		if !exists {
-			return c.errorf(node, "unresolved reference '%s'", ident)
+			return c.errorf(ident, "unresolved reference '%s'", ident.Name)
 		}
 	}
 
@@ -876,7 +876,7 @@ func (c *Compiler) compileAssignDefine(
 	}
 
 	type lhsResolved struct {
-		ident  string
+		ident  *ast.Ident
 		hasSel bool
 		isFunc bool
 		symbol *Symbol
@@ -892,11 +892,11 @@ func (c *Compiler) compileAssignDefine(
 		ident, hasSel := resolveAssignLHS(lhs[j])
 		// we disallow statements like 1 := 1 or 1 = 1
 		// and allow statements like [1, 2, 3][0] = 1
-		if ident == "" && !hasSel {
+		if ident == nil && !hasSel {
 			if op == token.Define {
-				return c.errorf(node, "non-name '%s' on left side of :=", lhs[j].String())
+				return c.errorf(lhs[j], "non-name '%s' on left side of :=", lhs[j].String())
 			}
-			return c.errorf(node, "cannot assign to '%s': not a selector expression", lhs[j].String())
+			return c.errorf(lhs[j], "cannot assign to '%s': not a selector expression", lhs[j].String())
 		}
 		// we also disallow using selectors with define operator
 		if op == token.Define && hasSel {
@@ -916,22 +916,22 @@ func (c *Compiler) compileAssignDefine(
 			depth  int
 		)
 
-		if ident != "" {
-			symbol, depth, exists = c.symbolTable.Resolve(ident, false)
+		if ident != nil {
+			symbol, depth, exists = c.symbolTable.Resolve(ident.Name, false)
 			if op == token.Define {
 				if depth == 0 && exists {
 					redecl++ // increment the number of variable redeclarations
 				}
 				if isFunc {
-					symbol = c.symbolTable.Define(ident)
+					symbol = c.symbolTable.Define(ident.Name)
 				}
 			} else if !exists {
-				return c.errorf(node, "unresolved reference '%s'", ident)
+				return c.errorf(ident, "unresolved reference '%s'", ident.Name)
 			}
 			if redecl == len(lhs) {
 				// if all variables have been redeclared, return an error
 				if redecl == 1 {
-					return c.errorf(node, "'%s' redeclared in this block", ident)
+					return c.errorf(ident, "'%s' redeclared in this block", ident.Name)
 				}
 				return c.errorf(node, "no new variables on the left side of :=")
 			}
@@ -979,7 +979,7 @@ func (c *Compiler) compileAssignDefine(
 
 	for j, lr := range resolved {
 		if op == token.Define && (!lr.exists || lr.depth > 0) && !lr.isFunc {
-			lr.symbol = c.symbolTable.Define(lr.ident)
+			lr.symbol = c.symbolTable.Define(lr.ident.Name)
 		}
 
 		if lr.hasSel {
@@ -1599,20 +1599,20 @@ func (c *Compiler) getPathModule(moduleName string) (pathFile string, err error)
 	return "", fmt.Errorf("module '%s' not found at: %s", moduleName, pathFile)
 }
 
-// For the given expression, returns the name of the leftmost identifier
+// For the given expression, returns the leftmost identifier
 // and true if the given expression is either index or selector expression.
-// If the given expression is just an identifier, returns the name of the identifier.
-// If the leftmost expression is not an identifier, then name is set to "".
-func resolveAssignLHS(expr ast.Expr) (name string, hasSel bool) {
+// If the given expression is just an identifier, returns it.
+// If the leftmost expression is not an identifier, then ident is set to nil.
+func resolveAssignLHS(expr ast.Expr) (ident *ast.Ident, hasSel bool) {
 	switch term := expr.(type) {
 	case *ast.SelectorExpr:
 		expr, hasSel = term.Expr, true
 	case *ast.IndexExpr:
 		expr, hasSel = term.Expr, true
 	case *ast.Ident:
-		return term.Name, false
+		return term, false
 	default:
-		return "", false
+		return nil, false
 	}
 	left := expr
 	for {
@@ -1622,9 +1622,9 @@ func resolveAssignLHS(expr ast.Expr) (name string, hasSel bool) {
 		case *ast.IndexExpr:
 			left = term.Expr
 		case *ast.Ident:
-			return term.Name, hasSel
+			return term, hasSel
 		default:
-			return "", hasSel
+			return nil, hasSel
 		}
 	}
 }

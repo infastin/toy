@@ -1657,6 +1657,9 @@ func unindentString(s string) string {
 			indent = j
 		}
 	}
+	if indent == -1 {
+		indent = 0
+	}
 
 	var b strings.Builder
 	for i, line := range lines {

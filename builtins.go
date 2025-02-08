@@ -105,7 +105,7 @@ func builtinCopy(_ *Runtime, args ...Value) (Value, error) {
 	if err := UnpackArgs(args, "dst", &dst, "src", &src); err != nil {
 		return nil, err
 	}
-	if err := dst.checkMutable("copy to"); err != nil {
+	if err := dst.checkMutable("copy to", true); err != nil {
 		return nil, err
 	}
 	n := copy(dst.elems, src.elems)
@@ -140,7 +140,7 @@ func builtinDelete(_ *Runtime, args ...Value) (Value, error) {
 		} else {
 			stop = start + 1
 		}
-		if err := x.checkMutable("delete from"); err != nil {
+		if err := x.checkMutable("delete from", false); err != nil {
 			return nil, err
 		}
 		n := len(x.elems)
@@ -209,7 +209,7 @@ func builtinSplice(_ *Runtime, args ...Value) (Value, error) {
 	} else {
 		stop = n
 	}
-	if err := arr.checkMutable("splice"); err != nil {
+	if err := arr.checkMutable("splice", false); err != nil {
 		return nil, err
 	}
 	if start < 0 || stop < 0 {
@@ -257,7 +257,7 @@ func builtinInsert(_ *Runtime, args ...Value) (Value, error) {
 		if err := UnpackArgs(args[1:], "index", &index, "...", &rest); err != nil {
 			return nil, err
 		}
-		if err := x.checkMutable("insert into"); err != nil {
+		if err := x.checkMutable("insert into", false); err != nil {
 			return nil, err
 		}
 		n := len(x.elems)

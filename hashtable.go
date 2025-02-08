@@ -64,10 +64,10 @@ func (ht *hashtable) init(size int) {
 }
 
 func (ht *hashtable) insert(k, v Value) error {
-	if err := ht.checkMutable("insert into"); err != nil {
-		return err
-	}
 	if ht.table == nil {
+		if err := ht.checkMutable("insert into", false); err != nil {
+			return err
+		}
 		ht.init(1)
 	}
 	h, err := Hash(k)
@@ -96,6 +96,9 @@ retry:
 			if eq, err := Equal(k, e.key); err != nil {
 				return err
 			} else if eq {
+				if err := ht.checkMutable("assign to element of", true); err != nil {
+					return err
+				}
 				e.value = v
 				return nil
 			}
@@ -106,7 +109,10 @@ retry:
 		p = p.next
 	}
 
-	// Key not found.  p points to the last bucket.
+	// Key not found. p points to the last bucket.
+	if err := ht.checkMutable("insert into", false); err != nil {
+		return err
+	}
 
 	// Does the number of elements exceed the buckets' load factor?
 	if overloaded(int(ht.len), len(ht.table)) {
@@ -115,7 +121,7 @@ retry:
 	}
 
 	if insert == nil {
-		// No space in existing buckets.  Add a new one to the bucket list.
+		// No space in existing buckets. Add a new one to the bucket list.
 		b := new(bucket)
 		p.next = b
 		insert = &b.entries[0]
@@ -213,7 +219,7 @@ func (ht *hashtable) items() []Tuple {
 }
 
 func (ht *hashtable) delete(k Value) (v Value, err error) {
-	if err := ht.checkMutable("delete from"); err != nil {
+	if err := ht.checkMutable("delete from", false); err != nil {
 		return nil, err
 	}
 	if ht.table == nil {
@@ -258,18 +264,18 @@ func (ht *hashtable) delete(k Value) (v Value, err error) {
 
 // checkMutable reports an error if the hash table should not be mutated.
 // verb+" immutable hash table" should describe the operation.
-func (ht *hashtable) checkMutable(verb string) error {
+func (ht *hashtable) checkMutable(verb string, iterOk bool) error {
 	if ht.immutable {
 		return fmt.Errorf("cannot %s immutable table", verb)
 	}
-	if ht.itercount > 0 {
+	if !iterOk && ht.itercount > 0 {
 		return fmt.Errorf("cannot %s table during iteration", verb)
 	}
 	return nil
 }
 
 func (ht *hashtable) clear() error {
-	if err := ht.checkMutable("clear"); err != nil {
+	if err := ht.checkMutable("clear", false); err != nil {
 		return err
 	}
 	if ht.table != nil {

@@ -1382,7 +1382,7 @@ func (v *Array) Slice(low, high int) Value {
 }
 
 func (v *Array) SetAt(i int, value Value) error {
-	if err := v.checkMutable("assign to element of"); err != nil {
+	if err := v.checkMutable("assign to element of", true); err != nil {
 		return err
 	}
 	v.elems[i] = value
@@ -1390,7 +1390,7 @@ func (v *Array) SetAt(i int, value Value) error {
 }
 
 func (v *Array) Append(xs ...Value) error {
-	if err := v.checkMutable("append to"); err != nil {
+	if err := v.checkMutable("append to", false); err != nil {
 		return err
 	}
 	v.elems = append(v.elems, xs...)
@@ -1398,7 +1398,7 @@ func (v *Array) Append(xs ...Value) error {
 }
 
 func (v *Array) Clear() error {
-	if err := v.checkMutable("clear"); err != nil {
+	if err := v.checkMutable("clear", false); err != nil {
 		return err
 	}
 	clear(v.elems)
@@ -1482,11 +1482,11 @@ func (v *Array) Elements() iter.Seq[Value] {
 
 // checkMutable reports an error if the array should not be mutated.
 // verb+" immutable array" should describe the operation.
-func (v *Array) checkMutable(verb string) error {
+func (v *Array) checkMutable(verb string, iterOk bool) error {
 	if v.immutable {
 		return fmt.Errorf("cannot %s immutable array", verb)
 	}
-	if v.itercount > 0 {
+	if !iterOk && v.itercount > 0 {
 		return fmt.Errorf("cannot %s array during iteration", verb)
 	}
 	return nil

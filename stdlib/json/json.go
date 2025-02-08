@@ -84,7 +84,7 @@ func objectToJSON(enc *jx.Encoder, o toy.Value) (err error) {
 	case toy.Sequence:
 		return sequenceToJSON(enc, x)
 	default:
-		enc.Str(x.String())
+		enc.Str(toy.AsString(x))
 		return nil
 	}
 }

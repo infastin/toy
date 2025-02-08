@@ -132,7 +132,7 @@ func objectToYAML(o toy.Value) (*yaml.Node, error) {
 		return &yaml.Node{
 			Kind:  yaml.ScalarNode,
 			Tag:   "!!str",
-			Value: x.String(),
+			Value: toy.AsString(x),
 		}, nil
 	}
 }

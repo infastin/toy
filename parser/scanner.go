@@ -708,9 +708,13 @@ func (s *Scanner) scanIndentedString() (tok token.Token, literal string, insertS
 				hasCR = true
 				s.next()
 			}
-			if s.ch == '\\' || s.ch == '\'' || s.ch == '{' || s.ch == '\n' {
+			switch s.ch {
+			case '\\', '\'', '{':
 				s.next()
-			} else {
+			case '\n':
+				s.next()
+				s.skipWhitespace()
+			default:
 				msg := "unknown escape sequence"
 				if s.ch < 0 {
 					msg = "escape sequence not terminated"

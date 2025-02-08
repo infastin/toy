@@ -1389,6 +1389,16 @@ func unescapeIndentedString(s string) string {
 		case '\'', '{', '\\':
 			b.WriteByte(ch)
 			in = in[2:]
+		case '\n':
+			// skip spaces
+			i := 2
+			for ; i < len(in); i++ {
+				ch := in[i]
+				if ch != ' ' && ch != '\t' && ch != '\n' {
+					break
+				}
+			}
+			in = in[i:]
 		default:
 			// skip
 			in = in[2:]

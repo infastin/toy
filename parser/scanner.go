@@ -598,7 +598,7 @@ func (s *Scanner) scanString() (tok token.Token, literal string, insertSemi bool
 
 	for {
 		if ch == '\\' {
-			if s.ch == '"' || s.ch == '{' {
+			if s.ch == '"' || s.ch == '{' || s.ch == '}' {
 				s.next()
 			} else {
 				s.scanEscape()
@@ -646,7 +646,7 @@ func (s *Scanner) scanRawString() (tok token.Token, literal string, insertSemi b
 				hasCR = true
 				s.next()
 			}
-			if s.ch == '\\' || s.ch == '`' || s.ch == '{' || s.ch == '\n' {
+			if s.ch == '\\' || s.ch == '`' || s.ch == '{' || s.ch == '}' || s.ch == '\n' {
 				s.next()
 			} else {
 				msg := "unknown escape sequence"
@@ -709,7 +709,7 @@ func (s *Scanner) scanIndentedString() (tok token.Token, literal string, insertS
 				s.next()
 			}
 			switch s.ch {
-			case '\\', '\'', '{':
+			case '\\', '\'', '{', '}':
 				s.next()
 			case '\n':
 				s.next()

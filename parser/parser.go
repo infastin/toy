@@ -1326,11 +1326,8 @@ func unescapeString(s string) string {
 			continue
 		}
 		switch ch := in[1]; ch {
-		case '"':
-			b.WriteByte('"')
-			in = in[2:]
-		case '{':
-			b.WriteByte('{')
+		case '"', '{', '}':
+			b.WriteByte(ch)
 			in = in[2:]
 		default:
 			r, multibyte, rem, _ := strconv.UnquoteChar(in, '"')
@@ -1360,7 +1357,7 @@ func unescapeRawString(s string) string {
 			continue
 		}
 		switch ch := in[1]; ch {
-		case '`', '{', '\\':
+		case '`', '{', '}', '\\':
 			b.WriteByte(ch)
 			in = in[2:]
 		default:
@@ -1386,7 +1383,7 @@ func unescapeIndentedString(s string) string {
 			continue
 		}
 		switch ch := in[1]; ch {
-		case '\'', '{', '\\':
+		case '\'', '{', '}', '\\':
 			b.WriteByte(ch)
 			in = in[2:]
 		case '\n':

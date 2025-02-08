@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"time"
 
 	"github.com/infastin/toy"
 	toytime "github.com/infastin/toy/stdlib/time"
@@ -23,10 +22,10 @@ var Module = &toy.BuiltinModule{
 	},
 }
 
-func sequenceToYAML(seq toy.Sequence) (*yaml.Node, error) {
+func encodeSequence(seq toy.Sequence) (*yaml.Node, error) {
 	nodes := make([]*yaml.Node, 0, seq.Len())
 	for elem := range seq.Elements() {
-		node, err := objectToYAML(elem)
+		node, err := EncodeObject(elem)
 		if err != nil {
 			return nil, err
 		}
@@ -38,14 +37,14 @@ func sequenceToYAML(seq toy.Sequence) (*yaml.Node, error) {
 	}, nil
 }
 
-func mappingToYAML(mapping toy.Mapping) (_ *yaml.Node, err error) {
+func encodeMapping(mapping toy.Mapping) (_ *yaml.Node, err error) {
 	nodes := make([]*yaml.Node, 0, 2*mapping.Len())
 	for key, value := range mapping.Entries() {
 		keyStr, ok := key.(toy.String)
 		if !ok {
 			return nil, fmt.Errorf("unsupported key type: %s", toy.TypeName(key))
 		}
-		node, err := objectToYAML(value)
+		node, err := EncodeObject(value)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", string(keyStr), err)
 		}
@@ -63,7 +62,7 @@ func mappingToYAML(mapping toy.Mapping) (_ *yaml.Node, err error) {
 	}, nil
 }
 
-func objectToYAML(o toy.Value) (*yaml.Node, error) {
+func EncodeObject(o toy.Value) (*yaml.Node, error) {
 	switch x := o.(type) {
 	case yaml.Marshaler:
 		data, err := x.MarshalYAML()
@@ -100,18 +99,6 @@ func objectToYAML(o toy.Value) (*yaml.Node, error) {
 			Tag:   "!!binary",
 			Value: base64.StdEncoding.EncodeToString(x),
 		}, nil
-	case toytime.Time:
-		return &yaml.Node{
-			Kind:  yaml.ScalarNode,
-			Tag:   "!!timestamp",
-			Value: time.Time(x).Format(time.RFC3339Nano),
-		}, nil
-	case toytime.Duration:
-		return &yaml.Node{
-			Kind:  yaml.ScalarNode,
-			Tag:   "!!str",
-			Value: time.Duration(x).String(),
-		}, nil
 	case toy.Bool:
 		return &yaml.Node{
 			Kind:  yaml.ScalarNode,
@@ -125,9 +112,9 @@ func objectToYAML(o toy.Value) (*yaml.Node, error) {
 			Value: "null",
 		}, nil
 	case toy.Mapping:
-		return mappingToYAML(x)
+		return encodeMapping(x)
 	case toy.Sequence:
-		return sequenceToYAML(x)
+		return encodeSequence(x)
 	default:
 		return &yaml.Node{
 			Kind:  yaml.ScalarNode,
@@ -146,7 +133,7 @@ func encodeFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		return nil, err
 	}
 
-	node, err := objectToYAML(x)
+	node, err := EncodeObject(x)
 	if err != nil {
 		return nil, err
 	}
@@ -163,10 +150,10 @@ func encodeFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 	return toy.Bytes(buf.Bytes()), nil
 }
 
-func yamlSequenceToArray(seq *yaml.Node) (*toy.Array, error) {
+func decodeArray(seq *yaml.Node) (*toy.Array, error) {
 	elems := make([]toy.Value, 0, len(seq.Content))
 	for _, node := range seq.Content {
-		value, err := yamlToObject(node)
+		value, err := DecodeValue(node)
 		if err != nil {
 			return nil, err
 		}
@@ -175,10 +162,10 @@ func yamlSequenceToArray(seq *yaml.Node) (*toy.Array, error) {
 	return toy.NewArray(elems), nil
 }
 
-func yamlMappingToTable(mapping *yaml.Node) (*toy.Table, error) {
+func decodeTable(mapping *yaml.Node) (*toy.Table, error) {
 	t := toy.NewTable(len(mapping.Content) / 2)
 	for i := 0; i < len(mapping.Content); i += 2 {
-		value, err := yamlToObject(mapping.Content[i+1])
+		value, err := DecodeValue(mapping.Content[i+1])
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", mapping.Content[i].Value, err)
 		}
@@ -187,7 +174,7 @@ func yamlMappingToTable(mapping *yaml.Node) (*toy.Table, error) {
 	return t, nil
 }
 
-func yamlToObject(node *yaml.Node) (toy.Value, error) {
+func DecodeValue(node *yaml.Node) (toy.Value, error) {
 	switch node.Kind {
 	case yaml.ScalarNode:
 		switch node.Tag {
@@ -206,8 +193,9 @@ func yamlToObject(node *yaml.Node) (toy.Value, error) {
 			}
 			return toy.Bytes(data), nil
 		case "!!timestamp":
-			t, _ := time.Parse(time.RFC3339Nano, node.Value)
-			return toytime.Time(t), nil
+			var t toytime.Time
+			_ = t.UnmarshalYAML(node)
+			return t, nil
 		case "!!bool":
 			b, _ := strconv.ParseBool(node.Value)
 			return toy.Bool(b), nil
@@ -217,9 +205,9 @@ func yamlToObject(node *yaml.Node) (toy.Value, error) {
 			return nil, fmt.Errorf("value with tag %q can't be decoded", node.Tag)
 		}
 	case yaml.SequenceNode:
-		return yamlSequenceToArray(node)
+		return decodeArray(node)
 	case yaml.MappingNode:
-		return yamlMappingToTable(node)
+		return decodeTable(node)
 	}
 	return nil, fmt.Errorf("value with kind %d can't be decoded", node.Kind)
 }
@@ -245,7 +233,7 @@ func decodeFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		node = node.Alias
 	}
 
-	obj, err := yamlToObject(node)
+	obj, err := DecodeValue(node)
 	if err != nil {
 		return nil, err
 	}

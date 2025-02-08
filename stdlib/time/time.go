@@ -7,6 +7,8 @@ import (
 	"github.com/infastin/toy"
 	"github.com/infastin/toy/hash"
 	"github.com/infastin/toy/token"
+
+	"gopkg.in/yaml.v3"
 )
 
 var Module = &toy.BuiltinModule{
@@ -156,6 +158,20 @@ func (t Time) Convert(p any) error {
 	default:
 		return toy.ErrNotConvertible
 	}
+	return nil
+}
+
+func (t Time) MarshalYAML() (any, error) {
+	return &yaml.Node{
+		Kind:  yaml.ScalarNode,
+		Tag:   "!!timestamp",
+		Value: time.Time(t).Format(time.RFC3339Nano),
+	}, nil
+}
+
+func (t *Time) UnmarshalYAML(node *yaml.Node) error {
+	tt, _ := time.Parse(time.RFC3339Nano, node.Value)
+	*t = Time(tt)
 	return nil
 }
 

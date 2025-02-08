@@ -3,10 +3,8 @@ package json
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/infastin/toy"
-	toytime "github.com/infastin/toy/stdlib/time"
 
 	"github.com/go-faster/jx"
 )
@@ -19,10 +17,10 @@ var Module = &toy.BuiltinModule{
 	},
 }
 
-func sequenceToJSON(enc *jx.Encoder, seq toy.Sequence) (err error) {
+func encodeSequence(enc *jx.Encoder, seq toy.Sequence) (err error) {
 	enc.ArrStart()
 	for elem := range seq.Elements() {
-		if err := objectToJSON(enc, elem); err != nil {
+		if err := EncodeObject(enc, elem); err != nil {
 			return err
 		}
 	}
@@ -30,7 +28,7 @@ func sequenceToJSON(enc *jx.Encoder, seq toy.Sequence) (err error) {
 	return err
 }
 
-func mappingToJSON(enc *jx.Encoder, mapping toy.Mapping) (err error) {
+func encodeMapping(enc *jx.Encoder, mapping toy.Mapping) (err error) {
 	enc.ObjStart()
 	for key, value := range mapping.Entries() {
 		keyStr, ok := key.(toy.String)
@@ -38,7 +36,7 @@ func mappingToJSON(enc *jx.Encoder, mapping toy.Mapping) (err error) {
 			return fmt.Errorf("unsupported key type: %s", toy.TypeName(key))
 		}
 		enc.FieldStart(string(keyStr))
-		if err := objectToJSON(enc, value); err != nil {
+		if err := EncodeObject(enc, value); err != nil {
 			return fmt.Errorf("%s: %w", string(keyStr), err)
 		}
 	}
@@ -46,7 +44,7 @@ func mappingToJSON(enc *jx.Encoder, mapping toy.Mapping) (err error) {
 	return nil
 }
 
-func objectToJSON(enc *jx.Encoder, o toy.Value) (err error) {
+func EncodeObject(enc *jx.Encoder, o toy.Value) (err error) {
 	switch x := o.(type) {
 	case json.Marshaler:
 		data, err := x.MarshalJSON()
@@ -67,12 +65,6 @@ func objectToJSON(enc *jx.Encoder, o toy.Value) (err error) {
 	case toy.Bytes:
 		enc.Base64(x)
 		return nil
-	case toytime.Time:
-		enc.Str(time.Time(x).Format(time.RFC3339Nano))
-		return nil
-	case toytime.Duration:
-		enc.Str(time.Duration(x).String())
-		return nil
 	case toy.Bool:
 		enc.Bool(bool(x))
 		return nil
@@ -80,9 +72,9 @@ func objectToJSON(enc *jx.Encoder, o toy.Value) (err error) {
 		enc.Null()
 		return nil
 	case toy.Mapping:
-		return mappingToJSON(enc, x)
+		return encodeMapping(enc, x)
 	case toy.Sequence:
-		return sequenceToJSON(enc, x)
+		return encodeSequence(enc, x)
 	default:
 		enc.Str(toy.AsString(x))
 		return nil
@@ -106,17 +98,17 @@ func encodeFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 		enc.SetIdent(*indent)
 	}
 
-	if err := objectToJSON(enc, x); err != nil {
+	if err := EncodeObject(enc, x); err != nil {
 		return nil, err
 	}
 
 	return toy.Bytes(enc.Bytes()), nil
 }
 
-func jsonArrayToArray(dec *jx.Decoder) (*toy.Array, error) {
+func decodeArray(dec *jx.Decoder) (*toy.Array, error) {
 	var elems []toy.Value
 	if err := dec.Arr(func(d *jx.Decoder) error {
-		obj, err := jsonToObject(d)
+		obj, err := DecodeObject(d)
 		if err != nil {
 			return err
 		}
@@ -128,10 +120,10 @@ func jsonArrayToArray(dec *jx.Decoder) (*toy.Array, error) {
 	return toy.NewArray(elems), nil
 }
 
-func jsonObjectToTable(dec *jx.Decoder) (*toy.Table, error) {
+func decodeTable(dec *jx.Decoder) (*toy.Table, error) {
 	t := new(toy.Table)
 	if err := dec.Obj(func(d *jx.Decoder, key string) error {
-		value, err := jsonToObject(d)
+		value, err := DecodeObject(d)
 		if err != nil {
 			return fmt.Errorf("%s: %w", key, err)
 		}
@@ -143,7 +135,7 @@ func jsonObjectToTable(dec *jx.Decoder) (*toy.Table, error) {
 	return t, nil
 }
 
-func jsonToObject(dec *jx.Decoder) (toy.Value, error) {
+func DecodeObject(dec *jx.Decoder) (toy.Value, error) {
 	switch dec.Next() {
 	case jx.Number:
 		num, err := dec.Num()
@@ -174,9 +166,9 @@ func jsonToObject(dec *jx.Decoder) (toy.Value, error) {
 		}
 		return toy.Nil, nil
 	case jx.Array:
-		return jsonArrayToArray(dec)
+		return decodeArray(dec)
 	case jx.Object:
-		return jsonObjectToTable(dec)
+		return decodeTable(dec)
 	}
 	return nil, dec.Skip()
 }
@@ -192,7 +184,7 @@ func decodeFn(_ *toy.Runtime, args ...toy.Value) (toy.Value, error) {
 
 	dec.ResetBytes(data.Bytes())
 
-	obj, err := jsonToObject(dec)
+	obj, err := DecodeObject(dec)
 	if err != nil {
 		return nil, err
 	}

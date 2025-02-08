@@ -30,3 +30,8 @@ fmt.println(fib(35)) // 9227465
 - [Language Overview](./docs/overview.md)
 - [Standard Library](./docs/stdlib.md)
 - [Interoperability](./docs/interoperability.md)
+
+## Editor Support
+
+- Vim/Neovim: [toy-vim](https://github.com/infastin/toy-vim)
+- All editors which support Treesitter: [tree-sitter-toy](https://github.com/infastin/tree-sitter-toy)

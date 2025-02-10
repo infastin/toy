@@ -263,7 +263,7 @@ func (ht *hashtable) delete(k Value) (v Value, err error) {
 }
 
 // checkMutable reports an error if the hash table should not be mutated.
-// verb+" immutable hash table" should describe the operation.
+// verb+" immutable table" should describe the operation.
 func (ht *hashtable) checkMutable(verb string, iterOk bool) error {
 	if ht.immutable {
 		return fmt.Errorf("cannot %s immutable table", verb)

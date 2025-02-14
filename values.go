@@ -1571,6 +1571,18 @@ func (v *Table) Compare(op token.Token, rhs Value) (bool, error) {
 	return false, ErrInvalidOperation
 }
 
+func (v *Table) BinaryOp(op token.Token, other Value, right bool) (Value, error) {
+	y, ok := other.(*Table)
+	if !ok {
+		return nil, ErrInvalidOperation
+	}
+	switch op {
+	case token.Or:
+		return v.Union(y), nil
+	}
+	return nil, ErrInvalidOperation
+}
+
 func (v *Table) Property(key Value) (res Value, found bool, err error) { return v.ht.lookup(key) }
 func (v *Table) SetProperty(key, value Value) (err error)              { return v.ht.insert(key, value) }
 func (v *Table) Contains(key Value) (bool, error)                      { return v.ht.contains(key) }
@@ -1582,6 +1594,14 @@ func (v *Table) Clear() error                    { return v.ht.clear() }
 func (v *Table) Keys() []Value                   { return v.ht.keys() }
 func (v *Table) Values() []Value                 { return v.ht.values() }
 func (v *Table) Items() []Tuple                  { return v.ht.items() }
+
+func (v *Table) Union(y *Table) *Table {
+	z := new(Table)
+	z.ht.init(v.Len())
+	z.ht.addAll(&v.ht)
+	z.ht.addAll(&y.ht)
+	return z
+}
 
 // Tuple represents a tuple of values.
 type Tuple []Value

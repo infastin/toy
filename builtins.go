@@ -25,6 +25,7 @@ var Universe = []*Variable{
 	NewVariable("insert", NewBuiltinFunction("insert", builtinInsert)),
 	NewVariable("clear", NewBuiltinFunction("clear", builtinClear)),
 	NewVariable("contains", NewBuiltinFunction("contains", builtinContains)),
+	NewVariable("optional", NewBuiltinFunction("optional", builtinOptional)),
 
 	NewVariable("format", NewBuiltinFunction("format", builtinFormat)),
 	NewVariable("min", NewBuiltinFunction("min", builtinMin)),
@@ -341,6 +342,47 @@ func builtinContains(_ *Runtime, args ...Value) (Value, error) {
 		return nil, err
 	}
 	return Bool(contains), nil
+}
+
+func builtinOptional(r *Runtime, args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, &WrongNumArgumentsError{
+			WantMin: 2,
+			WantMax: 2,
+			Got:     len(args),
+		}
+	}
+
+	var ok bool
+	switch x := args[0].(type) {
+	case Callable:
+		res, err := Call(r, x)
+		if err != nil {
+			return nil, err
+		}
+		ok = AsBool(res)
+	default:
+		ok = AsBool(x)
+	}
+
+	switch v := args[1].(type) {
+	case *Array:
+		if ok {
+			return v, nil
+		}
+		return NewArray(nil), nil
+	case *Table:
+		if ok {
+			return v, nil
+		}
+		return NewTable(0), nil
+	default:
+		return nil, &InvalidArgumentTypeError{
+			Name: "value",
+			Want: "array or table",
+			Got:  TypeName(v),
+		}
+	}
 }
 
 func builtinFormat(_ *Runtime, args ...Value) (Value, error) {
